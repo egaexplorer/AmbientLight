@@ -1,0 +1,32 @@
+{
+  "name": "ambientlight",
+  "version": "0.1.0",
+  "private": true,
+  "description": "Sync Philips WiZ smart bulbs to the colors on your PC or Android screen. TypeScript monorepo.",
+  "type": "module",
+  "workspaces": [
+    "packages/core",
+    "apps/pc-cli"
+  ],
+  "engines": {
+    "node": ">=22.12"
+  },
+  "scripts": {
+    "build": "tsc -b",
+    "clean": "tsc -b --clean",
+    "test": "tsx --conditions=development --test \"packages/*/test/**/*.test.ts\" \"apps/*/test/**/*.test.ts\"",
+    "typecheck": "tsc -p tsconfig.tests.json",
+    "check": "npm run build && npm run typecheck && npm test",
+    "help": "npm run dev -w @ambientlight/pc-cli -- help",
+    "discover": "npm run dev -w @ambientlight/pc-cli -- discover",
+    "displays": "npm run dev -w @ambientlight/pc-cli -- displays",
+    "color": "npm run dev -w @ambientlight/pc-cli -- color",
+    "once": "npm run dev -w @ambientlight/pc-cli -- once",
+    "sync": "npm run dev -w @ambientlight/pc-cli -- sync"
+  },
+  "devDependencies": {
+    "@types/node": "^24.0.0",
+    "tsx": "^4.23.12",
+    "typescript": "^6.0.3"
+  }
+}

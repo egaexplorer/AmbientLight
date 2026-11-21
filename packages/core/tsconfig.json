@@ -1,0 +1,11 @@
+{
+  "extends": "../../tsconfig.base.json",
+  "compilerOptions": {
+    "rootDir": "src",
+    "outDir": "dist",
+    "tsBuildInfoFile": "dist/.tsbuildinfo",
+    // Keep the core free of Node.js/DOM globals so it runs unchanged in React Native.
+    "types": []
+  },
+  "include": ["src"]
+}

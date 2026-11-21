@@ -1,0 +1,21 @@
+{
+  "name": "@ambientlight/core",
+  "version": "0.1.0",
+  "private": true,
+  "description": "Platform-agnostic core: WiZ local UDP protocol, screen color extraction, calibration, smoothing and the sync loop. Shared by the PC, Electron and React Native apps.",
+  "type": "module",
+  "exports": {
+    ".": {
+      "development": "./src/index.ts",
+      "types": "./dist/index.d.ts",
+      "default": "./dist/index.js"
+    }
+  },
+  "files": [
+    "dist",
+    "src"
+  ],
+  "scripts": {
+    "build": "tsc -b"
+  }
+}

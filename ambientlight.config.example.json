@@ -1,0 +1,19 @@
+{
+  "bulbs": ["192.168.1.50"],
+  "fps": 10,
+  "screen": null,
+  "sampleWidth": 64,
+  "sampleHeight": 36,
+  "smoothing": 0.5,
+  "minChange": 4,
+  "keepAliveMs": 2000,
+  "restoreOnExit": true,
+  "calibration": {
+    "saturationBoost": 1.3,
+    "gamma": 1.6,
+    "minDimming": 10,
+    "maxDimming": 100,
+    "brightnessGamma": 1.0,
+    "blackThreshold": 0.04
+  }
+}

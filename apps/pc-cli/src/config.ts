@@ -1,0 +1,192 @@
+import fs from "node:fs";
+import path from "node:path";
+import { type CalibrationOptions, DEFAULT_CALIBRATION, DEFAULT_SYNC_OPTIONS, MAX_FPS, MIN_FPS } from "@ambientlight/core";
+import { CliError, type CliFlags } from "./cli.js";
+
+export const CONFIG_FILE_NAME = "ambientlight.config.json";
+
+export interface AppConfig {
+  /** Bulb IP addresses (assign them a DHCP reservation in your router). */
+  bulbs: string[];
+  fps: number;
+  /** Display id from `ambientlight displays`; undefined = primary display. */
+  screen: string | number | undefined;
+  /** Size the screenshot is downscaled to before averaging. */
+  sampleWidth: number;
+  sampleHeight: number;
+  smoothing: number;
+  minChange: number;
+  keepAliveMs: number;
+  /** Put the bulbs back the way they were when sync stops. */
+  restoreOnExit: boolean;
+  calibration: CalibrationOptions;
+}
+
+/** Shape of ambientlight.config.json — every field optional. */
+export type ConfigFile = Partial<Omit<AppConfig, "screen" | "calibration">> & {
+  screen?: string | number | null;
+  calibration?: Partial<CalibrationOptions>;
+};
+
+export const DEFAULT_CONFIG: Readonly<AppConfig> = Object.freeze({
+  bulbs: [],
+  fps: DEFAULT_SYNC_OPTIONS.fps,
+  screen: undefined,
+  sampleWidth: 64,
+  sampleHeight: 36,
+  smoothing: DEFAULT_SYNC_OPTIONS.smoothing,
+  minChange: DEFAULT_SYNC_OPTIONS.minChange,
+  keepAliveMs: DEFAULT_SYNC_OPTIONS.keepAliveMs,
+  restoreOnExit: true,
+  calibration: { ...DEFAULT_CALIBRATION },
+});
+
+type Range = readonly [min: number, max: number, integer?: boolean];
+
+const RANGES = {
+  fps: [MIN_FPS, MAX_FPS],
+  sampleWidth: [1, 512, true],
+  sampleHeight: [1, 512, true],
+  smoothing: [0.01, 1],
+  minChange: [0, 255],
+  keepAliveMs: [100, 60_000, true],
+} as const satisfies Partial<Record<keyof AppConfig, Range>>;
+
+const CALIBRATION_RANGES = {
+  saturationBoost: [0, 5],
+  gamma: [0.1, 5],
+  minDimming: [10, 100, true],
+  maxDimming: [10, 100, true],
+  brightnessGamma: [0.1, 5],
+  blackThreshold: [0, 0.99],
+} as const satisfies Record<keyof CalibrationOptions, Range>;
+
+function checkNumber(name: string, value: unknown, range: Range, source: string): number {
+  const [min, max, integer] = range;
+  if (typeof value !== "number" || !Number.isFinite(value)) {
+    throw new CliError(`${source}: "${name}" must be a number`);
+  }
+  if (value < min || value > max || (integer === true && !Number.isInteger(value))) {
+    throw new CliError(`${source}: "${name}" must be ${integer ? "an integer " : ""}between ${min} and ${max}, got ${value}`);
+  }
+  return value;
+}
+
+function isRecord(value: unknown): value is Record<string, unknown> {
+  return typeof value === "object" && value !== null && !Array.isArray(value);
+}
+
+/** Validates a parsed config object. Unknown keys are rejected so typos don't fail silently. */
+export function validateConfigFile(value: unknown, source: string): ConfigFile {
+  if (!isRecord(value)) throw new CliError(`${source}: expected a JSON object`);
+  const out: ConfigFile = {};
+
+  for (const [key, raw] of Object.entries(value)) {
+    switch (key) {
+      case "$schema":
+        break;
+      case "bulbs":
+        if (!Array.isArray(raw) || raw.some((ip) => typeof ip !== "string" || ip.trim() === "")) {
+          throw new CliError(`${source}: "bulbs" must be an array of IP address strings`);
+        }
+        out.bulbs = raw.map((ip: string) => ip.trim());
+        break;
+      case "screen":
+        if (raw !== null && typeof raw !== "string" && typeof raw !== "number") {
+          throw new CliError(`${source}: "screen" must be a display id, or null for the primary display`);
+        }
+        out.screen = raw;
+        break;
+      case "restoreOnExit":
+        if (typeof raw !== "boolean") throw new CliError(`${source}: "restoreOnExit" must be true or false`);
+        out.restoreOnExit = raw;
+        break;
+      case "calibration": {
+        if (!isRecord(raw)) throw new CliError(`${source}: "calibration" must be an object`);
+        const calibration: Partial<CalibrationOptions> = {};
+        for (const [ck, cv] of Object.entries(raw)) {
+          if (!(ck in CALIBRATION_RANGES)) throw new CliError(`${source}: unknown option "calibration.${ck}"`);
+          const k = ck as keyof CalibrationOptions;
+          calibration[k] = checkNumber(`calibration.${ck}`, cv, CALIBRATION_RANGES[k], source);
+        }
+        out.calibration = calibration;
+        break;
+      }
+      default: {
+        if (!(key in RANGES)) throw new CliError(`${source}: unknown option "${key}"`);
+        const k = key as keyof typeof RANGES;
+        out[k] = checkNumber(key, raw, RANGES[k], source);
+      }
+    }
+  }
+  return out;
+}
+
+/** Looks for ambientlight.config.json in `startDir` and its parents. */
+export function findConfigFile(startDir: string): string | undefined {
+  let dir = path.resolve(startDir);
+  for (;;) {
+    const candidate = path.join(dir, CONFIG_FILE_NAME);
+    if (fs.existsSync(candidate)) return candidate;
+    const parent = path.dirname(dir);
+    if (parent === dir) return undefined;
+    dir = parent;
+  }
+}
+
+export function loadConfigFile(filePath: string): ConfigFile {
+  let text: string;
+  try {
+    text = fs.readFileSync(filePath, "utf8");
+  } catch {
+    throw new CliError(`Cannot read config file ${filePath}`);
+  }
+  let json: unknown;
+  try {
+    json = JSON.parse(text.replace(/^﻿/, ""));
+  } catch (error) {
+    throw new CliError(`${filePath} is not valid JSON: ${error instanceof Error ? error.message : String(error)}`);
+  }
+  return validateConfigFile(json, path.basename(filePath));
+}
+
+/** Defaults ← config file ← command-line flags. */
+export function resolveConfig(file: ConfigFile | undefined, flags: CliFlags): AppConfig {
+  const config: AppConfig = {
+    ...DEFAULT_CONFIG,
+    bulbs: [...DEFAULT_CONFIG.bulbs],
+    calibration: { ...DEFAULT_CONFIG.calibration },
+  };
+
+  if (file) {
+    const { calibration, screen, ...rest } = file;
+    Object.assign(config, rest);
+    if (screen !== undefined) config.screen = screen ?? undefined;
+    if (calibration) Object.assign(config.calibration, calibration);
+  }
+
+  const source = "command line";
+  if (flags.bulbs?.length) config.bulbs = flags.bulbs;
+  if (flags.fps !== undefined) config.fps = checkNumber("--fps", flags.fps, RANGES.fps, source);
+  if (flags.screen !== undefined) config.screen = flags.screen;
+  if (flags.smoothing !== undefined) config.smoothing = checkNumber("--smoothing", flags.smoothing, RANGES.smoothing, source);
+  if (flags.minChange !== undefined) config.minChange = checkNumber("--min-change", flags.minChange, RANGES.minChange, source);
+  if (flags.noRestore) config.restoreOnExit = false;
+
+  const cal = config.calibration;
+  if (flags.saturation !== undefined) {
+    cal.saturationBoost = checkNumber("--saturation", flags.saturation, CALIBRATION_RANGES.saturationBoost, source);
+  }
+  if (flags.gamma !== undefined) cal.gamma = checkNumber("--gamma", flags.gamma, CALIBRATION_RANGES.gamma, source);
+  if (flags.minDimming !== undefined) {
+    cal.minDimming = checkNumber("--min-dimming", flags.minDimming, CALIBRATION_RANGES.minDimming, source);
+  }
+  if (flags.maxDimming !== undefined) {
+    cal.maxDimming = checkNumber("--max-dimming", flags.maxDimming, CALIBRATION_RANGES.maxDimming, source);
+  }
+  if (cal.minDimming > cal.maxDimming) {
+    throw new CliError(`minDimming (${cal.minDimming}) cannot be higher than maxDimming (${cal.maxDimming})`);
+  }
+
+  return config;
+}

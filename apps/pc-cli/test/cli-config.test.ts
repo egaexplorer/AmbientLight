@@ -1,0 +1,84 @@
+import assert from "node:assert/strict";
+import fs from "node:fs";
+import { describe, it } from "node:test";
+import { CliError, parseCommandLine } from "../src/cli.js";
+import { DEFAULT_CONFIG, resolveConfig, validateConfigFile } from "../src/config.js";
+
+describe("parseCommandLine", () => {
+  it("defaults to help", () => {
+    assert.equal(parseCommandLine([]).command, "help");
+  });
+
+  it("collects repeated and comma-separated bulbs and numeric flags", () => {
+    const { command, flags } = parseCommandLine([
+      "sync",
+      "--bulb",
+      "192.168.1.50, 192.168.1.51",
+      "-b",
+      "192.168.1.52",
+      "--fps",
+      "12",
+      "--no-restore",
+    ]);
+    assert.equal(command, "sync");
+    assert.deepEqual(flags.bulbs, ["192.168.1.50", "192.168.1.51", "192.168.1.52"]);
+    assert.equal(flags.fps, 12);
+    assert.equal(flags.noRestore, true);
+  });
+
+  it("parses --rgb and numeric display ids", () => {
+    const { flags } = parseCommandLine(["color", "--rgb", "255,120,0", "--screen", "2"]);
+    assert.deepEqual(flags.rgb, { r: 255, g: 120, b: 0 });
+    assert.equal(flags.screen, 2);
+    assert.equal(parseCommandLine(["once", "--screen", "\\\\.\\DISPLAY1"]).flags.screen, "\\\\.\\DISPLAY1");
+  });
+
+  it("reports user mistakes as CliError", () => {
+    assert.throws(() => parseCommandLine(["dance"]), CliError);
+    assert.throws(() => parseCommandLine(["sync", "--fps", "fast"]), CliError);
+    assert.throws(() => parseCommandLine(["color", "--rgb", "300,0,0"]), CliError);
+    assert.throws(() => parseCommandLine(["sync", "--unknown"]), CliError);
+  });
+});
+
+describe("config", () => {
+  it("accepts the example config shipped in the repository", () => {
+    const url = new URL("../../../ambientlight.config.example.json", import.meta.url);
+    const file = validateConfigFile(JSON.parse(fs.readFileSync(url, "utf8")), "example");
+    assert.deepEqual(file.bulbs, ["192.168.1.50"]);
+  });
+
+  it("rejects unknown keys and out-of-range values", () => {
+    assert.throws(() => validateConfigFile({ fpss: 10 }, "test"), /unknown option "fpss"/);
+    assert.throws(() => validateConfigFile({ fps: 99 }, "test"), /between 1 and 30/);
+    assert.throws(() => validateConfigFile({ calibration: { minDimming: 5 } }, "test"), /between 10 and 100/);
+    assert.throws(() => validateConfigFile({ bulbs: "192.168.1.50" }, "test"), /array/);
+  });
+
+  it("merges defaults, then the config file, then flags", () => {
+    const file = validateConfigFile(
+      { bulbs: ["10.0.0.5"], fps: 8, screen: null, calibration: { gamma: 2 } },
+      "test",
+    );
+    const config = resolveConfig(file, parseCommandLine(["sync", "--fps", "12", "--saturation", "1.1"]).flags);
+    assert.deepEqual(config.bulbs, ["10.0.0.5"]);
+    assert.equal(config.fps, 12);
+    assert.equal(config.screen, undefined);
+    assert.equal(config.calibration.gamma, 2);
+    assert.equal(config.calibration.saturationBoost, 1.1);
+    assert.equal(config.calibration.maxDimming, DEFAULT_CONFIG.calibration.maxDimming);
+    assert.equal(config.restoreOnExit, true);
+  });
+
+  it("does not mutate the defaults", () => {
+    resolveConfig({ calibration: { gamma: 3 } }, parseCommandLine(["sync"]).flags);
+    assert.equal(DEFAULT_CONFIG.calibration.gamma, 1.6);
+  });
+
+  it("rejects minDimming above maxDimming", () => {
+    assert.throws(
+      () => resolveConfig(undefined, parseCommandLine(["sync", "--min-dimming", "80", "--max-dimming", "40"]).flags),
+      /cannot be higher/,
+    );
+  });
+});
