@@ -1,11 +1,15 @@
 import { clamp01 } from "./convert.js";
 import type { Rgb, WizColor } from "./types.js";
 
+/** `alpha` is defined per this many milliseconds: one frame at the default 10 FPS. */
+const ALPHA_PERIOD_MS = 100;
+
 /**
- * Exponential moving average over colors, to stop the bulb flickering on fast cuts and noise.
+ * Time-based exponential moving average over colors, to stop the bulb flickering on fast cuts and noise.
  *
- * `alpha` is the weight of the newest sample: 1 = no smoothing, 0.3 = slow and calm.
- * The effective time constant depends on the frame rate (≈ 1 / (alpha × fps) seconds).
+ * `alpha` is the share of the way to a new color covered in 100 ms: 1 = no smoothing, 0.3 = slow and calm.
+ * Each step scales with the time since the previous sample (`1 − (1 − alpha)^(dt / 100 ms)`, i.e.
+ * `1 − e^(−dt/τ)`), so the feel doesn't change with the frame rate or a slow capture.
  */
 export class EmaSmoother {
   private state: Rgb | undefined;
@@ -15,11 +19,12 @@ export class EmaSmoother {
     this.alpha = clamp01(alpha);
   }
 
-  next(sample: Rgb): Rgb {
+  /** `dtMs`: time since the previous sample. */
+  next(sample: Rgb, dtMs = ALPHA_PERIOD_MS): Rgb {
     if (this.state === undefined || this.alpha >= 1) {
       this.state = { r: sample.r, g: sample.g, b: sample.b };
     } else {
-      const a = this.alpha;
+      const a = 1 - (1 - this.alpha) ** (Math.max(0, dtMs) / ALPHA_PERIOD_MS);
       this.state = {
         r: this.state.r + a * (sample.r - this.state.r),
         g: this.state.g + a * (sample.g - this.state.g),

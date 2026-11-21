@@ -58,7 +58,7 @@ Options:
   -c, --config <file>     Config file (default: ambientlight.config.json, searched upward)
       --fps <n>           Updates per second (default 10; WiZ bulbs handle ~5-15)
       --screen <id>       Display id from "displays" (default: primary display)
-      --smoothing <0-1>   Weight of the newest frame; 1 = no smoothing (default 0.5)
+      --smoothing <0-1>   Share of a color change shown per 100 ms; 1 = no smoothing (default 0.5)
       --color-weighting <0-1>  How much colorful areas outweigh gray ones for the hue (default 0.6)
       --color-mode <mode> "dominant": strongest color on screen; "average": all colors mixed (default dominant)
       --min-change <n>    Skip updates smaller than this, 0-255 (default 4)

@@ -57,18 +57,31 @@ describe("SyncEngine", () => {
     assert.deepEqual(red.output, { r: 255, g: 0, b: 0, c: 0, w: 0, dimming: 100 });
   });
 
-  it("smooths transitions between frames", async () => {
-    const sink = new RecordingSink();
-    const engine = new SyncEngine(
-      new FakeCapturer(solidFrame(255, 0, 0), solidFrame(0, 0, 255)),
-      [sink],
-      { smoothing: 0.5, calibration: { saturationBoost: 1, gamma: 1 } },
-      {},
-      new FakeClock(),
-    );
-    await engine.tick();
-    const { output } = await engine.tick();
-    assert.ok(output.r > 0 && output.b > 0, "halfway between red and blue should mix both");
+  /** Output of the last frame when red is followed by `next`, ticking at the given times (ms). */
+  const fadeFromRed = async (next: PixelFrame, times: number[], smoothing = 0.5): Promise<WizColor> => {
+    const clock = new FakeClock();
+    const options = { smoothing, calibration: { saturationBoost: 1, gamma: 1 } };
+    const engine = new SyncEngine(new FakeCapturer(solidFrame(255, 0, 0), next), [], options, {}, clock);
+    let output: WizColor | undefined;
+    for (const time of times) {
+      clock.time = time;
+      output = (await engine.tick()).output;
+    }
+    assert.ok(output);
+    return output;
+  };
+
+  it("smooths a small hue change over time, the same at any frame rate", async () => {
+    const orange = solidFrame(255, 128, 0);
+    const target = await fadeFromRed(orange, [0, 100], 1);
+    const at10fps = await fadeFromRed(orange, [0, 100]);
+    assert.ok(at10fps.g > 0 && at10fps.g < target.g, `partway from red to orange, got g=${at10fps.g}`);
+    assert.deepEqual(await fadeFromRed(orange, [0, 50, 100]), at10fps, "20 FPS reaches the same color");
+  });
+
+  it("snaps instead of fading through a muddy color when the dominant hue jumps", async () => {
+    const green = solidFrame(0, 255, 0);
+    assert.deepEqual(await fadeFromRed(green, [0, 100]), await fadeFromRed(green, [0, 100], 1));
   });
 
   it("shows the dominant color of a multi-color screen and holds it on a near tie", async () => {

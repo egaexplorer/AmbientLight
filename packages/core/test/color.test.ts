@@ -337,6 +337,17 @@ describe("smoothing", () => {
     assert.deepEqual(ema.next({ r: 100, g: 200, b: 50 }), { r: 75, g: 150, b: 37.5 });
   });
 
+  it("is time-based: two 50 ms steps land where one 100 ms step does", () => {
+    const once = new EmaSmoother(0.5);
+    once.next({ r: 0, g: 0, b: 0 });
+    const twice = new EmaSmoother(0.5);
+    twice.next({ r: 0, g: 0, b: 0 });
+    twice.next({ r: 100, g: 200, b: 50 }, 50);
+    const a = once.next({ r: 100, g: 200, b: 50 }, 100);
+    const b = twice.next({ r: 100, g: 200, b: 50 }, 50);
+    for (const k of ["r", "g", "b"] as const) assert.ok(Math.abs(a[k] - b[k]) < 1e-9, `${k}: ${a[k]} vs ${b[k]}`);
+  });
+
   it("does not smooth when alpha is 1", () => {
     const ema = new EmaSmoother(1);
     ema.next({ r: 0, g: 0, b: 0 });

@@ -82,8 +82,10 @@ sets `"types": []` so the compiler enforces this. That's what lets the React Nat
    (red and orange) still blend, and white areas still wash the color out, so a small icon on a white page stays
    white. The previous frame's hue family wins unless another one has 1.3× its votes (`HUE_STICKINESS`), so two
    similar-sized colors don't make the light jump between them. `colorMode: "average"` mixes everything instead.
-   Known issue: when the dominant family does change, `EmaSmoother` blends in RGB, so red → green passes through
-   a muddy brownish yellow for a few frames (fix planned in [ROADMAP.md](ROADMAP.md), time-based smoothing).
+   When the dominant hue does jump more than 60° between frames (`SCENE_CUT_HUE`), `SyncEngine` treats it as a
+   scene cut and resets both smoothers, so the new color and brightness show at once. `EmaSmoother` blends in
+   RGB, and a fade between hues that far apart passes a muddy color (red → green: olive, shown as brownish
+   yellow); up to 60° it stays vivid (red → yellow passes orange). Frames without a dominant hue never snap.
 6. **White LEDs for grays.** WiZ bulbs mix RGB white from their red, green and blue LEDs, and it looks
    lavender (a bulb told `rgb(255,254,255)` shows as `#FF00FF` in the WiZ app, which reads only the hue from
    `r,g,b` and the paleness from the white LEDs; see decision 7). Below `whiteSaturation` (0.15,
@@ -100,7 +102,9 @@ sets `"types": []` so the compiler enforces this. That's what lets the React Nat
    the RGB-only mix.
 8. **No backlog, newest frame wins.** The loop handles one frame at a time and waits
    `interval − elapsed` between frames. If capture is slow, the frame rate drops gracefully instead of
-   queuing stale colors. A bulb that is behind is never flooded.
+   queuing stale colors. A bulb that is behind is never flooded. Smoothing is time-based: `EmaSmoother` scales
+   each step by the time since the previous frame (`smoothing` is the share covered per 100 ms), so a slow
+   capture or another `fps` doesn't change how fast the light follows.
 9. **Change threshold plus keep-alive.** Frames that barely changed aren't sent, which spares the bulb's
    processor. Because UDP can drop packets, the current color is re-sent every `keepAliveMs` anyway.
 10. **Restore on exit.** `sync` reads each bulb's state with `getPilot` before starting. When it stops, it

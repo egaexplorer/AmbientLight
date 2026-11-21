@@ -11,10 +11,19 @@ export const RECOMMENDED_MAX_FPS = 15;
 export const MIN_FPS = 1;
 export const MAX_FPS = 30;
 
+/**
+ * A dominant-hue jump bigger than this (degrees) is a scene cut, shown at once instead of faded. Up to 60° an
+ * RGB fade stays vivid (red → yellow passes orange); beyond it, it passes a muddy color (red → green: olive).
+ */
+const SCENE_CUT_HUE = 60;
+
 export interface SyncOptions {
   /** Target updates per second (5–15 recommended for WiZ). */
   fps: number;
-  /** EMA weight of the newest frame, 0–1. 1 = no smoothing. */
+  /**
+   * 0–1: share of the way to a new color covered in 100 ms, the same at any FPS. 1 = no smoothing.
+   * A dominant-hue jump of more than 60° (e.g. red → green) is shown at once instead.
+   */
   smoothing: number;
   /** Skip sending when the color moved less than this (0–255 units; dimming scaled by 2.55). */
   minChange: number;
@@ -82,6 +91,7 @@ export class SyncEngine {
   private wake: (() => void) | undefined;
   private lastSent: WizColor | undefined;
   private lastSentAt = Number.NEGATIVE_INFINITY;
+  private lastFrameAt = Number.NEGATIVE_INFINITY;
 
   constructor(
     capturer: ScreenCapturer,
@@ -120,9 +130,18 @@ export class SyncEngine {
       colorMode: this.options.colorMode,
       preferHue: this.hue,
     });
+    if (hue !== undefined && this.hue !== undefined) {
+      const d = Math.abs(hue - this.hue) % 360;
+      if (Math.min(d, 360 - d) > SCENE_CUT_HUE) {
+        this.colorSmoother.reset();
+        this.brightnessSmoother.reset();
+      }
+    }
     this.hue = hue;
-    const output = calibrate(this.colorSmoother.next(color), this.options.calibration, {
-      brightness: this.brightnessSmoother.next(average),
+    const dt = startedAt - this.lastFrameAt;
+    this.lastFrameAt = startedAt;
+    const output = calibrate(this.colorSmoother.next(color, dt), this.options.calibration, {
+      brightness: this.brightnessSmoother.next(average, dt),
       wasWhite: this.white,
     });
     this.white = output.temp !== undefined;

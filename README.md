@@ -87,7 +87,7 @@ Command-line flags override it.
 | `fps` | `10` | Updates per second. WiZ bulbs handle about 5–15. |
 | `screen` | `null` | Display id from `npm run displays`; `null` means the primary display. |
 | `sampleWidth` / `sampleHeight` | `64` / `36` | Size the screenshot is shrunk to before averaging. |
-| `smoothing` | `0.5` | Weight of the newest frame (0–1). Lower is calmer, higher reacts faster, `1` turns smoothing off. |
+| `smoothing` | `0.5` | Share of the way to a new color the light covers in 100 ms (0–1), the same at any `fps`. Lower is calmer, higher reacts faster, `1` turns smoothing off. A jump to a far-away hue (e.g. red → green) is shown at once instead of fading through a muddy in-between color. |
 | `colorWeighting` | `0.6` | How much bright, colorful areas outweigh gray ones when picking the hue (0 = plain average). Brightness always follows the whole screen. |
 | `colorMode` | `"dominant"` | `"dominant"`: the bulb shows the strongest color on screen (by area and vividness), so red and green never mix into an orange that isn't there. `"average"`: all colors are mixed. |
 | `minChange` | `4` | Changes smaller than this (0–255 scale) aren't sent, which avoids flooding the bulb. |
