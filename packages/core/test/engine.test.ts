@@ -21,8 +21,8 @@ describe("SyncEngine", () => {
     clock.time = 2100;
     assert.equal((await engine.tick()).sent, true);
     assert.deepEqual(sink.colors, [
-      { r: 255, g: 0, b: 0, dimming: 100 },
-      { r: 255, g: 0, b: 0, dimming: 100 },
+      { r: 255, g: 0, b: 0, c: 0, w: 0, dimming: 100 },
+      { r: 255, g: 0, b: 0, c: 0, w: 0, dimming: 100 },
     ]);
   });
 
@@ -38,7 +38,7 @@ describe("SyncEngine", () => {
     await engine.tick();
     const second = await engine.tick();
     assert.equal(second.sent, true);
-    assert.deepEqual(sink.colors.at(-1), { r: 0, g: 0, b: 255, dimming: 100 });
+    assert.deepEqual(sink.colors.at(-1), { r: 0, g: 0, b: 255, c: 0, w: 0, dimming: 100 });
   });
 
   it("shows a gray screen with the white LEDs and switches back for colors", async () => {
@@ -54,7 +54,7 @@ describe("SyncEngine", () => {
     assert.equal(gray.output.temp, 5000);
     const red = await engine.tick();
     assert.equal(red.sent, true);
-    assert.deepEqual(red.output, { r: 255, g: 0, b: 0, dimming: 100 });
+    assert.deepEqual(red.output, { r: 255, g: 0, b: 0, c: 0, w: 0, dimming: 100 });
   });
 
   it("smooths transitions between frames", async () => {
@@ -85,8 +85,8 @@ describe("SyncEngine", () => {
     };
 
     const [first, second] = await run({});
-    assert.deepEqual(first, { r: 255, g: 0, b: 0, dimming: first?.dimming }, "red dominates, no olive mix");
-    assert.deepEqual(second, { r: 255, g: 0, b: 0, dimming: second?.dimming }, "a slightly bigger green area doesn't flip it");
+    assert.deepEqual(first, { r: 255, g: 0, b: 0, c: 0, w: 0, dimming: first?.dimming }, "red dominates, no olive mix");
+    assert.deepEqual(second, { r: 255, g: 0, b: 0, c: 0, w: 0, dimming: second?.dimming }, "a slightly bigger green area doesn't flip it");
 
     const [mixed] = await run({ colorMode: "average" });
     assert.ok(mixed !== undefined && mixed.g > 0, "average mode mixes red and green");

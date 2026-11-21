@@ -33,6 +33,10 @@ describe("parseCommandLine", () => {
     assert.equal(parseCommandLine(["once", "--screen", "\\\\.\\DISPLAY1"]).flags.screen, "\\\\.\\DISPLAY1");
   });
 
+  it("knows the read-only state command", () => {
+    assert.equal(parseCommandLine(["state"]).command, "state");
+  });
+
   it("reports user mistakes as CliError", () => {
     assert.throws(() => parseCommandLine(["dance"]), CliError);
     assert.throws(() => parseCommandLine(["sync", "--fps", "fast"]), CliError);
@@ -77,6 +81,14 @@ describe("config", () => {
     assert.equal(resolveConfig(file, parseCommandLine(["sync", "--color-mode", "dominant"]).flags).colorMode, "dominant");
     assert.throws(() => validateConfigFile({ colorMode: "mean" }, "test"), /"dominant" or "average"/);
     assert.throws(() => resolveConfig(undefined, parseCommandLine(["sync", "--color-mode", "x"]).flags), /--color-mode/);
+  });
+
+  it("reads paleWhite from the file and --pale-white, within 0-255", () => {
+    assert.equal(resolveConfig(undefined, parseCommandLine(["sync"]).flags).calibration.paleWhite, 140);
+    const file = validateConfigFile({ calibration: { paleWhite: 0 } }, "test");
+    assert.equal(resolveConfig(file, parseCommandLine(["sync"]).flags).calibration.paleWhite, 0);
+    assert.equal(resolveConfig(file, parseCommandLine(["sync", "--pale-white", "90"]).flags).calibration.paleWhite, 90);
+    assert.throws(() => validateConfigFile({ calibration: { paleWhite: 300 } }, "test"), /between 0 and 255/);
   });
 
   it("does not mutate the defaults", () => {

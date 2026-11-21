@@ -18,6 +18,7 @@
     "brightnessGamma": 1.0,
     "blackThreshold": 0.04,
     "whiteSaturation": 0.15,
-    "whiteTemp": 5000
+    "whiteTemp": 5000,
+    "paleWhite": 140
   }
 }

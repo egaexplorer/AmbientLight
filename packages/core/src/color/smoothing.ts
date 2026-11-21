@@ -45,6 +45,8 @@ export function colorDistance(a: WizColor, b: WizColor): number {
     Math.abs(a.r - b.r),
     Math.abs(a.g - b.g),
     Math.abs(a.b - b.b),
+    Math.abs((a.c ?? 0) - (b.c ?? 0)),
+    Math.abs((a.w ?? 0) - (b.w ?? 0)),
     Math.abs(a.dimming - b.dimming) * 2.55,
   );
 }

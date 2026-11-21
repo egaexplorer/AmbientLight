@@ -84,6 +84,7 @@ const CALIBRATION_RANGES = {
   blackThreshold: [0, 0.99],
   whiteSaturation: [0, 1],
   whiteTemp: [2200, 6500, true],
+  paleWhite: [0, 255, true],
 } as const satisfies Record<keyof CalibrationOptions, Range>;
 
 function checkNumber(name: string, value: unknown, range: Range, source: string): number {
@@ -221,6 +222,9 @@ export function resolveConfig(file: ConfigFile | undefined, flags: CliFlags): Ap
   }
   if (flags.whiteTemp !== undefined) {
     cal.whiteTemp = checkNumber("--white-temp", flags.whiteTemp, CALIBRATION_RANGES.whiteTemp, source);
+  }
+  if (flags.paleWhite !== undefined) {
+    cal.paleWhite = checkNumber("--pale-white", flags.paleWhite, CALIBRATION_RANGES.paleWhite, source);
   }
   if (cal.minDimming > cal.maxDimming) {
     throw new CliError(`minDimming (${cal.minDimming}) cannot be higher than maxDimming (${cal.maxDimming})`);

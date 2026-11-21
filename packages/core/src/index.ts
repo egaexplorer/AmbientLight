@@ -15,6 +15,8 @@ export {
   type CalibrationOptions,
   calibrate,
   DEFAULT_CALIBRATION,
+  paleColdShare,
+  previewRgb,
   WHITE_HYSTERESIS,
 } from "./color/calibration.js";
 export { colorDistance, EmaSmoother } from "./color/smoothing.js";

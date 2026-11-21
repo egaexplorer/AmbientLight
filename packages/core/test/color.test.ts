@@ -7,6 +7,8 @@ import {
   colorDistance,
   EmaSmoother,
   hsvToRgb,
+  paleColdShare,
+  previewRgb,
   linearToSrgb,
   type PixelFrame,
   rgbToHsv,
@@ -85,7 +87,7 @@ describe("averageColor", () => {
 
 describe("calibrate", () => {
   it("keeps a fully saturated bright color at full brightness", () => {
-    assert.deepEqual(calibrate({ r: 255, g: 0, b: 0 }), { r: 255, g: 0, b: 0, dimming: 100 });
+    assert.deepEqual(calibrate({ r: 255, g: 0, b: 0 }), { r: 255, g: 0, b: 0, c: 0, w: 0, dimming: 100 });
   });
 
   it("holds black at the minimum dimming", () => {
@@ -110,15 +112,90 @@ describe("calibrate", () => {
 
   it("boosts the saturation of washed-out averages", () => {
     const input = { r: 200, g: 150, b: 150 };
-    const out = calibrate(input, { gamma: 1 });
+    const out = calibrate(input, { gamma: 1, paleWhite: 0 });
     assert.ok(rgbToHsv(out).s > rgbToHsv(input).s);
   });
 
   it("always produces integer channels and WiZ-valid dimming", () => {
     for (let i = 0; i < 500; i++) {
       const out = calibrate({ r: (i * 37) % 256, g: (i * 91) % 256, b: (i * 53) % 256 });
-      for (const ch of [out.r, out.g, out.b]) assert.ok(Number.isInteger(ch) && ch >= 0 && ch <= 255);
+      for (const ch of [out.r, out.g, out.b, out.c ?? 0, out.w ?? 0]) assert.ok(Number.isInteger(ch) && ch >= 0 && ch <= 255);
       assert.ok(Number.isInteger(out.dimming) && out.dimming >= 10 && out.dimming <= 100);
+    }
+  });
+});
+
+describe("calibrate pale colors (hue + white LEDs, like the WiZ app)", () => {
+  /** What the WiZ app sent for colors picked in it, read back with `npm run state` (ESP25_SHRGB_01, fw 1.38.0). */
+  const APP_READINGS: Array<[hex: string, sent: { r: number; g: number; b: number; c: number; w: number }]> = [
+    ["#ffffff", { r: 26, g: 0, b: 0, c: 0, w: 140 }],
+    ["#ffc0c0", { r: 82, g: 0, b: 0, c: 0, w: 140 }],
+    ["#ffbc85", { r: 135, g: 61, b: 0, c: 16, w: 124 }],
+    ["#ff8080", { r: 140, g: 0, b: 0, c: 0, w: 140 }],
+    ["#85ff9c", { r: 0, g: 135, b: 26, c: 77, w: 63 }],
+    ["#85bcff", { r: 0, g: 61, b: 135, c: 124, w: 16 }],
+    ["#c085ff", { r: 65, g: 0, b: 135, c: 106, w: 34 }],
+    ["#ff85d0", { r: 135, g: 0, b: 83, c: 43, w: 97 }],
+    ["#ff4040", { r: 255, g: 0, b: 0, c: 0, w: 70 }],
+    ["#ff2020", { r: 255, g: 0, b: 0, c: 0, w: 35 }],
+    ["#ff0000", { r: 255, g: 0, b: 0, c: 0, w: 0 }],
+  ];
+  const hex = (h: string): { r: number; g: number; b: number } => ({
+    r: Number.parseInt(h.slice(1, 3), 16),
+    g: Number.parseInt(h.slice(3, 5), 16),
+    b: Number.parseInt(h.slice(5, 7), 16),
+  });
+  /** No boost, no gamma, no white mode: the color goes to the encoder exactly as picked in the app. */
+  const AS_IS = { gamma: 1, saturationBoost: 1, whiteSaturation: 0 };
+
+  for (const [color, sent] of APP_READINGS) {
+    it(`sends ${color} the way the WiZ app does`, () => {
+      const out = calibrate(hex(color), AS_IS);
+      for (const key of ["r", "g", "b", "c", "w"] as const) near(out[key] ?? -1, sent[key], 1);
+    });
+  }
+
+  it("tints the white by hue: warm for red, cold for blue, back to warm through purple", () => {
+    near(paleColdShare(0), 0, 0);
+    near(paleColdShare(120), 0.5, 0);
+    near(paleColdShare(240), 1, 0);
+    near(paleColdShare(300), 0.5, 0);
+    near(paleColdShare(360), 0, 0);
+  });
+
+  it("changes smoothly between s = 0.5 and 0.75, where the app was not measured", () => {
+    let previous = calibrate({ r: 255, g: 128, b: 128 }, AS_IS);
+    for (let low = 127; low >= 60; low--) {
+      const out = calibrate({ r: 255, g: low, b: low }, AS_IS);
+      assert.ok(Math.abs(out.r - previous.r) <= 8, `hue level jumps at g=b=${low}`);
+      assert.ok(Math.abs((out.w ?? 0) - (previous.w ?? 0)) <= 3, `white jumps at g=b=${low}`);
+      previous = out;
+    }
+  });
+
+  it("keeps the old RGB-only mix with paleWhite 0", () => {
+    const out = calibrate({ r: 130, g: 112, b: 96 }, { paleWhite: 0 });
+    assert.equal(out.c, undefined);
+    assert.equal(out.w, undefined);
+    near(out.r, 255, 0);
+    near(out.g, 188, 3);
+    near(out.b, 133, 3);
+  });
+
+  it("lets previewRgb recover the intended color for logs", () => {
+    for (const input of [{ r: 130, g: 112, b: 96 }, { r: 255, g: 60, b: 60 }, { r: 40, g: 90, b: 200 }, { r: 0, g: 255, b: 0 }]) {
+      const intended = calibrate(input, { paleWhite: 0 });
+      const preview = previewRgb(calibrate(input));
+      near(preview.r, intended.r, 4);
+      near(preview.g, intended.g, 4);
+      near(preview.b, intended.b, 4);
+    }
+    for (const [color] of APP_READINGS.slice(1)) {
+      const preview = previewRgb(calibrate(hex(color), AS_IS));
+      const target = hex(color);
+      near(preview.r, target.r, 4);
+      near(preview.g, target.g, 4);
+      near(preview.b, target.b, 4);
     }
   });
 });
@@ -134,7 +211,8 @@ describe("calibrate white mode", () => {
   it("can be turned off with whiteSaturation 0", () => {
     const out = calibrate({ r: 248, g: 247, b: 248 }, { whiteSaturation: 0 });
     assert.equal(out.temp, undefined);
-    assert.equal(out.r, 255);
+    assert.equal((out.c ?? 0) + (out.w ?? 0), 140, "near-white still comes from the white LEDs, through c and w");
+    assert.equal(calibrate({ r: 248, g: 247, b: 248 }, { whiteSaturation: 0, paleWhite: 0 }).r, 255);
   });
 
   it("keeps clearly colored scenes in RGB", () => {

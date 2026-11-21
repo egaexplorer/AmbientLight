@@ -69,6 +69,7 @@ You can pass any setting on the command line instead of the config file, e.g.
 | --- | --- |
 | `npm run discover` | Broadcasts `getPilot` on every LAN adapter and lists the bulbs that answer |
 | `npm run displays` | Lists display ids for `--screen` (multi-monitor setups) |
+| `npm run state` | Shows each bulb's current color exactly as the bulb reports it (`r,g,b,c,w`, `temp`, dimming). Changes nothing |
 | `npm run check-bulb` | Tests each bulb (all bulbs found on the network if none is configured): reply time, signal, model, firmware, whether it accepts colors (or needs signed commands), then restores it |
 | `npm run color -- --rgb r,g,b [--dimming n]` | Sets a fixed color to test connectivity |
 | `npm run once` | Captures one frame and sends its color (Phase 1) |
@@ -99,6 +100,7 @@ Command-line flags override it.
 | `calibration.blackThreshold` | `0.04` | Screen brightness below which the bulb stays at `minDimming`. |
 | `calibration.whiteSaturation` | `0.15` | Below this saturation the bulb uses its white LEDs instead of mixing white from RGB, which looks lavender on WiZ bulbs. `0` = never. |
 | `calibration.whiteTemp` | `5000` | Color temperature (K, 2200–6500) for white: lower is warmer (4000 looks warm next to a screen), 6500 matches a screen's white but looks cool. |
+| `calibration.paleWhite` | `140` | White LED level (0–255) for pale colors. They are sent exactly as the WiZ app sends them: the pure hue plus the white LEDs, tinted warm or cold by the hue. Mixed from RGB alone they look pink. `0` = RGB only. |
 
 ### Tuning tips (Phase 3)
 
@@ -107,6 +109,10 @@ Command-line flags override it.
   `whiteSaturation` (0.1).
 - **The light shows a color that isn't on screen** (orange from red + green, lavender from blue + orange): keep
   `colorMode` at `"dominant"`. If you prefer a blend of everything on screen, use `"average"`.
+- **The bulb looks pink while the terminal shows a pale color (peach, beige, skin tones):** keep `paleWhite`
+  at 140 (what the WiZ app uses). Raise it (160–200) if pale colors look too strong, lower it (90–120) if they
+  look washed out.
+  `npm run once` prints what was sent and what the bulb reports back.
 - **White pages give a purple or pink light:** keep `whiteSaturation` above 0 so white uses the white LEDs; change
   `whiteTemp` (e.g. 2700 for warm, 6500 for cool) to taste.
 - **Flicker or nervous light:** lower `smoothing` (0.3) or raise `minChange` (6–8).

@@ -27,6 +27,12 @@ describe("WizLight", () => {
     ]);
   });
 
+  it("sends the white LED channels of pale colors", async () => {
+    const socket = new FakeSocket();
+    await new WizLight("192.168.1.50", socket).setColor({ r: 244, g: 110, b: 0, c: 0, w: 128, dimming: 53 });
+    assert.equal(socket.sent[0]?.message, '{"method":"setPilot","params":{"r":244,"g":110,"b":0,"c":0,"w":128,"dimming":53}}');
+  });
+
   it("sends white-mode colors as a color temperature", async () => {
     const socket = new FakeSocket();
     await new WizLight("192.168.1.50", socket).setColor({ r: 255, g: 255, b: 255, dimming: 60, temp: 4000 });

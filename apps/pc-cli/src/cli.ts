@@ -1,6 +1,6 @@
 import { parseArgs } from "node:util";
 
-export const COMMANDS = ["discover", "check", "displays", "color", "once", "sync", "help"] as const;
+export const COMMANDS = ["discover", "check", "state", "displays", "color", "once", "sync", "help"] as const;
 export type Command = (typeof COMMANDS)[number];
 
 /** A user-facing error: printed without a stack trace. */
@@ -23,6 +23,7 @@ export interface CliFlags {
   maxDimming?: number;
   whiteSaturation?: number;
   whiteTemp?: number;
+  paleWhite?: number;
   noRestore: boolean;
   timeoutMs?: number;
   rgb?: { r: number; g: number; b: number };
@@ -45,6 +46,7 @@ Commands:
   discover            Find WiZ bulbs on your network
   check               Test a bulb: reply time, model, firmware, and whether it accepts colors
                       (npm run check-bulb; checks every bulb found if none is configured)
+  state               Show each bulb's current color exactly as the bulb reports it (changes nothing)
   displays            List displays available for capture
   color               Set a fixed color to test a bulb   (--rgb 255,0,0 [--dimming 80])
   once                Capture one frame and send its color (Phase 1)
@@ -66,6 +68,7 @@ Options:
       --max-dimming <n>   Dimming for bright scenes, 10-100 (default 100)
       --white-saturation <0-1>  Below this saturation use the white LEDs; 0 = never (default 0.15)
       --white-temp <K>    Color temperature for white, 2200-6500 (default 5000)
+      --pale-white <n>    White LED level for pale colors, 0-255; 0 = RGB only (default 140)
       --no-restore        Don't restore the bulbs' previous state (sync, check)
       --timeout <ms>      How long "discover" (and "check" without a bulb) listens for replies (default 2000)
       --rgb <r,g,b>       Color for "color", or the test color for "check" (default 255,0,0)
@@ -76,6 +79,7 @@ Options:
 Examples:
   npm run discover
   npm run check-bulb -- --bulb 192.168.1.50
+  npm run state
   npm run color -- --bulb 192.168.1.50 --rgb 255,0,0
   npm run sync -- --bulb 192.168.1.50 --fps 10`;
 
@@ -125,6 +129,7 @@ export function parseCommandLine(argv: readonly string[]): ParsedCommandLine {
         "max-dimming": { type: "string" },
         "white-saturation": { type: "string" },
         "white-temp": { type: "string" },
+        "pale-white": { type: "string" },
         "no-restore": { type: "boolean", default: false },
         timeout: { type: "string" },
         rgb: { type: "string" },
@@ -173,6 +178,7 @@ export function parseCommandLine(argv: readonly string[]): ParsedCommandLine {
   set("maxDimming", toNumber("max-dimming", values["max-dimming"]));
   set("whiteSaturation", toNumber("white-saturation", values["white-saturation"]));
   set("whiteTemp", toNumber("white-temp", values["white-temp"]));
+  set("paleWhite", toNumber("pale-white", values["pale-white"]));
   set("timeoutMs", toNumber("timeout", values.timeout));
   set("rgb", parseRgb(values.rgb));
   set("dimming", toNumber("dimming", values.dimming));

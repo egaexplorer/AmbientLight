@@ -1,4 +1,4 @@
-import type { FrameReport, Rgb, WizColor } from "@ambientlight/core";
+import { type FrameReport, type PilotState, previewRgb, type Rgb, type WizColor } from "@ambientlight/core";
 
 const isTty = process.stdout.isTTY === true;
 const useColor = isTty && process.env.NO_COLOR === undefined;
@@ -14,9 +14,31 @@ export function swatch(color: Rgb): string {
   return `\x1b[48;2;${r};${g};${b}m    \x1b[0m `;
 }
 
-export function formatColor(color: WizColor): string {
+/** Swatch of the color a `WizColor` shows (pale colors are sent as hue + white LEDs). */
+export function colorSwatch(color: WizColor, paleWhite?: number): string {
+  return swatch(color.temp !== undefined ? { r: 255, g: 255, b: 255 } : previewRgb(color, paleWhite));
+}
+
+/** e.g. `#ffbc85 = rgb(244, 110, 0) + w 128 dim 53%`: the color shown, then what the bulb is sent. */
+export function formatColor(color: WizColor, paleWhite?: number): string {
   if (color.temp !== undefined) return `white ${color.temp} K dim ${color.dimming}%`;
-  return `${toHex(color)} rgb(${color.r}, ${color.g}, ${color.b}) dim ${color.dimming}%`;
+  const rgb = `rgb(${color.r}, ${color.g}, ${color.b})`;
+  const white = [color.c ? `c ${color.c}` : "", color.w ? `w ${color.w}` : ""].filter(Boolean).join(" ");
+  if (white === "") return `${toHex(color)} ${rgb} dim ${color.dimming}%`;
+  return `${toHex(previewRgb(color, paleWhite))} = ${rgb} + ${white} dim ${color.dimming}%`;
+}
+
+/** A bulb's `getPilot` state in one line, with every color field as the bulb reports it. */
+export function formatPilot(state: PilotState): string {
+  if (state.state === false) return "off";
+  const parts: string[] = [];
+  if (state.sceneId !== undefined && state.sceneId > 0) parts.push(`scene ${state.sceneId}`);
+  if (state.temp !== undefined && state.temp > 0) parts.push(`temp ${state.temp} K`);
+  for (const key of ["r", "g", "b", "c", "w"] as const) {
+    if (state[key] !== undefined) parts.push(`${key} ${state[key]}`);
+  }
+  if (state.dimming !== undefined) parts.push(`dim ${state.dimming}%`);
+  return parts.join("  ");
 }
 
 export function errorMessage(error: unknown): string {
@@ -34,9 +56,11 @@ export class StatusLine {
   private lastError = "";
   private lastErrorAt = 0;
   private readonly verbose: boolean;
+  private readonly paleWhite: number | undefined;
 
-  constructor(verbose: boolean) {
+  constructor(verbose: boolean, paleWhite?: number) {
     this.verbose = verbose;
+    this.paleWhite = paleWhite;
   }
 
   update(report: FrameReport): void {
@@ -53,7 +77,7 @@ export class StatusLine {
     }
 
     const line =
-      `${swatch(report.output)}${formatColor(report.output)}` +
+      `${colorSwatch(report.output, this.paleWhite)}${formatColor(report.output, this.paleWhite)}` +
       `  | capture ${report.captureMs.toFixed(0)} ms | ${this.fps > 0 ? this.fps.toFixed(1) : "--"} fps | sent ${this.sent}/${this.frames}`;
 
     if (this.verbose) {

@@ -128,5 +128,44 @@ Collected from the references in [REFERENCE_NOTES.md](REFERENCE_NOTES.md).
 | `getModelConfig` | `minDimLevel` (use 10 when missing), `cctRange` on newer firmware, e.g. `[2200,2700,6500,6500]`. | pywizlight |
 | `pulse` with `delta`, `duration` | Briefly pulses the brightness; HyperHDR uses `{"delta":100,"duration":1000}` to identify a bulb. | HyperHDR |
 
+### Pale colors: hue on RGB, paleness on the white LEDs
+
+The WiZ app does not mix a pale color from the RGB LEDs. It sends the **pure hue** on `r,g,b` (the smallest
+channel is 0) and adds the **white LEDs** (`c`, `w`), and it reads saturation back from them.
+
+Sending all three RGB channels instead gives the wrong color. Tested on an `ESP25_SHRGB_01` (firmware 1.38.0):
+`setPilot` with `r 255, g 188, b 133` (a peach) lit the bulb **magenta**, because the red and blue LEDs overpower
+green, and the app reported it as `#FF7300`: it takes only the hue from `r,g,b` and found no white.
+
+What the app sends for colors picked in it (same bulb, read with `npm run state`, all at dimming 53 %):
+
+| Picked | Saturation | Hue | r | g | b | c | w |
+| --- | --- | --- | --- | --- | --- | --- | --- |
+| #ffffff | 0 | (0°) | 26 | 0 | 0 | 0 | 140 |
+| #ffc0c0 | 0.247 | 0° | 82 | 0 | 0 | 0 | 140 |
+| #ffbc85 | 0.478 | 27° | 135 | 61 | 0 | 16 | 124 |
+| #ff8080 | 0.498 | 0° | 140 | 0 | 0 | 0 | 140 |
+| #85ff9c | 0.478 | 131° | 0 | 135 | 26 | 77 | 63 |
+| #85bcff | 0.478 | 213° | 0 | 61 | 135 | 124 | 16 |
+| #c085ff | 0.478 | 269° | 65 | 0 | 135 | 106 | 34 |
+| #ff85d0 | 0.478 | 323° | 135 | 0 | 83 | 43 | 97 |
+| #ff4040 | 0.749 | 0° | 255 | 0 | 0 | 0 | 70 |
+| #ff2020 | 0.875 | 0° | 255 | 0 | 0 | 0 | 35 |
+| #ff0000 | 1 | 0° | 255 | 0 | 0 | 0 | 0 |
+
+The rule behind it (every reading within ±1), with saturation s and white level W = 140:
+
+- **Hue level** (brightest RGB channel): `255 × (0.1 + 0.9 s)` up to s = 0.5 (26 → 140); 255 from s = 0.75.
+  Between 0.5 and 0.75 nothing was measured; `calibrate` ramps 140 → 255 so the light doesn't step there.
+- **White** `c + w`: W up to s = 0.5, then `W × 2 (1 − s)` down to 0 at s = 1.
+- **Cold share** `c / (c + w)` follows the hue: `hue / 240°` from red (0, all warm) to blue (1, all cold), then
+  `(360° − hue) / 120°` back to red. A gray counts as hue 0° (#ffffff → `r 26`, all warm).
+
+`calibrate` encodes pale colors this way (`calibration.paleWhite` = W), so the app shows the color we meant and
+the bulb looks like the app's. Verified on the same bulb: we sent `rgb(136, 61, 0) + c 16 w 124` for a beige screen
+(intended #ffbb84), `getPilot` reported exactly that, and the app showed **#FFBB84**. Brightness is independent:
+#ffbc85 picked at 100 % reads the same `r,g,b,c,w` with `dimming 100`. pywizlight's `rgbcw.py` describes an older version of the same idea (full hue down
+to s = 0.5, white capped at 128, warm white only); it does not match this firmware/app.
+
 White channels: routing low-saturation colors to `temp` (or `c`/`w`) gives cleaner whites than the RGB LEDs.
 wiz-pc switches below saturation 0.15 (`temp 4000`), namanb-lab/wiz-sync below 0.12 (`temp 4500`).

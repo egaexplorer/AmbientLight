@@ -15,7 +15,7 @@ flowchart LR
   subgraph "@ambientlight/core"
     AVG[analyzeFrame<br/>linear-light mean +<br/>dominant hue family]
     EMA[EmaSmoother]
-    CAL[calibrate<br/>hue/brightness split,<br/>saturation + gamma,<br/>white LEDs for grays]
+    CAL[calibrate<br/>hue/brightness split,<br/>saturation + gamma,<br/>white LEDs for grays,<br/>hue + w for pale colors]
     GATE{changed ≥ minChange<br/>or keep-alive due?}
     WIZ[WizLight.setColor<br/>setPilot JSON]
   end
@@ -41,7 +41,7 @@ flowchart LR
 | `wiz/check.ts` | `checkBulb`: reachability, model, firmware, signed-firmware detection, test color and restore; shared by the CLI and future apps |
 | `wiz/discovery.ts` | `discoverBulbs`: broadcast `getPilot`, collect replies |
 | `color/average.ts` | `analyzeFrame`: plain mean of a `PixelFrame` in linear light (brightness) plus a vivid-weighted mean of the dominant hue family (hue); `averageColor` returns the plain mean. RGB/RGBA/BGR(A), optional sampling step |
-| `color/calibration.ts` | `calibrate`: turns a screen color into WiZ `{r,g,b,dimming}`, or `{temp,dimming}` (white LEDs) for near-gray colors |
+| `color/calibration.ts` | `calibrate`: turns a screen color into WiZ `{r,g,b,c,w,dimming}` (pale colors as hue + white LEDs), or `{temp,dimming}` for near-gray colors; `previewRgb` shows the color a `WizColor` makes |
 | `color/smoothing.ts` | `EmaSmoother`, `colorDistance` |
 | `sync/engine.ts` | `SyncEngine`: the capture → process → transmit loop |
 | `sync/types.ts` | `ScreenCapturer` and `ColorSink` interfaces |
@@ -58,7 +58,7 @@ sets `"types": []` so the compiler enforces this. That's what lets the React Nat
 | `capture.ts` | `DesktopCapturer`: `screenshot-desktop` JPEG → `sharp` resize to 64×36 raw RGB |
 | `network.ts` | Subnet broadcast addresses for every LAN adapter (reliable discovery on Windows) |
 | `cli.ts` / `config.ts` | Argument parsing, `ambientlight.config.json` loading and validation, defaults ← file ← flags |
-| `commands.ts` | `discover`, `displays`, `color`, `once`, `sync` |
+| `commands.ts` | `discover`, `state`, `displays`, `color`, `once` (reads the bulb back after sending), `sync` |
 | `check.ts` | `check` (`npm run check-bulb`): runs `checkBulb` on each bulb and prints the report |
 | `log.ts` | Live status line with a true-color swatch |
 
@@ -86,14 +86,23 @@ sets `"types": []` so the compiler enforces this. That's what lets the React Nat
    lavender (a bulb told `rgb(255,254,255)` shows as `#FF00FF` in the WiZ app). Below `whiteSaturation` (0.15,
    after the boost) `calibrate` returns `temp` instead, and `WizLight.setColor` sends `{temp, dimming}`. A color
    must rise 0.05 above the threshold to leave white mode again, so scenes near it don't flicker between modes.
-7. **No backlog, newest frame wins.** The loop handles one frame at a time and waits
+7. **Pale colors as hue + white LEDs.** The WiZ app sends a pale color as the pure hue on `r,g,b` (smallest
+   channel 0) plus the white LEDs, and reads saturation back from them. A pale color mixed from the RGB LEDs alone
+   looks pink: `rgb(255,188,133)` (a peach) lit the bulb magenta, and the app reported it as `#FF7300`. So
+   `calibrate` encodes colors exactly as the app does, fitted to 11 readings of the app's own colors
+   ([WIZ_PROTOCOL.md](WIZ_PROTOCOL.md#pale-colors-hue-on-rgb-paleness-on-the-white-leds)): the hue level rises
+   with saturation, white stays at `paleWhite` (140) up to saturation 0.5 and then fades out, and the white is
+   tinted by the hue (warm for red, cold for blue). `c` and `w` are always sent, 0 for saturated colors, so no
+   white lingers from the previous frame. `previewRgb` undoes the encoding for logs. `paleWhite: 0` restores
+   the RGB-only mix.
+8. **No backlog, newest frame wins.** The loop handles one frame at a time and waits
    `interval − elapsed` between frames. If capture is slow, the frame rate drops gracefully instead of
    queuing stale colors. A bulb that is behind is never flooded.
-8. **Change threshold plus keep-alive.** Frames that barely changed aren't sent, which spares the bulb's
+9. **Change threshold plus keep-alive.** Frames that barely changed aren't sent, which spares the bulb's
    processor. Because UDP can drop packets, the current color is re-sent every `keepAliveMs` anyway.
-9. **Restore on exit.** `sync` reads each bulb's state with `getPilot` before starting. When it stops, it
+10. **Restore on exit.** `sync` reads each bulb's state with `getPilot` before starting. When it stops, it
    restores that state (scene, white temperature, or color, plus brightness).
-10. **Monorepo wiring.** npm workspaces and TypeScript project references are used. The core's
+11. **Monorepo wiring.** npm workspaces and TypeScript project references are used. The core's
    `package.json` has a `"development"` export condition that points at `src/index.ts`. Dev scripts run
    `tsx --conditions=development`, so the CLI runs from source without building the core first. The
    normal build (`tsc -b`) uses `dist/`.

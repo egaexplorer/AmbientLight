@@ -22,6 +22,12 @@ export interface CalibrationOptions {
   whiteSaturation: number;
   /** Color temperature in Kelvin for white mode (WiZ color bulbs accept about 2200–6500). */
   whiteTemp: number;
+  /**
+   * White LED level (0–255) for pale colors, encoded the way the WiZ app does it (it uses 140): the hue goes on
+   * `r,g,b` and the paleness on the white LEDs (`c`/`w`, tinted by the hue). A pale color mixed from the RGB LEDs
+   * alone looks pink on WiZ bulbs. 0 = mix pale colors from RGB only (no `c`/`w` sent).
+   */
+  paleWhite: number;
 }
 
 export const DEFAULT_CALIBRATION: Readonly<CalibrationOptions> = Object.freeze({
@@ -33,6 +39,7 @@ export const DEFAULT_CALIBRATION: Readonly<CalibrationOptions> = Object.freeze({
   blackThreshold: 0.04,
   whiteSaturation: 0.15,
   whiteTemp: 5000,
+  paleWhite: 140,
 });
 
 /**
@@ -88,10 +95,79 @@ export function calibrate(input: Rgb, options: Partial<CalibrationOptions> = {},
     b = 255 * (b / 255) ** o.gamma;
   }
 
+  const paleWhite = clamp(o.paleWhite, 0, 255);
+  if (paleWhite === 0) {
+    return { r: Math.round(clamp(r, 0, 255)), g: Math.round(clamp(g, 0, 255)), b: Math.round(clamp(b, 0, 255)), dimming };
+  }
+  return { ...encodePale({ r, g, b }, paleWhite), dimming };
+}
+
+// How the WiZ app encodes a color, fitted to readings of the app's own colors (docs/WIZ_PROTOCOL.md, "Pale
+// colors"). The hue goes on r,g,b at a level that rises with saturation s; the paleness goes on the white LEDs.
+/** Hue level (fraction of 255) at s = 0: the app keeps a trace of the hue even for white (#ffffff → r 26). */
+const PALE_HUE_FLOOR = 0.1;
+/** Hue level at s = 0.5, where the white starts to fade out. */
+const PALE_HUE_AT_HALF = 0.55;
+/** From this saturation the hue is at full strength (measured at 0.75). */
+const PALE_FULL_HUE_FROM = 0.75;
+
+/** Hue level (0–1) for saturation s: 0.1 + 0.9 s up to s = 0.5, then up to 1 at s = 0.75. */
+function paleHueLevel(s: number): number {
+  if (s <= 0.5) return PALE_HUE_FLOOR + (PALE_HUE_AT_HALF - PALE_HUE_FLOOR) * (s / 0.5);
+  if (s >= PALE_FULL_HUE_FROM) return 1;
+  // Not measured between 0.5 and 0.75 (the app may jump); a ramp keeps the light from stepping here.
+  return PALE_HUE_AT_HALF + ((1 - PALE_HUE_AT_HALF) * (s - 0.5)) / (PALE_FULL_HUE_FROM - 0.5);
+}
+
+/** White level for saturation s: `paleWhite` up to s = 0.5, then down to 0 at s = 1. */
+function paleWhiteLevel(s: number, paleWhite: number): number {
+  return s <= 0.5 ? paleWhite : paleWhite * 2 * (1 - s);
+}
+
+/**
+ * Share of the white that goes to the cold LEDs (`c`), by hue: 0 at red, rising to 1 at blue (240°), back to 0
+ * at red, so warm hues get warm white and cool hues get cold white, as in the WiZ app.
+ */
+export function paleColdShare(hue: number): number {
+  const h = ((hue % 360) + 360) % 360;
+  return h <= 240 ? h / 240 : (360 - h) / 120;
+}
+
+/**
+ * Splits a color into the WiZ app's encoding: the pure hue on `r,g,b` at a level that grows with saturation,
+ * and the paleness on the white LEDs, tinted warm or cold by the hue. A gray has hue 0° (red), as in the app.
+ */
+function encodePale(color: Rgb, paleWhite: number): { r: number; g: number; b: number; c: number; w: number } {
+  const { h, s } = rgbToHsv(color);
+  const pure = hsvToRgb({ h, s: 1, v: 1 });
+  const level = paleHueLevel(s);
+  const white = Math.round(clamp(paleWhiteLevel(s, paleWhite), 0, 255));
+  const c = Math.round(white * paleColdShare(h));
   return {
-    r: Math.round(clamp(r, 0, 255)),
-    g: Math.round(clamp(g, 0, 255)),
-    b: Math.round(clamp(b, 0, 255)),
-    dimming,
+    r: Math.round(clamp(pure.r * level, 0, 255)),
+    g: Math.round(clamp(pure.g * level, 0, 255)),
+    b: Math.round(clamp(pure.b * level, 0, 255)),
+    c,
+    w: white - c,
   };
+}
+
+/**
+ * The color a `WizColor` shows, for previews and logs: undoes the hue + white encoding of `calibrate`
+ * (pass the same `paleWhite`). Colors without white channels are returned as they are; white mode (`temp`)
+ * returns its `r,g,b` preview.
+ */
+export function previewRgb(color: WizColor, paleWhite: number = DEFAULT_CALIBRATION.paleWhite): Rgb {
+  const white = (color.c ?? 0) + (color.w ?? 0);
+  if (color.temp !== undefined || white <= 0 || paleWhite <= 0) return { r: color.r, g: color.g, b: color.b };
+
+  const max = Math.max(color.r, color.g, color.b);
+  // Full white: s ≤ 0.5, read s from the hue level. Less white: s > 0.5, read s from the white.
+  const s =
+    white >= paleWhite - 0.5
+      ? clamp((0.5 * (max / 255 - PALE_HUE_FLOOR)) / (PALE_HUE_AT_HALF - PALE_HUE_FLOOR), 0, 0.5)
+      : clamp(1 - white / (2 * paleWhite), 0.5, 1);
+  const pure = (v: number): number => (max > 0 ? (v / max) * 255 : 0);
+  const mix = (v: number): number => 255 * (1 - s) + s * pure(v);
+  return { r: mix(color.r), g: mix(color.g), b: mix(color.b) };
 }

@@ -1,3 +1,4 @@
+import { setTimeout as delay } from "node:timers/promises";
 import {
   discoverBulbs,
   pilotToRestoreParams,
@@ -11,7 +12,7 @@ import {
 } from "@ambientlight/core";
 import { CliError, type CliFlags } from "./cli.js";
 import type { AppConfig } from "./config.js";
-import { errorMessage, formatColor, StatusLine, swatch } from "./log.js";
+import { colorSwatch, errorMessage, formatColor, formatPilot, StatusLine, swatch } from "./log.js";
 import { broadcastAddresses } from "./network.js";
 import { createNodeUdpSocket } from "./udp.js";
 
@@ -90,6 +91,27 @@ export async function runDiscover(flags: CliFlags): Promise<number> {
   }
 }
 
+/** Prints each bulb's current state exactly as it reports it (`getPilot`). Sends no command. */
+export async function runState(config: AppConfig): Promise<number> {
+  requireBulbs(config);
+  const socket = await createNodeUdpSocket();
+  let failed = false;
+  try {
+    for (const ip of config.bulbs) {
+      try {
+        console.log(`${ip.padEnd(15)}  ${formatPilot(await new WizLight(ip, socket).getPilot())}`);
+      } catch (error) {
+        failed = true;
+        console.log(`${ip.padEnd(15)}  ${errorMessage(error)}`);
+      }
+    }
+  } finally {
+    await socket.close();
+  }
+  if (failed) console.log(`\n${FIREWALL_HINT}`);
+  return failed ? 1 : 0;
+}
+
 export async function runDisplays(): Promise<number> {
   const { listDisplays } = await loadCapture();
   const displays = await listDisplays();
@@ -139,8 +161,20 @@ export async function runSync(config: AppConfig, options: { once: boolean; verbo
       const report = await engine.tick();
       const rgb = (c: { r: number; g: number; b: number }): string =>
         `${swatch(c)}rgb(${c.r.toFixed(0)}, ${c.g.toFixed(0)}, ${c.b.toFixed(0)})`;
+      const paleWhite = config.calibration.paleWhite;
       console.log(`Screen average ${rgb(report.average)}  hue source (${config.colorMode}) ${rgb(report.color)}`);
-      console.log(`Sent ${swatch(report.output)}${formatColor(report.output)} to ${config.bulbs.join(", ")} (capture ${report.captureMs.toFixed(0)} ms)`);
+      console.log(
+        `Sent ${colorSwatch(report.output, paleWhite)}${formatColor(report.output, paleWhite)} to ${config.bulbs.join(", ")} (capture ${report.captureMs.toFixed(0)} ms)`,
+      );
+      // Read the state back, so a difference between what was sent and what the bulb applied is visible.
+      await delay(300);
+      for (const light of lights) {
+        try {
+          console.log(`${light.host} reports ${formatPilot(await light.getPilot())}`);
+        } catch (error) {
+          console.log(`Couldn't read ${light.host} back: ${errorMessage(error)}`);
+        }
+      }
       return 0;
     }
 
@@ -162,7 +196,7 @@ export async function runSync(config: AppConfig, options: { once: boolean; verbo
       });
     }
 
-    const status = new StatusLine(options.verbose);
+    const status = new StatusLine(options.verbose, config.calibration.paleWhite);
     const engine = new SyncEngine(capturer, lights, syncOptions(config), {
       onFrame: (report) => status.update(report),
       onError: (error) => status.error(error),

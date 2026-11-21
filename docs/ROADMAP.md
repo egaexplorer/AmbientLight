@@ -33,6 +33,11 @@ Based on the *WiZ PC Screen-Sync Ambilight Project Guide* (Google Drive).
       hues, per-channel gains scaled by saturation so grays stay neutral (ambient-setup, namanb-lab)
 - [x] Route low-saturation colors to the white LEDs (`temp`) for cleaner whites, with hysteresis so a scene near
       the threshold doesn't flip modes (wiz-pc, namanb-lab) → `whiteSaturation`, `whiteTemp`
+- [x] Send pale colors as the pure hue plus the white LEDs, like the WiZ app; an RGB-only pale mix looks pink
+      → `paleWhite`, `npm run state`
+- [x] Measure the app's `r,g,b,c,w` for 11 colors with `npm run state` and fit the encoder to them (hue level,
+      white level, hue-tinted cold/warm split)
+- [ ] Measure the app between saturation 0.5 and 0.75 (e.g. #ff7070, #ff6060) and replace the ramp if it differs
 - [ ] Presets: gaming (fast), movie (smooth), ambient (very smooth, dimmer)
 
 Lessons from the reference study ([REFERENCE_NOTES.md](REFERENCE_NOTES.md)):

@@ -2,7 +2,7 @@
 import process from "node:process";
 import { runCheck } from "./check.js";
 import { CliError, parseCommandLine, USAGE } from "./cli.js";
-import { runColor, runDiscover, runDisplays, runSync } from "./commands.js";
+import { runColor, runDiscover, runDisplays, runState, runSync } from "./commands.js";
 import { type ConfigFile, findConfigFile, loadConfigFile, resolveConfig } from "./config.js";
 import { errorMessage } from "./log.js";
 
@@ -24,6 +24,8 @@ async function main(argv: readonly string[]): Promise<number> {
       return runDiscover(flags);
     case "check":
       return runCheck(config, flags);
+    case "state":
+      return runState(config);
     case "displays":
       return runDisplays();
     case "color":
