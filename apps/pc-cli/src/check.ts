@@ -40,8 +40,10 @@ const VERDICTS: Readonly<Record<BulbCheckReport["verdict"], string>> = Object.fr
   ready: "Ready: AmbientLight can drive this bulb. Next: npm run once, then npm run sync.",
   "white-only": "Works, but this bulb only has white LEDs, so it can't follow screen colors.",
   "needs-signing":
-    "This bulb's firmware requires signed commands, so it ignores AmbientLight's colors.\n" +
-    '  Signing isn\'t supported yet; see docs/WIZ_PROTOCOL.md, "Signed requests".',
+    "This bulb requires signed commands, so it ignores AmbientLight's colors.\n" +
+    '  Usually this is the "Only verified controls" option. To fix it: in the WiZ app, open Settings (top right),\n' +
+    '  tap Security under Current home, keep local communication on and turn off "Only verified controls".\n' +
+    "  Then run this check again. (AmbientLight can't sign commands yet; see docs/WIZ_PROTOCOL.md.)",
   rejected: "The bulb rejected the test color (see the code above).",
   "no-ack":
     "The bulb answers reads but didn't acknowledge the test color; a packet was probably lost.\n" +
