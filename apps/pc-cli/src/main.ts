@@ -1,5 +1,6 @@
 #!/usr/bin/env node
 import process from "node:process";
+import { runCheck } from "./check.js";
 import { CliError, parseCommandLine, USAGE } from "./cli.js";
 import { runColor, runDiscover, runDisplays, runSync } from "./commands.js";
 import { type ConfigFile, findConfigFile, loadConfigFile, resolveConfig } from "./config.js";
@@ -21,6 +22,8 @@ async function main(argv: readonly string[]): Promise<number> {
   switch (command) {
     case "discover":
       return runDiscover(flags);
+    case "check":
+      return runCheck(config, flags);
     case "displays":
       return runDisplays();
     case "color":

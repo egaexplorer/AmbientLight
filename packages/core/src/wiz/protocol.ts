@@ -36,8 +36,25 @@ export interface WizResponse<R = Record<string, unknown>> {
   method: string;
   id?: number;
   env?: string;
+  /** Present on newer firmware that signs its replies (and requires signed `setPilot`). */
+  hmac?: string;
   result?: R;
   error?: { code: number; message: string };
+}
+
+/** JSON-RPC style error codes returned by WiZ firmware. */
+export const WIZ_ERROR_METHOD_NOT_FOUND = -32601;
+/** Invalid params. On firmware with signed replies this is what an unsigned `setPilot` gets. */
+export const WIZ_ERROR_INVALID_PARAMS = -32602;
+/** Bad or expired signature (signed firmware). */
+export const WIZ_ERROR_SECURITY = -32605;
+
+/**
+ * Whether a reply comes from firmware that signs its messages. Such bulbs still answer reads,
+ * but ignore unsigned `setPilot` commands (see docs/WIZ_PROTOCOL.md, "Signed requests").
+ */
+export function isSignedResponse(response: WizResponse): boolean {
+  return typeof response.hmac === "string" && response.hmac.length > 0;
 }
 
 function isRecord(value: unknown): value is Record<string, unknown> {

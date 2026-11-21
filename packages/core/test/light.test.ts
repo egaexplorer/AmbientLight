@@ -1,6 +1,14 @@
 import assert from "node:assert/strict";
 import { describe, it } from "node:test";
-import { discoverBulbs, WizLight, WizTimeoutError } from "../src/index.js";
+import {
+  bulbKindFromModule,
+  discoverBulbs,
+  isSignedResponse,
+  WIZ_ERROR_INVALID_PARAMS,
+  WizLight,
+  WizResponseError,
+  WizTimeoutError,
+} from "../src/index.js";
 import { FakeSocket } from "./helpers.js";
 
 const PILOT_REPLY = (mac: string, rssi = -60): string =>
@@ -43,6 +51,73 @@ describe("WizLight", () => {
       { address: "192.168.1.50", text: '{"method":"getPilot","error":{"code":-32600,"message":"Invalid Request"}}' },
     ];
     await assert.rejects(new WizLight("192.168.1.50", socket).getPilot(), /Invalid Request/);
+  });
+});
+
+describe("WizLight requests", () => {
+  const HOST = "192.168.1.50";
+  const methodOf = (message: string): string => (JSON.parse(message) as { method: string }).method;
+  const wait = (ms: number): Promise<void> => new Promise((resolve) => setTimeout(resolve, ms));
+
+  it("retransmits once when the first datagram gets no reply", async () => {
+    const socket = new FakeSocket();
+    let calls = 0;
+    socket.responder = () => (++calls === 2 ? [{ address: HOST, text: PILOT_REPLY("a8bb50aabbcc") }] : []);
+    const light = new WizLight(HOST, socket, { requestTimeoutMs: 300, retransmitAfterMs: 20 });
+    const state = await light.getPilot();
+    assert.equal(state.mac, "a8bb50aabbcc");
+    assert.equal(socket.sent.length, 2);
+  });
+
+  it("does not retransmit once a reply arrived", async () => {
+    const socket = new FakeSocket();
+    socket.responder = () => [{ address: HOST, text: PILOT_REPLY("a8bb50aabbcc") }];
+    await new WizLight(HOST, socket, { retransmitAfterMs: 20 }).getPilot();
+    await wait(40);
+    assert.equal(socket.sent.length, 1);
+  });
+
+  it("confirms setPilot and reports rejections with their error code", async () => {
+    const socket = new FakeSocket();
+    let reply = '{"method":"setPilot","env":"pro","result":{"success":true}}';
+    socket.responder = (d) => (methodOf(d.message) === "setPilot" ? [{ address: HOST, text: reply }] : []);
+    const light = new WizLight(HOST, socket);
+
+    await light.setPilotConfirmed({ r: 255, g: 0, b: 0, dimming: 100 });
+
+    reply = '{"method":"setPilot","env":"pro","hmac":"abc=","error":{"code":-32602,"message":"Invalid params"}}';
+    await assert.rejects(light.setPilotConfirmed({ r: 255, g: 0, b: 0 }), (error: unknown) => {
+      assert.ok(error instanceof WizResponseError);
+      assert.equal(error.code, WIZ_ERROR_INVALID_PARAMS);
+      assert.ok(isSignedResponse(error.response));
+      return true;
+    });
+  });
+
+  it("reads the system config", async () => {
+    const socket = new FakeSocket();
+    socket.responder = () => [
+      {
+        address: HOST,
+        text: '{"method":"getSystemConfig","env":"pro","result":{"mac":"a8bb50aabbcc","moduleName":"ESP25_SHRGB_01","fwVersion":"1.31.0"}}',
+      },
+    ];
+    const config = await new WizLight(HOST, socket).getSystemConfig();
+    assert.equal(config.moduleName, "ESP25_SHRGB_01");
+    assert.equal(config.fwVersion, "1.31.0");
+    assert.equal(socket.sent[0]?.message, '{"method":"getSystemConfig","params":{}}');
+  });
+});
+
+describe("bulbKindFromModule", () => {
+  it("reads the LED setup from the module name", () => {
+    assert.equal(bulbKindFromModule("ESP25_SHRGB_01"), "color");
+    assert.equal(bulbKindFromModule("ESP20_DHRGB_01"), "color");
+    assert.equal(bulbKindFromModule("ESP56_SHTW3_01"), "tunable-white");
+    assert.equal(bulbKindFromModule("ESP06_SHDW9_01"), "dimmable-white");
+    assert.equal(bulbKindFromModule("ESP10_SOCKET_06"), "socket");
+    assert.equal(bulbKindFromModule("SOMETHING"), "unknown");
+    assert.equal(bulbKindFromModule(undefined), "unknown");
   });
 });
 

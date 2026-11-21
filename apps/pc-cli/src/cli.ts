@@ -1,6 +1,6 @@
 import { parseArgs } from "node:util";
 
-export const COMMANDS = ["discover", "displays", "color", "once", "sync", "help"] as const;
+export const COMMANDS = ["discover", "check", "displays", "color", "once", "sync", "help"] as const;
 export type Command = (typeof COMMANDS)[number];
 
 /** A user-facing error: printed without a stack trace. */
@@ -39,6 +39,8 @@ Usage (from the repository root):
 
 Commands:
   discover            Find WiZ bulbs on your network
+  check               Test a bulb: reply time, model, firmware, and whether it accepts colors
+                      (npm run check-bulb; checks every bulb found if none is configured)
   displays            List displays available for capture
   color               Set a fixed color to test a bulb   (--rgb 255,0,0 [--dimming 80])
   once                Capture one frame and send its color (Phase 1)
@@ -56,15 +58,16 @@ Options:
       --gamma <n>         Color gamma (default 1.6)
       --min-dimming <n>   Dimming for dark scenes, 10-100 (default 10)
       --max-dimming <n>   Dimming for bright scenes, 10-100 (default 100)
-      --no-restore        Don't restore the bulbs' previous state when sync stops
-      --timeout <ms>      How long "discover" listens for replies (default 2000)
-      --rgb <r,g,b>       Color for the "color" command
-      --dimming <n>       Dimming for the "color" command (default 100)
+      --no-restore        Don't restore the bulbs' previous state (sync, check)
+      --timeout <ms>      How long "discover" (and "check" without a bulb) listens for replies (default 2000)
+      --rgb <r,g,b>       Color for "color", or the test color for "check" (default 255,0,0)
+      --dimming <n>       Dimming for "color" and "check" (default 100)
   -v, --verbose           Print every frame
   -h, --help              Show this help
 
 Examples:
   npm run discover
+  npm run check-bulb -- --bulb 192.168.1.50
   npm run color -- --bulb 192.168.1.50 --rgb 255,0,0
   npm run sync -- --bulb 192.168.1.50 --fps 10`;
 

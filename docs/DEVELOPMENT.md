@@ -25,7 +25,7 @@ dependency change.
 | `npm test` | Runs all `*.test.ts` with Node's built-in test runner (via `tsx`) |
 | `npm run typecheck` | Type-checks source and tests together (`tsconfig.tests.json`) |
 | `npm run check` | build + typecheck + test (what CI runs) |
-| `npm run discover` / `displays` / `color` / `once` / `sync` / `help` | Run the CLI from source |
+| `npm run discover` / `check-bulb` / `displays` / `color` / `once` / `sync` / `help` | Run the CLI from source (`check-bulb` runs the CLI's `check` command; `npm run check` is the build + test script) |
 
 Pass CLI flags after `--`: `npm run sync -- --bulb 192.168.1.50 -v`.
 To run the compiled CLI instead: `npm run build`, then `node apps/pc-cli/dist/main.js sync`.

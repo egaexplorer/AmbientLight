@@ -89,7 +89,9 @@ Broadcast `getPilot` and collect the replies: each bulb answers from its own IP.
 
 ## Signed requests (newer firmware)
 
-Not supported by AmbientLight yet (see ROADMAP Phase 3). Source: pywizlight README and `sign_request`.
+Signing is not supported by AmbientLight yet (see ROADMAP Phase 3), but `npm run check-bulb` detects such
+firmware: it reports signed replies and whether the bulb rejected the test color. Source: pywizlight README and
+`sign_request`.
 
 Some newer firmware replies with `"env":"pro"` and an `hmac` field. Reads (`getPilot`) still work, but an
 unsigned `setPilot` fails with `-32602 Invalid params`, and a bad signature with `-32605 Security error`.

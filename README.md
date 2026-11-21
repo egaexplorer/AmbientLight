@@ -44,8 +44,8 @@ npm run discover
 # 2. Save it in a local config file (git-ignored), then edit "bulbs"
 copy ambientlight.config.example.json ambientlight.config.json
 
-# 3. Check that the bulb responds. It should turn red.
-npm run color -- --rgb 255,0,0
+# 3. Check the bulb: it should turn red for 2 seconds, and the report should end with "Ready"
+npm run check-bulb
 
 # 4. Phase 1: capture one frame and send its color
 npm run once
@@ -67,6 +67,7 @@ You can pass any setting on the command line instead of the config file, e.g.
 | --- | --- |
 | `npm run discover` | Broadcasts `getPilot` on every LAN adapter and lists the bulbs that answer |
 | `npm run displays` | Lists display ids for `--screen` (multi-monitor setups) |
+| `npm run check-bulb` | Tests each bulb (all bulbs found on the network if none is configured): reply time, signal, model, firmware, whether it accepts colors (or needs signed commands), then restores it |
 | `npm run color -- --rgb r,g,b [--dimming n]` | Sets a fixed color to test connectivity |
 | `npm run once` | Captures one frame and sends its color (Phase 1) |
 | `npm run sync` | Continuous screen sync (Phase 2). Add `-v` to print every frame |

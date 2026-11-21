@@ -15,7 +15,7 @@ import { errorMessage, formatColor, StatusLine, swatch } from "./log.js";
 import { broadcastAddresses } from "./network.js";
 import { createNodeUdpSocket } from "./udp.js";
 
-const FIREWALL_HINT =
+export const FIREWALL_HINT =
   "If you're on Windows, make sure Node.js is allowed through Windows Defender Firewall on Private networks,\n" +
   'that the PC and bulb are on the same Wi-Fi/subnet, and that "Allow local communication" is on in the WiZ app.';
 

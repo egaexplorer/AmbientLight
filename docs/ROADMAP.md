@@ -37,9 +37,10 @@ Based on the *WiZ PC Screen-Sync Ambilight Project Guide* (Google Drive).
 
 Lessons from the reference study ([REFERENCE_NOTES.md](REFERENCE_NOTES.md)):
 
-- [ ] Detect bulbs that require signed `setPilot` (`-32602` reply, `"env":"pro"`) and tell the user; support an
-      optional `signingKey` through an injected HMAC-SHA256 function, since the core can't import `node:crypto`
-      (pywizlight)
+- [x] Detect bulbs that require signed `setPilot` (`hmac` in replies, `-32602` reply) and tell the user →
+      `npm run check-bulb`
+- [ ] Support an optional `signingKey` through an injected HMAC-SHA256 function, since the core can't import
+      `node:crypto` (pywizlight)
 - [ ] Time-based smoothing (`1 − e^(−dt/τ)`) so the feel doesn't change with FPS, plus an instant snap on scene
       cuts (HyperHDR, MihirGupta07/wiz-sync)
 - [ ] Dark scenes: below `blackThreshold`, fade to a configurable warm glow or hold the last hue instead of
@@ -48,8 +49,8 @@ Lessons from the reference study ([REFERENCE_NOTES.md](REFERENCE_NOTES.md)):
       (ambient-setup, namanb-lab)
 - [ ] Discovery: also broadcast `registration`; save bulbs by MAC and re-resolve their IP at startup; read
       `getSystemConfig` to tell color bulbs from white-only ones
-- [ ] `getPilot`: retransmit once after ~400 ms; clamp dimming to `getModelConfig.minDimLevel` (homebridge-wiz-lan,
-      pywizlight)
+- [x] Requests (`getPilot` and others) retransmit once after 400 ms (homebridge-wiz-lan)
+- [ ] Clamp dimming to `getModelConfig.minDimLevel` (`check-bulb` already reports it) (pywizlight)
 - [ ] `identify` command that flashes one bulb (ambient-setup, HyperHDR)
 
 ## Phase 4: desktop app (Electron) and Android port (React Native) 🗓️

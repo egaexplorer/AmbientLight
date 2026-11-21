@@ -36,7 +36,9 @@ flowchart LR
 | `wiz/constants.ts` | Port 38899, dimming 10–100, broadcast address |
 | `wiz/protocol.ts` | `setPilot` / `getPilot` JSON encoding, value sanitizing, reply parsing, `pilotToRestoreParams` |
 | `wiz/socket.ts` | `UdpSocket` interface implemented by each platform |
-| `wiz/light.ts` | `WizLight`: one bulb (`setColor`, `setPilot`, `getPilot` with timeout, `turnOff`) |
+| `wiz/light.ts` | `WizLight`: one bulb. `setColor`/`setPilot` (fire-and-forget), `request` (reply matched by IP + method, one retransmit after 400 ms), `getPilot`, `getSystemConfig`, `getModelConfig`, `setPilotConfirmed`, `turnOff` |
+| `wiz/device.ts` | `SystemConfig`/`ModelConfig` types, `bulbKindFromModule` (color, tunable white, dimmable white, plug) |
+| `wiz/check.ts` | `checkBulb`: reachability, model, firmware, signed-firmware detection, test color and restore; shared by the CLI and future apps |
 | `wiz/discovery.ts` | `discoverBulbs`: broadcast `getPilot`, collect replies |
 | `color/average.ts` | `averageColor`: mean of a `PixelFrame` in linear light (RGB/RGBA/BGR(A), optional sampling step) |
 | `color/calibration.ts` | `calibrate`: turns a screen color into WiZ `{r,g,b,dimming}` |
@@ -57,6 +59,7 @@ sets `"types": []` so the compiler enforces this. That's what lets the React Nat
 | `network.ts` | Subnet broadcast addresses for every LAN adapter (reliable discovery on Windows) |
 | `cli.ts` / `config.ts` | Argument parsing, `ambientlight.config.json` loading and validation, defaults ← file ← flags |
 | `commands.ts` | `discover`, `displays`, `color`, `once`, `sync` |
+| `check.ts` | `check` (`npm run check-bulb`): runs `checkBulb` on each bulb and prints the report |
 | `log.ts` | Live status line with a true-color swatch |
 
 ## Design decisions
