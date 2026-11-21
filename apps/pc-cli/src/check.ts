@@ -152,8 +152,8 @@ export async function runCheck(config: AppConfig, flags: CliFlags): Promise<numb
 
     if (ready > 0) {
       console.log(
-        "\nTip: in the WiZ app, set firmware updates to manual, so an update can't switch a working bulb\n" +
-          "to firmware that requires signed commands.",
+        "\nTip: if colors stop working later (for example after a WiZ app or firmware update), run this check again\n" +
+          'and make sure "Only verified controls" is still off in the WiZ app (Settings > Security).',
       );
     }
     return ready === hosts.length ? 0 : 1;

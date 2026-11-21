@@ -29,7 +29,9 @@ docs/             Architecture, WiZ protocol notes, roadmap, development guide
 - **Windows 10/11** (macOS and Linux work too; Linux needs ImageMagick for screen capture).
 - **Node.js 22.12 or newer.** Node 24 LTS is recommended.
 - **A Philips WiZ bulb** set up in the official WiZ app, on the **same Wi‑Fi/subnet** as the PC.
-- In the WiZ app, turn on **Settings → Security → Allow local communication** (required by newer firmware).
+- In the WiZ app, turn on **Settings → Security → Allow local communication**, and turn **off "Only verified controls"**
+  (some app versions call this "Allow All Control"). Otherwise the bulb ignores AmbientLight's colors;
+  `npm run check-bulb` tells you if that's the case.
 - Recommended: give the bulb a fixed IP with a **DHCP reservation** in your router.
 
 ## Quick start (Windows PowerShell)

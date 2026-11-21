@@ -103,8 +103,10 @@ then "only react to verified messages sent from the WiZ system or from a local t
 would have been provided with the home security key" ([WiZ FAQ](https://faq.wizconnected.com/hc/en/7-wiz-v2/faq/548-disabling-local-network-communication)).
 Turning it off (with local communication still on) lets unsigned commands through again; namanb-lab/wiz-sync's
 setup notes call the same choice "Allow All Control". The trade-off: any device on the Wi-Fi can then control the
-lights, as with older firmware. Seen on an `ESP25_SHRGB_01` bulb with firmware 1.38.0, which signs its replies
-(`hmac`, `sigTs` in `result`) and rejected an unsigned `setPilot` with `-32602`.
+lights, as with older firmware. Tested on an `ESP25_SHRGB_01` bulb with firmware 1.38.0: with verified controls
+on, its replies carried `hmac` (and `sigTs` in `result`) and an unsigned `setPilot` got `-32602`; after switching
+the app to "Allow All Control", replies were unsigned and `setPilot` was accepted. The signing follows the setting,
+not the firmware version.
 
 To sign instead (not implemented; the app's export steps for the key are not documented by WiZ or pywizlight):
 
