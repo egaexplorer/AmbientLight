@@ -125,7 +125,9 @@ Techniques:
 - **A frame with no usable color keeps the previous color** instead of sending a random hue.
 - **Near-gray → white LEDs**: saturation below 0.12 sends `temp 4500` with the same dimming.
 - **Pink problem**: the README notes that the bulb's red and blue LEDs overpower green, so scenes look pink. It
-  clamps saturation to at least `minSat` (0.7) and defaults `gainB` to 0.8.
+  clamps saturation to at least `minSat` (0.7) and defaults `gainB` to 0.8. AmbientLight found the cause for pale
+  colors: sent as an RGB mix (all three channels on), a peach lit the bulb magenta. Sending the hue plus the white
+  LEDs, as the WiZ app does, fixes it without clamping ([WIZ_PROTOCOL.md](WIZ_PROTOCOL.md), "Pale colors").
 - **Discovery** broadcasts `registration`, then asks each bulb for `getSystemConfig` (model, firmware) and shows
   RSSI; a **blink** button identifies a bulb.
 - Foreground service types: `mediaProjection` for capture (`FOREGROUND_SERVICE_MEDIA_PROJECTION` permission).
@@ -181,6 +183,11 @@ Techniques and protocol facts:
   host IP and a generated MAC; bulbs then send `syncPilot` with their state and `firstBeat` when they boot. The
   library stopped acknowledging `syncPilot` because bulbs keep sending anyway. Keep-alive is 20 s. The Android
   WiZ app sends the literal string `test` to that port; ignore it.
+- **Pale colors as hue + white** (`rgbcw.py`, used by `_set_rgb`): an RGB color is sent as the pure hue on
+  `r,g,b` plus warm white `w` (capped at 128): full hue with white fading in from saturation 1 to 0.5, then white
+  at 128 with the hue fading out. The idea is right (an RGB-only pale mix looks pink), but on an `ESP25_SHRGB_01`
+  with firmware 1.38.0 the WiZ app uses different numbers and tints the white by hue (`c` for blue, `w` for red).
+  AmbientLight fits the app's measured values instead ([WIZ_PROTOCOL.md](WIZ_PROTOCOL.md), "Pale colors").
 - **Capabilities**: `getModelConfig` returns `minDimLevel` (bulbs that don't report it use 10) and newer firmware
   reports `cctRange` (e.g. `[2200,2700,6500,6500]`). `scenes.py` has the scene ID ↔ name table, including the
   HDMI sync box modes 201–204.
@@ -279,10 +286,18 @@ Skip: the fixed `dimming` with brightness carried in `r,g,b`, as explained in "W
 
 The original ambient-light engine.
 
-- **Image-to-LED modes** (`include/hyperion/ImageToLedsMap.h`): mean, mean of squares (closer to linear-light
-  averaging), dominant color, and an advanced dominant color using clustering. Dominant color is an alternative to
-  lesson 4 when one object should set the light. AmbientLight's `colorMode: "dominant"` uses a hue histogram
-  instead of clustering: it is deterministic and stable from frame to frame.
+- **Image-to-LED modes** (`include/hyperion/ImageToLedsMap.h`): mean (the default, `multicolor_mean`, per LED
+  area), mean of squares (closer to linear-light averaging), dominant color, and an advanced dominant color.
+  - `dominant_color` counts exact RGB values and returns the most frequent. On a small JPEG-downscaled frame
+    almost every value is unique, so only pure black (letterbox bars) or white repeat, and they win.
+  - `dominant_color_advanced` runs k-means with 1–5 clusters (accuracy level + 1) seeded black, green, white, red
+    and yellow, using RGB distance, until the clusters stop moving, and returns the cluster with the most pixels.
+    RGB distance groups by lightness as much as by hue, and the biggest cluster is often shadows or sky, so the
+    colorful subject is lost. Cost varies per frame, and nothing keeps the previous winner, so it can flip.
+  - AmbientLight's `colorMode: "dominant"` instead votes colorful pixels into 10° hue bins weighted by chroma
+    (area × vividness), leaves neutral pixels out of the vote but in the average, runs in one pass, and keeps the
+    previous hue family unless another has 1.3× its votes. One color for the whole screen mixes far more than
+    hyperion's small per-LED areas, which is why dominant is our default and mean is theirs.
 - **Smoothing decoupled from capture** (`libsrc/hyperion/LinearColorSmoothing.cpp`): a settling time window
   (150 ms) and a separate output rate (25 Hz) mean the LEDs get interpolated values on a steady clock even if
   capture is slower. `updateDelay` delays output by N frames to match TV latency. A "decay" mode weights frames in

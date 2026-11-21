@@ -85,7 +85,8 @@ sets `"types": []` so the compiler enforces this. That's what lets the React Nat
    Known issue: when the dominant family does change, `EmaSmoother` blends in RGB, so red → green passes through
    a muddy brownish yellow for a few frames (fix planned in [ROADMAP.md](ROADMAP.md), time-based smoothing).
 6. **White LEDs for grays.** WiZ bulbs mix RGB white from their red, green and blue LEDs, and it looks
-   lavender (a bulb told `rgb(255,254,255)` shows as `#FF00FF` in the WiZ app). Below `whiteSaturation` (0.15,
+   lavender (a bulb told `rgb(255,254,255)` shows as `#FF00FF` in the WiZ app, which reads only the hue from
+   `r,g,b` and the paleness from the white LEDs; see decision 7). Below `whiteSaturation` (0.15,
    after the boost) `calibrate` returns `temp` instead, and `WizLight.setColor` sends `{temp, dimming}`. A color
    must rise 0.05 above the threshold to leave white mode again, so scenes near it don't flicker between modes.
 7. **Pale colors as hue + white LEDs.** The WiZ app sends a pale color as the pure hue on `r,g,b` (smallest

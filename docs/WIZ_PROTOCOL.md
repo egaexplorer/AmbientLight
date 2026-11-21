@@ -32,8 +32,8 @@ Replies echo the method and carry either `result` or `error`:
 | Param | Range | Notes |
 | --- | --- | --- |
 | `state` | `true` / `false` | On/off |
-| `r`, `g`, `b` | 0–255 | RGB mix. Brightness comes from `dimming`, not from the channel values. |
-| `c`, `w` | 0–255 | Cold- and warm-white LED channels (RGBWW bulbs) |
+| `r`, `g`, `b` | 0–255 | Color LEDs. The WiZ app puts only the hue here (smallest channel 0); see [Pale colors](#pale-colors-hue-on-rgb-paleness-on-the-white-leds). Brightness comes from `dimming`, not from the channel values. |
+| `c`, `w` | 0–255 | Cold- and warm-white LEDs (RGBWW bulbs). The app uses them for the paleness of a color. |
 | `temp` | ≈2200–6500 K | White color temperature (model dependent) |
 | `dimming` | **10–100** | Brightness %. Values below 10 are rejected by firmware. |
 | `sceneId` | 1–32 | Built-in scenes (0 = none) |
@@ -62,6 +62,11 @@ out-of-range values are a common cause of silently ignored commands.
 ```
 
 The result holds either `r,g,b,c,w`, or `temp`, or a non-zero `sceneId`, depending on the current mode.
+
+The WiZ app derives the color it displays from these fields: the hue from `r,g,b` and the saturation from
+`c + w`. So the app's color for a state we sent shows how WiZ interprets it (`r 255, g 188, b 133` with no white
+displays as the fully saturated `#FF7300`). The app's picker also rounds: #ffffff reads back as #fffefe and
+#85ff9c as #85ff9d. `npm run state` prints the raw fields.
 `pilotToRestoreParams()` turns it back into a `setPilot` so `sync` can restore the light on exit.
 
 ## Discovery
@@ -164,8 +169,15 @@ The rule behind it (every reading within ±1), with saturation s and white level
 `calibrate` encodes pale colors this way (`calibration.paleWhite` = W), so the app shows the color we meant and
 the bulb looks like the app's. Verified on the same bulb: we sent `rgb(136, 61, 0) + c 16 w 124` for a beige screen
 (intended #ffbb84), `getPilot` reported exactly that, and the app showed **#FFBB84**. Brightness is independent:
-#ffbc85 picked at 100 % reads the same `r,g,b,c,w` with `dimming 100`. pywizlight's `rgbcw.py` describes an older version of the same idea (full hue down
-to s = 0.5, white capped at 128, warm white only); it does not match this firmware/app.
+#ffbc85 picked at 100 % reads the same `r,g,b,c,w` with `dimming 100`.
+
+pywizlight's `rgbcw.py` describes an older version of the same idea (full hue down to s = 0.5, white capped at
+128, warm white only). It does not match this firmware/app: with it the bulb looked more orange, more saturated
+and darker than the app's color.
+
+To measure the app's encoding for another color or bulb model: pick the color in the WiZ app (it accepts hex),
+run `npm run state`, and compare the `r,g,b,c,w` line with what `calibrate` produces for the same color with
+`gamma 1, saturationBoost 1, whiteSaturation 0` (the fixtures in `packages/core/test/color.test.ts` do this).
 
 White channels: routing low-saturation colors to `temp` (or `c`/`w`) gives cleaner whites than the RGB LEDs.
 wiz-pc switches below saturation 0.15 (`temp 4000`), namanb-lab/wiz-sync below 0.12 (`temp 4500`).
