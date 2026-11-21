@@ -13,7 +13,8 @@ npm run check   # build + type-check tests + run tests
 Requires Node.js 22.12+ (24 LTS recommended, see `.nvmrc`). `sharp` downloads a prebuilt native binary
 during `npm install`. If that fails behind a proxy, see the sharp install docs.
 
-After the first `npm install`, commit the generated `package-lock.json`. Then switch CI from `npm install` to `npm ci`.
+`package-lock.json` is committed, and CI installs with `npm ci`. Commit lockfile changes along with any
+dependency change.
 
 ## Scripts (repository root)
 
