@@ -47,7 +47,9 @@ Lessons from the reference study ([REFERENCE_NOTES.md](REFERENCE_NOTES.md)):
 - [ ] Support an optional `signingKey` through an injected HMAC-SHA256 function, since the core can't import
       `node:crypto` (pywizlight)
 - [ ] Time-based smoothing (`1 − e^(−dt/τ)`) so the feel doesn't change with FPS, plus an instant snap on scene
-      cuts (HyperHDR, MihirGupta07/wiz-sync)
+      cuts (HyperHDR, MihirGupta07/wiz-sync). This also fixes a known issue of `colorMode: "dominant"`: when the
+      dominant hue family changes (e.g. red → green), the RGB smoothing fades through a muddy in-between color
+      (brownish yellow) for a few frames. Snap when the hue family changes, or blend in OKLab (wiz-pc)
 - [ ] Dark scenes: below `blackThreshold`, fade to a configurable warm glow or hold the last hue instead of
       showing a noisy hue (ambient-setup, SignalRGB plugin)
 - [x] Take the hue from vivid pixels and the brightness from the plain luminance mean (ambient-setup,

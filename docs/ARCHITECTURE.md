@@ -82,6 +82,8 @@ sets `"types": []` so the compiler enforces this. That's what lets the React Nat
    (red and orange) still blend, and white areas still wash the color out, so a small icon on a white page stays
    white. The previous frame's hue family wins unless another one has 1.3× its votes (`HUE_STICKINESS`), so two
    similar-sized colors don't make the light jump between them. `colorMode: "average"` mixes everything instead.
+   Known issue: when the dominant family does change, `EmaSmoother` blends in RGB, so red → green passes through
+   a muddy brownish yellow for a few frames (fix planned in [ROADMAP.md](ROADMAP.md), time-based smoothing).
 6. **White LEDs for grays.** WiZ bulbs mix RGB white from their red, green and blue LEDs, and it looks
    lavender (a bulb told `rgb(255,254,255)` shows as `#FF00FF` in the WiZ app). Below `whiteSaturation` (0.15,
    after the boost) `calibrate` returns `temp` instead, and `WizLight.setColor` sends `{temp, dimming}`. A color
