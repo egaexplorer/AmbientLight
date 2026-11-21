@@ -209,6 +209,29 @@ export function analyzeFrame(frame: PixelFrame, options: AnalyzeOptions = {}): F
 }
 
 /**
+ * How much the picture changed between two frames: the mean absolute difference of the color channels, 0–255,
+ * over every `step`-th pixel. A hard cut in a video gives a large value, motion within a scene a small one.
+ * Frames of different sizes or channel counts (e.g. from another capturer) can't be compared and give 0.
+ */
+export function frameChange(a: PixelFrame, b: PixelFrame, step = 1): number {
+  if (a.width !== b.width || a.height !== b.height || a.channels !== b.channels) return 0;
+  const [ar, ag, ab] = a.order === "bgr" ? [2, 1, 0] : [0, 1, 2];
+  const [br, bg, bb] = b.order === "bgr" ? [2, 1, 0] : [0, 1, 2];
+  const stride = a.channels * Math.max(1, Math.floor(step));
+  const total = Math.min(a.width * a.height * a.channels, a.data.length, b.data.length);
+  let sum = 0;
+  let n = 0;
+  for (let i = 0; i + 2 < total; i += stride) {
+    sum +=
+      Math.abs(a.data[i + ar]! - b.data[i + br]!) +
+      Math.abs(a.data[i + ag]! - b.data[i + bg]!) +
+      Math.abs(a.data[i + ab]! - b.data[i + bb]!);
+    n += 3;
+  }
+  return n === 0 ? 0 : sum / n;
+}
+
+/**
  * Center bin of the hue family: the window with the most votes (the one around `preferHue` gets a bonus),
  * then moved onto the vote-weighted middle of that window. Several windows can tie, and the first one found
  * may sit to one side of the colors it holds; the shift centers it.

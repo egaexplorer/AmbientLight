@@ -12,10 +12,18 @@ import { CliError, type CliFlags } from "./cli.js";
 
 export const CONFIG_FILE_NAME = "ambientlight.config.json";
 
+/**
+ * Screen capture backend: `"gdi"` is a C# helper that stays running (Windows only, ~30 ms per frame);
+ * `"screenshot-desktop"` starts a new process per frame (~370 ms on Windows) but works on every OS.
+ */
+export type CaptureBackend = "gdi" | "screenshot-desktop";
+export const CAPTURE_BACKENDS: readonly CaptureBackend[] = ["gdi", "screenshot-desktop"];
+
 export interface AppConfig {
   /** Bulb IP addresses (assign them a DHCP reservation in your router). */
   bulbs: string[];
   fps: number;
+  capture: CaptureBackend;
   /** Display id from `ambientlight displays`; undefined = primary display. */
   screen: string | number | undefined;
   /** Size the screenshot is downscaled to before averaging. */
@@ -27,6 +35,8 @@ export interface AppConfig {
   /** "dominant": hue from the strongest hue family on screen; "average": all colors mixed. */
   colorMode: ColorMode;
   minChange: number;
+  /** Mean pixel change (0–255) that counts as a scene cut and is shown at once; 0 = never. */
+  sceneCut: number;
   keepAliveMs: number;
   /** Put the bulbs back the way they were when sync stops. */
   restoreOnExit: boolean;
@@ -42,6 +52,7 @@ export type ConfigFile = Partial<Omit<AppConfig, "screen" | "calibration">> & {
 export const DEFAULT_CONFIG: Readonly<AppConfig> = Object.freeze({
   bulbs: [],
   fps: DEFAULT_SYNC_OPTIONS.fps,
+  capture: process.platform === "win32" ? "gdi" : "screenshot-desktop",
   screen: undefined,
   sampleWidth: 64,
   sampleHeight: 36,
@@ -49,6 +60,7 @@ export const DEFAULT_CONFIG: Readonly<AppConfig> = Object.freeze({
   colorWeighting: DEFAULT_SYNC_OPTIONS.colorWeighting,
   colorMode: DEFAULT_SYNC_OPTIONS.colorMode,
   minChange: DEFAULT_SYNC_OPTIONS.minChange,
+  sceneCut: DEFAULT_SYNC_OPTIONS.sceneCut,
   keepAliveMs: DEFAULT_SYNC_OPTIONS.keepAliveMs,
   restoreOnExit: true,
   calibration: { ...DEFAULT_CALIBRATION },
@@ -58,11 +70,11 @@ type Range = readonly [min: number, max: number, integer?: boolean];
 
 export const COLOR_MODES: readonly ColorMode[] = ["dominant", "average"];
 
-function checkColorMode(name: string, value: unknown, source: string): ColorMode {
-  if (typeof value !== "string" || !(COLOR_MODES as readonly string[]).includes(value)) {
-    throw new CliError(`${source}: "${name}" must be ${COLOR_MODES.map((m) => `"${m}"`).join(" or ")}, got ${JSON.stringify(value)}`);
+function checkChoice<T extends string>(name: string, value: unknown, choices: readonly T[], source: string): T {
+  if (typeof value !== "string" || !(choices as readonly string[]).includes(value)) {
+    throw new CliError(`${source}: "${name}" must be ${choices.map((m) => `"${m}"`).join(" or ")}, got ${JSON.stringify(value)}`);
   }
-  return value as ColorMode;
+  return value as T;
 }
 
 const RANGES = {
@@ -72,6 +84,7 @@ const RANGES = {
   smoothing: [0.01, 1],
   colorWeighting: [0, 1],
   minChange: [0, 255],
+  sceneCut: [0, 255],
   keepAliveMs: [100, 60_000, true],
 } as const satisfies Partial<Record<keyof AppConfig, Range>>;
 
@@ -124,7 +137,10 @@ export function validateConfigFile(value: unknown, source: string): ConfigFile {
         out.screen = raw;
         break;
       case "colorMode":
-        out.colorMode = checkColorMode("colorMode", raw, source);
+        out.colorMode = checkChoice("colorMode", raw, COLOR_MODES, source);
+        break;
+      case "capture":
+        out.capture = checkChoice("capture", raw, CAPTURE_BACKENDS, source);
         break;
       case "restoreOnExit":
         if (typeof raw !== "boolean") throw new CliError(`${source}: "restoreOnExit" must be true or false`);
@@ -202,8 +218,10 @@ export function resolveConfig(file: ConfigFile | undefined, flags: CliFlags): Ap
   if (flags.colorWeighting !== undefined) {
     config.colorWeighting = checkNumber("--color-weighting", flags.colorWeighting, RANGES.colorWeighting, source);
   }
-  if (flags.colorMode !== undefined) config.colorMode = checkColorMode("--color-mode", flags.colorMode, source);
+  if (flags.colorMode !== undefined) config.colorMode = checkChoice("--color-mode", flags.colorMode, COLOR_MODES, source);
+  if (flags.capture !== undefined) config.capture = checkChoice("--capture", flags.capture, CAPTURE_BACKENDS, source);
   if (flags.minChange !== undefined) config.minChange = checkNumber("--min-change", flags.minChange, RANGES.minChange, source);
+  if (flags.sceneCut !== undefined) config.sceneCut = checkNumber("--scene-cut", flags.sceneCut, RANGES.sceneCut, source);
   if (flags.noRestore) config.restoreOnExit = false;
 
   const cal = config.calibration;

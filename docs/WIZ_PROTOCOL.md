@@ -82,8 +82,18 @@ Broadcast `getPilot` and collect the replies: each bulb answers from its own IP.
 
 ## Practical limits
 
-- **Update rate:** about 5–15 `setPilot` per second per bulb. Faster than that, bulbs lag or drop updates.
-  `SyncEngine` defaults to 10 FPS, skips tiny changes (`minChange`), and never queues stale frames.
+- **Update rate:** the user's `ESP25_SHRGB_01` (firmware 1.38.0) follows **20 frames per second** smoothly
+  (measured 2026-11-21: `sync -v --fps 20` held 20.0 FPS for about 23 minutes and felt good).
+  `minChange` meant only 14 % of those frames were sent, so the bulb received about 3 `setPilot` per second on
+  average, and up to 20 per second during fast changes. 20 is now the default and `RECOMMENDED_MAX_FPS`; the CLI
+  warns above it, because faster rates are untested. The project guide's older "5–15 per second" was not a
+  measurement. The references send 10/s (namanb-lab), 15/s (MihirGupta07, wiz-pc), about 33/s (ambient-setup's
+  gaming preset) and up to 50 Hz (HyperHDR), and none of them measured a limit. `SyncEngine` skips tiny changes
+  (`minChange`) and never queues stale frames.
+- **No faster-apply parameter:** nothing in `setPilot` makes the bulb change color sooner. `speed` only applies to
+  scenes, and the bulb fades by itself only for the `pulse` method. `getUserConfig` reports `fadeIn`/`fadeOut`
+  (ms) in pywizlight's test data; no reference changes them, and what they control is undocumented (probably
+  power on/off). Don't write them with `setUserConfig` without measuring: it changes the bulb's stored settings.
 - **Lost packets:** `setPilot` is fire-and-forget. The engine re-sends the current color every
   `keepAliveMs` (2 s), so a dropped packet self-heals.
 - **Black:** the core never sends all-zero RGB. Dark scenes keep a hue and drop to `minDimming`

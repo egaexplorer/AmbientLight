@@ -67,12 +67,46 @@ Several design decisions in [ARCHITECTURE.md](ARCHITECTURE.md) match what the mo
 | 7 | Letterbox detection with a 3-line probe plus a stability counter. | new `color/letterbox.ts`, `average.ts` | HyperHDR, hyperion.ng, ambient-setup |
 | 8 | Discovery: also broadcast `registration`; save bulbs by MAC and re-resolve the IP. | `wiz/discovery.ts`, `pc-cli` config | MihirGupta07, wiz-pc, SignalRGB, ambient-setup, HyperHDR |
 | 9 | Retransmit `getPilot` once after ~400 ms; clamp dimming to the bulb's `minDimLevel`. | `wiz/light.ts` | homebridge-wiz-lan, pywizlight |
-| 10 | Faster PC capture: `node-screenshots` now; reuse the last frame when the screen didn't change. | `apps/pc-cli/src/capture.ts` | node-screenshots, Prismatik |
+| 10 | Faster PC capture. Done with a GDI helper that stays running (`"capture": "gdi"`, 367 → 32 ms per frame); later DXGI with a GPU downscale, and reusing the last frame when the screen didn't change. | `apps/pc-cli/src/gdi-capture.ts` | node-screenshots, Prismatik, HyperHDR |
 | 11 | An `identify` command that flashes one bulb. | `pc-cli` `commands.ts` | ambient-setup, HyperHDR, namanb-lab |
 | 12 | Presets (ambient / movie / gaming / relax) as bundles of existing options. | `pc-cli` config | ambient-setup |
 | 13 | Android capture: tiny `VirtualDisplay`, `acquireLatestImage`, rotation and Android 14 rules. | `apps/android` (Phase 4) | namanb-lab, hyperion-android-reborn |
 
 The per-repository sections below explain each lesson.
+
+## Latency study (2026-11-21)
+
+Where the references lose or save time between a change on screen and the bulb, and what AmbientLight took from it
+(measurements in [ARCHITECTURE.md](ARCHITECTURE.md#latency-budget)):
+
+- **No bulb setting speeds up a color change.** `speed` only applies to scenes (pywizlight, homebridge-wiz-lan and
+  wikari all drop it for colors). `fadeIn`/`fadeOut` appear only in pywizlight's fake `getUserConfig` replies, and
+  no reference writes them. The bulb fades by itself only for the `pulse` method.
+- **Send rates.** Nobody measured a WiZ limit:
+
+  | Reference | Rate |
+  | --- | --- |
+  | namanb-lab | about 10/s |
+  | MihirGupta07 | 15/s |
+  | wiz-pc | 20 Hz budget per bulb, but its 30 Hz tick makes it 15/s in practice |
+  | ambient-setup gaming preset | about 33/s |
+  | HyperHDR | 50 Hz while colors move |
+
+  The user's `ESP25_SHRGB_01` keeps up at 20 FPS, which is now AmbientLight's default
+  ([WIZ_PROTOCOL.md](WIZ_PROTOCOL.md#practical-limits)).
+- **Waiting for replies is what makes some apps slow** (wiz-led-nodejs through wikari: one request at a time plus a
+  300 ms pause). Everyone fast sends fire-and-forget on one persistent socket, as `WizLight.setPilot` does.
+- **Smoothing that reaches its target in fixed time.** hyperion.ng's linear smoothing finishes a change in 150 ms.
+  HyperHDR's stepper is 94 % done after 100 ms. Its exponential smoother (τ 150 ms) speeds up small leftover
+  differences. AmbientLight kept the EMA, raised the default to 0.7 (τ ≈ 83 ms), and added the scene-cut snap below.
+- **Scene cuts snap.** MihirGupta07/wiz-sync shows color and brightness at once when the mean pixel change
+  exceeds 40 (frames subsampled from up to 640×360), and otherwise glides with a 0.25 s half-life. AmbientLight's
+  `sceneCut` (default 40) applies the same rule to its 64×36 frames, next to the 60° hue-jump rule.
+- **Capture.** Every Windows grabber in the references either keeps its capture objects alive between frames
+  (Lightpack's GDI grabber allocates once per screen layout) or uses DXGI Desktop Duplication with a GPU mip-chain
+  downscale (HyperHDR, Lightpack, hyperion.ng). None starts a process per frame as `screenshot-desktop` does.
+- **Timers.** hyperion.ng and HyperHDR use precise timers; no reference uses `timeBeginPeriod`. Node's timers on
+  Windows fire late by up to ~16 ms, which is why `SyncEngine` now sleeps to fixed frame times.
 
 ---
 
@@ -157,7 +191,8 @@ Techniques:
 - Restores the bulbs to warm white (`temp 2700, dimming 80`) on stop. AmbientLight's `pilotToRestoreParams`
   (restore the exact previous state) is better.
 
-Applies to AmbientLight: lessons 2, 5 and 8. The scene-cut snap is the main idea for `SyncEngine`.
+Applies to AmbientLight: lessons 2, 5 and 8. The scene-cut snap is the main idea for `SyncEngine`; it is now
+`sceneCut` (mean pixel change ≥ 40 resets the smoothers).
 Later: the audio mode in ROADMAP "Later ideas".
 
 ---
@@ -278,7 +313,7 @@ Fork of Hyperion.ng with a native WiZ driver since v22 (`sources/led-drivers/net
   row, ignores up to 10 inconsistent frames, falls back to "unknown" after 600, and adds a 1-pixel margin.
 
 Applies to AmbientLight: lessons 2 and 7, and multi-zone mapping (ROADMAP "Later ideas"). For our frame rates
-(5–15 FPS) the frame counts should become times (e.g. switch after ~2 s stable).
+(10–20 FPS) the frame counts should become times (e.g. switch after ~2 s stable).
 
 Skip: the fixed `dimming` with brightness carried in `r,g,b`, as explained in "What AmbientLight already does right".
 
@@ -306,7 +341,7 @@ The original ambient-light engine.
   dark (the same problem as lesson 3).
 
 Applies to AmbientLight: once `SyncEngine` has a time-based smoother, sending at a steady rate while capture is
-slow (screenshot-desktop runs at 5–10 FPS) lets the bulb fade smoothly instead of stepping. A `delayMs` option
+slow (screenshot-desktop managed ~2.7 FPS; the GDI helper now holds 20) lets the bulb fade smoothly instead of stepping. A `delayMs` option
 could line the light up with a TV's input lag.
 
 ### psieg/Lightpack: Prismatik (C++/Qt, GPL-3.0)
@@ -359,9 +394,24 @@ Native screenshots built on the XCap crate, prebuilt for Windows (x64, x86, arm6
 `Monitor.all()` lists displays with id, name, bounds, rotation, scale factor, refresh rate and primary flag;
 `monitor.captureImage()` returns an `Image` with `toRaw()` (RGBA), crop, and PNG/JPEG/BMP encoders.
 
-Applies to AmbientLight: lesson 10. A `NodeScreenshotsCapturer` behind `ScreenCapturer` avoids
-`screenshot-desktop`'s process-per-frame and JPEG round trip: capture → `toRaw()` → `sharp` resize from raw RGBA
-(or our own box downscale). It can replace `listDisplays()` too. Measure it in Phase 3 before switching.
+Details checked on 2026-11-21 (version 0.2.8, `xcap` 0.4.1):
+
+- **Windows capture is plain GDI.** XCap's monitor capture does `GetWindowDC` → `BitBlt` → `GetDIBits` and creates
+  the DCs and bitmap again on every call. Its DXGI `VideoRecorder` isn't exposed by node-screenshots.
+- `captureImage()` runs in the libuv thread pool. `toRaw()` copies the full RGBA frame twice and `toRawSync()`
+  once (8 MB at 1080p). The alpha byte is only forced to 255 on Windows before 8.
+- `id()` is the HMONITOR handle, which changes when displays are reconfigured, and `name()` is the monitor's
+  friendly model name. Neither is `\\.\DISPLAYn`, so screenshot-desktop display ids would have to be matched by
+  position and size.
+- XCap never sets DPI awareness, so in a DPI-unaware `node.exe` on a scaled display (the user's PC runs 125 %) it
+  may capture the wrong area.
+- The `LICENSE` file is MIT (napi-rs template), but `package.json` says Apache-2.0.
+
+Applies to AmbientLight: lesson 10, but it wasn't used. The same GDI copy in our own helper that stays running
+(`apps/pc-cli/native/gdi-capture.cs`) declares DPI awareness, shrinks the frame before it reaches Node, keeps
+screenshot-desktop's display ids, and adds no dependency (ARCHITECTURE.md, design decision 12). Don't pass a GDI
+capture with alpha 0 to `sharp().resize()`: sharp premultiplies alpha before resizing and only removes it
+afterwards, so the frame turns black.
 
 ### evanwhitt/hyperion-android-reborn (Java, MIT)
 

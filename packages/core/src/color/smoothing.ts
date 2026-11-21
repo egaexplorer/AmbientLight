@@ -1,7 +1,7 @@
 import { clamp01 } from "./convert.js";
 import type { Rgb, WizColor } from "./types.js";
 
-/** `alpha` is defined per this many milliseconds: one frame at the default 10 FPS. */
+/** `alpha` is defined per this many milliseconds (one frame at 10 FPS). */
 const ALPHA_PERIOD_MS = 100;
 
 /**

@@ -12,6 +12,7 @@ import {
 } from "@ambientlight/core";
 import { CliError, type CliFlags } from "./cli.js";
 import type { AppConfig } from "./config.js";
+import { GdiCapturer } from "./gdi-capture.js";
 import { colorSwatch, errorMessage, formatColor, formatPilot, StatusLine, swatch } from "./log.js";
 import { broadcastAddresses } from "./network.js";
 import { createNodeUdpSocket } from "./udp.js";
@@ -35,13 +36,14 @@ function syncOptions(config: AppConfig): Partial<SyncOptions> {
     colorWeighting: config.colorWeighting,
     colorMode: config.colorMode,
     minChange: config.minChange,
+    sceneCut: config.sceneCut,
     keepAliveMs: config.keepAliveMs,
     calibration: config.calibration,
   };
 }
 
 /**
- * Capture pulls in native modules (sharp) — load it only for commands that capture,
+ * The screenshot-desktop backend pulls in native modules (sharp) — load it only for commands that use it,
  * so `discover` and `color` still work if the capture stack fails to install.
  */
 async function loadCapture(): Promise<typeof import("./capture.js")> {
@@ -52,6 +54,18 @@ async function loadCapture(): Promise<typeof import("./capture.js")> {
       `Screen capture is unavailable: ${errorMessage(error)}\nTry "npm install" again (sharp downloads a native binary for your platform).`,
     );
   }
+}
+
+async function createCapturer(config: AppConfig): Promise<ScreenCapturer> {
+  const options = { screen: config.screen, width: config.sampleWidth, height: config.sampleHeight };
+  if (config.capture === "gdi") {
+    if (process.platform !== "win32") {
+      throw new CliError('"capture": "gdi" only works on Windows. Use "screenshot-desktop" (--capture screenshot-desktop).');
+    }
+    return new GdiCapturer(options);
+  }
+  const { DesktopCapturer } = await loadCapture();
+  return new DesktopCapturer(options);
 }
 
 function waitForShutdown(): Promise<string> {
@@ -145,14 +159,9 @@ export async function runColor(config: AppConfig, flags: CliFlags): Promise<numb
 
 export async function runSync(config: AppConfig, options: { once: boolean; verbose: boolean }): Promise<number> {
   requireBulbs(config);
-  const { DesktopCapturer } = await loadCapture();
+  const capturer = await createCapturer(config);
   const socket = await createNodeUdpSocket();
   const lights = config.bulbs.map((ip) => new WizLight(ip, socket));
-  const capturer: ScreenCapturer = new DesktopCapturer({
-    screen: config.screen,
-    width: config.sampleWidth,
-    height: config.sampleHeight,
-  });
 
   try {
     if (options.once) {
@@ -180,7 +189,7 @@ export async function runSync(config: AppConfig, options: { once: boolean; verbo
 
     // Phase 2: continuous sync.
     if (config.fps > RECOMMENDED_MAX_FPS) {
-      console.warn(`Warning: ${config.fps} FPS is above what WiZ bulbs handle well (~${RECOMMENDED_MAX_FPS}); expect lag or dropped updates.`);
+      console.warn(`Warning: ${config.fps} FPS is above the ${RECOMMENDED_MAX_FPS} FPS measured to work on a WiZ bulb; expect lag or dropped updates.`);
     }
 
     const saved: Array<{ light: WizLight; params: SetPilotParams }> = [];
@@ -203,7 +212,9 @@ export async function runSync(config: AppConfig, options: { once: boolean; verbo
     });
 
     const display = config.screen === undefined ? "primary display" : `display ${String(config.screen)}`;
-    console.log(`Syncing ${display} -> ${config.bulbs.join(", ")} at ${engine.options.fps} FPS. Press Ctrl+C to stop.`);
+    console.log(
+      `Syncing ${display} -> ${config.bulbs.join(", ")} at ${engine.options.fps} FPS (capture: ${config.capture}). Press Ctrl+C to stop.`,
+    );
     engine.start();
 
     await waitForShutdown();

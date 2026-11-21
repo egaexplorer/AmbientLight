@@ -83,6 +83,24 @@ describe("config", () => {
     assert.throws(() => resolveConfig(undefined, parseCommandLine(["sync", "--color-mode", "x"]).flags), /--color-mode/);
   });
 
+  it("reads capture from the file and --capture, and rejects unknown backends", () => {
+    const expected = process.platform === "win32" ? "gdi" : "screenshot-desktop";
+    assert.equal(resolveConfig(undefined, parseCommandLine(["sync"]).flags).capture, expected);
+    const file = validateConfigFile({ capture: "screenshot-desktop" }, "test");
+    assert.equal(resolveConfig(file, parseCommandLine(["sync"]).flags).capture, "screenshot-desktop");
+    assert.equal(resolveConfig(file, parseCommandLine(["sync", "--capture", "gdi"]).flags).capture, "gdi");
+    assert.throws(() => validateConfigFile({ capture: "dxgi" }, "test"), /"gdi" or "screenshot-desktop"/);
+    assert.throws(() => resolveConfig(undefined, parseCommandLine(["sync", "--capture", "x"]).flags), /--capture/);
+  });
+
+  it("reads sceneCut from the file and --scene-cut, within 0-255", () => {
+    assert.equal(resolveConfig(undefined, parseCommandLine(["sync"]).flags).sceneCut, 40);
+    const file = validateConfigFile({ sceneCut: 0 }, "test");
+    assert.equal(resolveConfig(file, parseCommandLine(["sync"]).flags).sceneCut, 0);
+    assert.equal(resolveConfig(file, parseCommandLine(["sync", "--scene-cut", "25"]).flags).sceneCut, 25);
+    assert.throws(() => validateConfigFile({ sceneCut: 300 }, "test"), /between 0 and 255/);
+  });
+
   it("reads paleWhite from the file and --pale-white, within 0-255", () => {
     assert.equal(resolveConfig(undefined, parseCommandLine(["sync"]).flags).calibration.paleWhite, 140);
     const file = validateConfigFile({ calibration: { paleWhite: 0 } }, "test");

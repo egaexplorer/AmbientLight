@@ -78,7 +78,8 @@ export class StatusLine {
 
     const line =
       `${colorSwatch(report.output, this.paleWhite)}${formatColor(report.output, this.paleWhite)}` +
-      `  | capture ${report.captureMs.toFixed(0)} ms | ${this.fps > 0 ? this.fps.toFixed(1) : "--"} fps | sent ${this.sent}/${this.frames}`;
+      `  | capture ${report.captureMs.toFixed(0)} ms | ${this.fps > 0 ? this.fps.toFixed(1) : "--"} fps | sent ${this.sent}/${this.frames}` +
+      (report.cut ? " | cut" : "");
 
     if (this.verbose) {
       console.log(line);

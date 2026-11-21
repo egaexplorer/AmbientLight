@@ -6,6 +6,7 @@ import {
   calibrate,
   colorDistance,
   EmaSmoother,
+  frameChange,
   hsvToRgb,
   paleColdShare,
   previewRgb,
@@ -82,6 +83,30 @@ describe("averageColor", () => {
 
   it("rejects a buffer that is smaller than width × height × channels", () => {
     assert.throws(() => averageColor({ data: new Uint8Array(5), width: 2, height: 1, channels: 3 }), RangeError);
+  });
+});
+
+describe("frameChange", () => {
+  it("is 0 for identical frames and 255 between black and white", () => {
+    assert.equal(frameChange(solidFrame(10, 20, 30), solidFrame(10, 20, 30)), 0);
+    assert.equal(frameChange(solidFrame(0, 0, 0), solidFrame(255, 255, 255)), 255);
+  });
+
+  it("averages over the color channels and ignores the 4th byte of BGRA frames", () => {
+    const bgra = (b: number, g: number, r: number, x: number): PixelFrame => ({
+      data: Uint8Array.of(b, g, r, x, b, g, r, x),
+      width: 2,
+      height: 1,
+      channels: 4,
+      order: "bgr",
+    });
+    assert.equal(frameChange(bgra(0, 0, 90, 0), bgra(0, 0, 0, 255)), 30, "only red changed: 90 / 3 channels");
+    const rgb: PixelFrame = { data: Uint8Array.of(90, 0, 0, 0, 90, 0, 0, 0), width: 2, height: 1, channels: 4 };
+    assert.equal(frameChange(rgb, bgra(0, 0, 90, 0)), 0, "same colors in a different byte order");
+  });
+
+  it("gives 0 for frames of different sizes", () => {
+    assert.equal(frameChange(solidFrame(0, 0, 0, 4, 2), solidFrame(255, 255, 255, 2, 2)), 0);
   });
 });
 

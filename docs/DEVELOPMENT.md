@@ -10,8 +10,14 @@ npm install
 npm run check   # build + type-check tests + run tests
 ```
 
-Requires Node.js 22.12+ (24 LTS recommended, see `.nvmrc`). `sharp` downloads a prebuilt native binary
-during `npm install`. If that fails behind a proxy, see the sharp install docs.
+Requires Node.js 22.12+ (24 LTS recommended, see `.nvmrc`). `sharp` (used by the `screenshot-desktop` capture
+fallback) downloads a prebuilt native binary during `npm install`. If that fails behind a proxy, see the sharp
+install docs. The default Windows capture needs no npm package: its helper is compiled on first use with the
+`csc.exe` that ships with Windows.
+
+To time capture on your machine, run `npm run sync -- -v` (each line shows `capture N ms`), or put a few
+`await capturer.capture()` calls of `GdiCapturer` / `DesktopCapturer` in a scratch `.mts` script and run it with
+`npx tsx --conditions=development`.
 
 `package-lock.json` is committed, and CI installs with `npm ci`. Commit lockfile changes along with any
 dependency change.
@@ -57,6 +63,8 @@ To run the compiled CLI instead: `npm run build`, then `node apps/pc-cli/dist/ma
   (in-memory UDP with scripted replies), `FakeCapturer`, `FakeClock`, `RecordingSink`, `solidFrame`.
 - Tests need no bulb, screen, or network.
 - Run a single file: `npx tsx --conditions=development --test packages/core/test/color.test.ts`.
+- The GDI capture helper needs a real screen, so tests cover only its byte-stream handling (`FrameAssembler`).
+  After changing `native/gdi-capture.cs` or `gdi-capture.ts`, check capture time and colors by hand with `sync -v`.
 
 ## Trying it without a bulb
 
@@ -81,6 +89,8 @@ s.bind(38899, "127.0.0.1");
 | --- | --- |
 | `discover` finds nothing | Allow Node.js through Windows Defender Firewall (Private). Make sure the PC and bulb share a subnet (guest Wi‑Fi and mesh "IoT" networks often isolate devices). Turn on "Allow local communication" in the WiZ app. |
 | `color` works but `sync` says the state can't be read | Same firewall issue (inbound replies are blocked). Sync still works; only restore-on-exit is skipped. |
-| First `once`/`sync` on Windows is slow | `screenshot-desktop` compiles its helper on first use. Later frames are faster. |
-| `Screen capture is unavailable` | Re-run `npm install` so `sharp` fetches its native binary for your platform. |
-| Low FPS in `sync -v` | Capture time is the limit. See Phase 3 in `ROADMAP.md` for faster backends. |
+| First `once`/`sync` on Windows takes ~0.3 s longer | The `"gdi"` capture compiles its helper (`apps/pc-cli/native/gdi-capture.cs`) into `%LOCALAPPDATA%\AmbientLight\gdi-capture-<hash>.exe` on first use. Later runs reuse it; changing the source builds a new one. Delete the folder to force a rebuild. |
+| `Couldn't compile the screen capture helper` / `Can't find the C# compiler` | The `"gdi"` capture needs `%WINDIR%\Microsoft.NET\Framework64\v4.0.30319\csc.exe` (part of Windows 10/11). Use `--capture screenshot-desktop` meanwhile. |
+| `Screen capture is unavailable` | Only the `screenshot-desktop` fallback uses `sharp`. Re-run `npm install` so it fetches its native binary for your platform. |
+| Low FPS in `sync -v` | Capture time is the limit. With `"capture": "gdi"` it is ~20–35 ms; `screenshot-desktop` takes ~370 ms per frame on Windows (it compiles its helper on every frame). |
+| `'screenCapture_1.3.3.bat' is not recognized` (screenshot-desktop) | The environment variable `NoDefaultCurrentDirectoryInExePath` is set (some agent and CI shells set it), so `cmd.exe` won't run the `.bat` that screenshot-desktop starts by bare name from its folder. Unset it for that command, or use the `"gdi"` capture, which starts its helper by full path. |

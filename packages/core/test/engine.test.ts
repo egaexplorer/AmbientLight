@@ -1,6 +1,13 @@
 import assert from "node:assert/strict";
 import { describe, it } from "node:test";
-import { type ColorSink, type PixelFrame, SyncEngine, type SyncOptions, type WizColor } from "../src/index.js";
+import {
+  type ColorSink,
+  type FrameReport,
+  type PixelFrame,
+  SyncEngine,
+  type SyncOptions,
+  type WizColor,
+} from "../src/index.js";
 import { FakeCapturer, FakeClock, RecordingSink, solidFrame } from "./helpers.js";
 
 describe("SyncEngine", () => {
@@ -57,19 +64,28 @@ describe("SyncEngine", () => {
     assert.deepEqual(red.output, { r: 255, g: 0, b: 0, c: 0, w: 0, dimming: 100 });
   });
 
-  /** Output of the last frame when red is followed by `next`, ticking at the given times (ms). */
-  const fadeFromRed = async (next: PixelFrame, times: number[], smoothing = 0.5): Promise<WizColor> => {
+  /** Report of the last frame when `first` is followed by `next`, ticking at the given times (ms). */
+  const fade = async (
+    first: PixelFrame,
+    next: PixelFrame,
+    times: number[],
+    options: Partial<SyncOptions>,
+  ): Promise<FrameReport> => {
     const clock = new FakeClock();
-    const options = { smoothing, calibration: { saturationBoost: 1, gamma: 1 } };
-    const engine = new SyncEngine(new FakeCapturer(solidFrame(255, 0, 0), next), [], options, {}, clock);
-    let output: WizColor | undefined;
+    const merged = { calibration: { saturationBoost: 1, gamma: 1 }, ...options };
+    const engine = new SyncEngine(new FakeCapturer(first, next), [], merged, {}, clock);
+    let report: FrameReport | undefined;
     for (const time of times) {
       clock.time = time;
-      output = (await engine.tick()).output;
+      report = await engine.tick();
     }
-    assert.ok(output);
-    return output;
+    assert.ok(report);
+    return report;
   };
+
+  /** Output after red → `next`, with scene-cut detection off so only the hue rule can snap. */
+  const fadeFromRed = async (next: PixelFrame, times: number[], smoothing = 0.5): Promise<WizColor> =>
+    (await fade(solidFrame(255, 0, 0), next, times, { smoothing, sceneCut: 0 })).output;
 
   it("smooths a small hue change over time, the same at any frame rate", async () => {
     const orange = solidFrame(255, 128, 0);
@@ -82,6 +98,27 @@ describe("SyncEngine", () => {
   it("snaps instead of fading through a muddy color when the dominant hue jumps", async () => {
     const green = solidFrame(0, 255, 0);
     assert.deepEqual(await fadeFromRed(green, [0, 100]), await fadeFromRed(green, [0, 100], 1));
+  });
+
+  it("shows a scene cut at once, brightness included", async () => {
+    const white = solidFrame(255, 255, 255);
+    const dark = solidFrame(40, 40, 40);
+    const cut = await fade(white, dark, [0, 100], { smoothing: 0.5 });
+    assert.equal(cut.cut, true);
+    assert.deepEqual(cut.output, (await fade(white, dark, [0, 100], { smoothing: 1 })).output);
+
+    const off = await fade(white, dark, [0, 100], { smoothing: 0.5, sceneCut: 0 });
+    assert.equal(off.cut, false);
+    assert.ok(off.output.dimming > cut.output.dimming, "sceneCut 0 fades the brightness instead");
+  });
+
+  it("still fades a change smaller than sceneCut", async () => {
+    const before = solidFrame(40, 40, 40);
+    const after = solidFrame(75, 75, 75);
+    const faded = await fade(before, after, [0, 100], { smoothing: 0.5 });
+    const target = await fade(before, after, [0, 100], { smoothing: 1 });
+    assert.equal(faded.cut, false);
+    assert.ok(faded.output.dimming < target.output.dimming, `partway, got ${faded.output.dimming}`);
   });
 
   it("shows the dominant color of a multi-color screen and holds it on a near tie", async () => {

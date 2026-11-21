@@ -8,6 +8,7 @@ export {
   averageColor,
   type ColorMode,
   type FrameColors,
+  frameChange,
   HUE_STICKINESS,
 } from "./color/average.js";
 export {

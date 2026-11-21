@@ -1,13 +1,14 @@
 {
   "bulbs": ["192.168.1.50"],
-  "fps": 10,
+  "fps": 20,
   "screen": null,
   "sampleWidth": 64,
   "sampleHeight": 36,
-  "smoothing": 0.5,
+  "smoothing": 0.7,
   "colorWeighting": 0.6,
   "colorMode": "dominant",
   "minChange": 4,
+  "sceneCut": 40,
   "keepAliveMs": 2000,
   "restoreOnExit": true,
   "calibration": {

@@ -33,7 +33,7 @@ export interface Hsv {
 
 /**
  * A captured (usually downscaled) frame of packed 8-bit pixels in row-major order.
- * Platform capture adapters (screenshot-desktop + sharp, Electron desktopCapturer,
+ * Platform capture adapters (the Windows GDI helper, screenshot-desktop + sharp, Electron desktopCapturer,
  * Android MediaProjection) all convert their output to this shape.
  */
 export interface PixelFrame {

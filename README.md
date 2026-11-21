@@ -6,7 +6,7 @@ over your local network (UDP port 38899). It doesn't need a cloud service or ext
 
 ```text
 Capture screen  ->  Downscale + average color  ->  Calibrate + smooth  ->  UDP setPilot  ->  WiZ bulb
-   (5-15 times per second)
+   (20 times per second)
 ```
 
 **Status:** Phases 1–2 work end to end in the PC command-line app (capture, average, calibrate,
@@ -18,7 +18,7 @@ smooth, throttle, send, restore on exit). Phase 3 (calibrating on real hardware)
 ```text
 packages/core     Shared TypeScript: WiZ UDP protocol, color pipeline, sync engine.
                   No Node.js APIs, so the React Native app can reuse it unchanged.
-apps/pc-cli       Node.js CLI: screenshot-desktop + sharp capture, node:dgram UDP.
+apps/pc-cli       Node.js CLI: GDI capture helper (screenshot-desktop + sharp as fallback), node:dgram UDP.
 apps/desktop      Phase 4: Electron app (planned)
 apps/android      Phase 4: React Native + Kotlin MediaProjection (planned)
 docs/             Architecture, WiZ protocol notes, roadmap, development guide
@@ -26,7 +26,9 @@ docs/             Architecture, WiZ protocol notes, roadmap, development guide
 
 ## Requirements
 
-- **Windows 10/11** (macOS and Linux work too; Linux needs ImageMagick for screen capture).
+- **Windows 10/11** (macOS and Linux work too with `"capture": "screenshot-desktop"`; Linux needs ImageMagick).
+  On Windows, the first `once`/`sync` builds a small capture helper with the C# compiler that ships with Windows
+  (.NET Framework 4); later runs reuse it.
 - **Node.js 22.12 or newer.** Node 24 LTS is recommended.
 - **A Philips WiZ bulb** set up in the official WiZ app, on the **same Wi‑Fi/subnet** as the PC.
 - In the WiZ app, turn on **Settings → Security → Allow local communication**, and turn **off "Only verified controls"**
@@ -84,10 +86,12 @@ Command-line flags override it.
 | Key | Default | Meaning |
 | --- | --- | --- |
 | `bulbs` | `[]` | Bulb IPs. Several bulbs all show the same color. |
-| `fps` | `10` | Updates per second. WiZ bulbs handle about 5–15. |
-| `screen` | `null` | Display id from `npm run displays`; `null` means the primary display. |
+| `fps` | `20` | Updates per second. A WiZ bulb (`ESP25_SHRGB_01`) followed 20 smoothly; above 20 the CLI warns, because faster rates are untested. Lower it if the light lags or skips colors. |
+| `capture` | `"gdi"` on Windows | `"gdi"`: a small helper that stays running, copies the screen with GDI and shrinks it itself (~30 ms per frame at 1080p). `"screenshot-desktop"`: the fallback, and the default on macOS/Linux. On Windows it starts and compiles a helper and encodes a JPEG for every frame (~370 ms, ~690 ms with `screen` set), so it manages only about 2–3 FPS. |
+| `screen` | `null` | Display id from `npm run displays` (e.g. `"\\\\.\\DISPLAY2"`); `null` means the primary display. Works with both `capture` backends. |
 | `sampleWidth` / `sampleHeight` | `64` / `36` | Size the screenshot is shrunk to before averaging. |
-| `smoothing` | `0.5` | Share of the way to a new color the light covers in 100 ms (0–1), the same at any `fps`. Lower is calmer, higher reacts faster, `1` turns smoothing off. A jump to a far-away hue (e.g. red → green) is shown at once instead of fading through a muddy in-between color. |
+| `smoothing` | `0.7` | Share of the way to a new color the light covers in 100 ms (0–1), the same at any `fps`: 0.7 shows 90 % of a change after about 190 ms. Lower is calmer, higher reacts faster, `1` turns smoothing off. Scene cuts (`sceneCut`) and jumps to a far-away hue (e.g. red → green) are shown at once instead. |
+| `sceneCut` | `40` | When the picture changes by at least this much in one frame (mean change per color channel, 0–255), it's a scene cut: the new color and brightness are shown at once instead of faded. `sync -v` marks such frames with `cut`. `0` turns it off. |
 | `colorWeighting` | `0.6` | How much bright, colorful areas outweigh gray ones when picking the hue (0 = plain average). Brightness always follows the whole screen. |
 | `colorMode` | `"dominant"` | `"dominant"`: the bulb shows the strongest color on screen (by area and vividness), so red and green never mix into an orange that isn't there. `"average"`: all colors are mixed. |
 | `minChange` | `4` | Changes smaller than this (0–255 scale) aren't sent, which avoids flooding the bulb. |
@@ -115,8 +119,12 @@ Command-line flags override it.
   `npm run once` prints what was sent and what the bulb reports back.
 - **White pages give a purple or pink light:** keep `whiteSaturation` above 0 so white uses the white LEDs; change
   `whiteTemp` (e.g. 2700 for warm, 6500 for cool) to taste.
-- **Flicker or nervous light:** lower `smoothing` (0.3) or raise `minChange` (6–8).
-- **Light lags behind the picture:** raise `smoothing` (0.7–1.0) and check that the `capture` time shown by `sync -v` is well under 1000/fps ms.
+- **Flicker or nervous light:** lower `smoothing` (0.4–0.5), raise `minChange` (6–8), or raise `sceneCut` (60) if
+  `sync -v` shows `cut` on frames that aren't real cuts.
+- **Light lags behind the picture:** check the `capture` time in `sync -v`. About 20–35 ms is normal for
+  `"capture": "gdi"`; several hundred ms means the slow `screenshot-desktop` fallback is in use. Then raise
+  `smoothing` (0.85–1.0), or lower `sceneCut` (25–30) so more cuts snap. If the bulb itself falls behind or
+  skips colors, lower `fps` (15).
 - **Dark movie scenes too bright:** set `brightnessGamma` to 1.5 and keep `minDimming` at 10.
 
 ## Development

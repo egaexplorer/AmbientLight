@@ -1,13 +1,16 @@
-import { analyzeFrame, type ColorMode } from "../color/average.js";
+import { analyzeFrame, type ColorMode, frameChange } from "../color/average.js";
 import { type CalibrationOptions, calibrate } from "../color/calibration.js";
 import { clamp } from "../color/convert.js";
 import { colorDistance, EmaSmoother } from "../color/smoothing.js";
-import type { Rgb, WizColor } from "../color/types.js";
+import type { PixelFrame, Rgb, WizColor } from "../color/types.js";
 import { type Clock, clearTimer, setTimer, systemClock, type TimerHandle } from "../platform/timers.js";
 import type { ColorSink, ScreenCapturer } from "./types.js";
 
-/** WiZ bulbs start to lag or drop updates above roughly this rate. */
-export const RECOMMENDED_MAX_FPS = 15;
+/**
+ * Highest rate measured to work on a WiZ bulb (ESP25_SHRGB_01, firmware 1.38.0, 2026-11-21: smooth at 20 FPS).
+ * Above it the CLI warns; faster rates are untested.
+ */
+export const RECOMMENDED_MAX_FPS = 20;
 export const MIN_FPS = 1;
 export const MAX_FPS = 30;
 
@@ -18,15 +21,20 @@ export const MAX_FPS = 30;
 const SCENE_CUT_HUE = 60;
 
 export interface SyncOptions {
-  /** Target updates per second (5–15 recommended for WiZ). */
+  /** Target updates per second (up to 20 measured to work on a WiZ bulb). */
   fps: number;
   /**
    * 0–1: share of the way to a new color covered in 100 ms, the same at any FPS. 1 = no smoothing.
-   * A dominant-hue jump of more than 60° (e.g. red → green) is shown at once instead.
+   * Scene cuts (see `sceneCut`) and dominant-hue jumps of more than 60° (e.g. red → green) are shown at once instead.
    */
   smoothing: number;
   /** Skip sending when the color moved less than this (0–255 units; dimming scaled by 2.55). */
   minChange: number;
+  /**
+   * A frame whose pixels changed by at least this much on average (0–255, see `frameChange`) is a scene cut: its
+   * color and brightness are shown at once instead of faded. 0 turns this off.
+   */
+  sceneCut: number;
   /** Re-send the current color at least this often, in case a UDP packet was lost. */
   keepAliveMs: number;
   /** Average every Nth pixel of the captured frame. */
@@ -39,9 +47,10 @@ export interface SyncOptions {
 }
 
 export const DEFAULT_SYNC_OPTIONS: Readonly<SyncOptions> = Object.freeze({
-  fps: 10,
-  smoothing: 0.5,
+  fps: 20,
+  smoothing: 0.7,
   minChange: 4,
+  sceneCut: 40,
   keepAliveMs: 2000,
   sampleStep: 1,
   colorWeighting: 0.6,
@@ -58,6 +67,8 @@ export interface FrameReport {
   output: WizColor;
   /** Whether the color was sent to the bulbs this frame. */
   sent: boolean;
+  /** Whether this frame was a scene cut (or a dominant-hue jump) and skipped smoothing. */
+  cut: boolean;
   captureMs: number;
   totalMs: number;
 }
@@ -84,6 +95,8 @@ export class SyncEngine {
   private white = false;
   /** Dominant hue of the previous frame, so near-ties keep the same color. */
   private hue: number | undefined;
+  /** Copy of the previous frame, to detect scene cuts. */
+  private previous: PixelFrame | undefined;
 
   private isRunning = false;
   private loopPromise: Promise<void> | undefined;
@@ -130,14 +143,14 @@ export class SyncEngine {
       colorMode: this.options.colorMode,
       preferHue: this.hue,
     });
-    if (hue !== undefined && this.hue !== undefined) {
-      const d = Math.abs(hue - this.hue) % 360;
-      if (Math.min(d, 360 - d) > SCENE_CUT_HUE) {
-        this.colorSmoother.reset();
-        this.brightnessSmoother.reset();
-      }
+    const cut = this.isCut(frame, hue);
+    if (cut) {
+      this.colorSmoother.reset();
+      this.brightnessSmoother.reset();
     }
     this.hue = hue;
+    // Copied, because a capturer may reuse its buffer for the next frame.
+    this.previous = { ...frame, data: new Uint8Array(frame.data) };
     const dt = startedAt - this.lastFrameAt;
     this.lastFrameAt = startedAt;
     const output = calibrate(this.colorSmoother.next(color, dt), this.options.calibration, {
@@ -158,7 +171,18 @@ export class SyncEngine {
       this.lastSentAt = now;
     }
 
-    return { average, color, output, sent, captureMs, totalMs: this.clock.now() - startedAt };
+    return { average, color, output, sent, cut, captureMs, totalMs: this.clock.now() - startedAt };
+  }
+
+  /** A scene cut (the picture changed by `sceneCut` or more) or a dominant-hue jump of more than 60°. */
+  private isCut(frame: PixelFrame, hue: number | undefined): boolean {
+    const { sceneCut, sampleStep } = this.options;
+    if (sceneCut > 0 && this.previous !== undefined && frameChange(this.previous, frame, sampleStep) >= sceneCut) {
+      return true;
+    }
+    if (hue === undefined || this.hue === undefined) return false;
+    const d = Math.abs(hue - this.hue) % 360;
+    return Math.min(d, 360 - d) > SCENE_CUT_HUE;
   }
 
   start(): void {
@@ -183,20 +207,25 @@ export class SyncEngine {
     this.brightnessSmoother.reset();
     this.white = false;
     this.hue = undefined;
+    this.previous = undefined;
     this.lastSent = undefined;
     this.lastSentAt = Number.NEGATIVE_INFINITY;
   }
 
   private async run(): Promise<void> {
+    let nextAt = this.clock.now();
     while (this.isRunning) {
-      const startedAt = this.clock.now();
       try {
         this.events.onFrame?.(await this.tick());
       } catch (error) {
         this.events.onError?.(error);
       }
       if (!this.isRunning) break;
-      await this.sleep(this.intervalMs - (this.clock.now() - startedAt));
+      // Aim at fixed frame times, so a timer that fires late (Windows rounds timers up to ~16 ms) shortens the
+      // next wait instead of lowering the frame rate. A frame that overran its slot starts the next one at once,
+      // without a burst to catch up.
+      nextAt = Math.max(nextAt + this.intervalMs, this.clock.now());
+      await this.sleep(nextAt - this.clock.now());
     }
   }
 

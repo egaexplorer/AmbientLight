@@ -11,12 +11,13 @@ export interface DesktopCapturerOptions {
 }
 
 /**
- * Phase 1–3 capture backend: screenshot-desktop grabs the display as JPEG,
- * sharp decodes and downscales it to a tiny raw RGB frame.
+ * Fallback capture backend (`"capture": "screenshot-desktop"`): screenshot-desktop grabs the display as JPEG,
+ * sharp decodes and downscales it to a tiny raw RGB frame. Works on Windows, macOS and Linux.
  *
- * screenshot-desktop spawns a helper process per frame (~50–200 ms on Windows),
- * which caps real throughput around 5–10 FPS. Phase 4 replaces this with
- * Electron's desktopCapturer behind the same ScreenCapturer interface.
+ * Slow on Windows: screenshot-desktop 1.15 writes its C# helper into a new temp folder for every frame, so every
+ * frame starts cmd.exe, compiles the helper, starts it and encodes a full-size JPEG (measured ~370 ms per frame,
+ * ~690 ms with `screen` set, because it also re-lists the displays). The default `"gdi"` backend
+ * (`gdi-capture.ts`) keeps one helper running instead.
  */
 export class DesktopCapturer implements ScreenCapturer {
   private readonly options: DesktopCapturerOptions;

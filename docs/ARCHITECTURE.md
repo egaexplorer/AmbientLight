@@ -9,12 +9,12 @@ a way to **capture the screen** and a way to **send UDP packets**.
 ```mermaid
 flowchart LR
   subgraph Platform adapter
-    CAP[ScreenCapturer<br/>screenshot-desktop + sharp<br/>desktopCapturer / MediaProjection]
+    CAP[ScreenCapturer<br/>GDI helper / screenshot-desktop + sharp<br/>desktopCapturer / MediaProjection]
     UDP[UdpSocket<br/>node:dgram / react-native-udp]
   end
   subgraph "@ambientlight/core"
     AVG[analyzeFrame<br/>linear-light mean +<br/>dominant hue family]
-    EMA[EmaSmoother]
+    EMA[EmaSmoother<br/>reset on scene cuts]
     CAL[calibrate<br/>hue/brightness split,<br/>saturation + gamma,<br/>white LEDs for grays,<br/>hue + w for pale colors]
     GATE{changed ≥ minChange<br/>or keep-alive due?}
     WIZ[WizLight.setColor<br/>setPilot JSON]
@@ -25,7 +25,23 @@ flowchart LR
   GATE -->|no| SKIP[skip]
 ```
 
-`SyncEngine` drives this loop at the configured FPS (default 10; WiZ bulbs handle about 5–15).
+`SyncEngine` drives this loop at the configured FPS (default 20, the rate measured to work on the user's WiZ bulb).
+
+### Latency budget
+
+Measured on the user's PC (Windows 11, one 1920×1080 display at 125 % scaling, 64×36 frames), 2026-11-21:
+
+| Stage | Before | Now |
+| --- | --- | --- |
+| Capture | 367 ms p50 / 408 ms p95 (`screenshot-desktop`), 685 ms with `screen` set | 32 ms p50 / 35 ms p95 (`"capture": "gdi"`); 260 ms once for the first compile + start |
+| Frame rate | ~2.7 FPS at `fps` 10 (capture-bound); 8.8 FPS once capture was fast (timer drift) | 10.0 at `fps` 10; **20.0 at `fps` 20**, now the default (capture 24–41 ms over a ~23-minute run on the real bulb, which kept up) |
+| Smoothing | 90 % of a change after ~330 ms (`smoothing` 0.5); only hue jumps > 60° snapped | ~190 ms (`smoothing` 0.7); scene cuts (`sceneCut`) and hue jumps show at once |
+| Analysis, `setPilot` send | well under 1 ms | unchanged |
+| Wi-Fi + bulb | not measured end to end; `npm run check-bulb` shows the reply time | — |
+
+On average a change on screen waits half a frame interval (25 ms at 20 FPS, 50 ms at 10) before it is captured, plus
+the capture itself. `minChange` keeps the bulb from being flooded: in that ~23-minute run, 14 % of the frames
+(4,081 of 28,344) were sent. No `setPilot` parameter makes the bulb apply a color faster ([WIZ_PROTOCOL.md](WIZ_PROTOCOL.md#practical-limits)).
 
 ## Packages
 
@@ -40,10 +56,10 @@ flowchart LR
 | `wiz/device.ts` | `SystemConfig`/`ModelConfig` types, `bulbKindFromModule` (color, tunable white, dimmable white, plug) |
 | `wiz/check.ts` | `checkBulb`: reachability, model, firmware, signed-firmware detection, test color and restore; shared by the CLI and future apps |
 | `wiz/discovery.ts` | `discoverBulbs`: broadcast `getPilot`, collect replies |
-| `color/average.ts` | `analyzeFrame`: plain mean of a `PixelFrame` in linear light (brightness) plus a vivid-weighted mean of the dominant hue family (hue); `averageColor` returns the plain mean. RGB/RGBA/BGR(A), optional sampling step |
+| `color/average.ts` | `analyzeFrame`: plain mean of a `PixelFrame` in linear light (brightness) plus a vivid-weighted mean of the dominant hue family (hue); `averageColor` returns the plain mean. RGB/RGBA/BGR(A), optional sampling step. `frameChange`: mean absolute channel difference of two frames (scene-cut detection) |
 | `color/calibration.ts` | `calibrate`: turns a screen color into WiZ `{r,g,b,c,w,dimming}` (pale colors as hue + white LEDs), or `{temp,dimming}` for near-gray colors; `previewRgb` shows the color a `WizColor` makes |
 | `color/smoothing.ts` | `EmaSmoother`, `colorDistance` |
-| `sync/engine.ts` | `SyncEngine`: the capture → process → transmit loop |
+| `sync/engine.ts` | `SyncEngine`: the capture → process → transmit loop on fixed frame times; resets the smoothers on scene cuts |
 | `sync/types.ts` | `ScreenCapturer` and `ColorSink` interfaces |
 | `platform/timers.ts` | `setTimeout` and the clock without Node.js or DOM typings |
 
@@ -55,7 +71,9 @@ sets `"types": []` so the compiler enforces this. That's what lets the React Nat
 | File | Responsibility |
 | --- | --- |
 | `udp.ts` | `UdpSocket` over `node:dgram` (ephemeral port, optional broadcast) |
-| `capture.ts` | `DesktopCapturer`: `screenshot-desktop` JPEG → `sharp` resize to 64×36 raw RGB |
+| `gdi-capture.ts` | `GdiCapturer` (`"capture": "gdi"`, the Windows default): compiles `native/gdi-capture.cs` once into `%LOCALAPPDATA%\AmbientLight\gdi-capture-<hash>.exe`, keeps it running, and reads one 64×36 BGRA frame per request over stdin/stdout. `FrameAssembler` splits the byte stream into frames |
+| `native/gdi-capture.cs` | The helper (C# 5, compiled by the `csc.exe` that ships with Windows): per-monitor DPI-aware, `BitBlt` of the display into a bitmap allocated once, `StretchBlt` with `HALFTONE` (area average) down to the frame size. Resends the last frame while the secure desktop (UAC, lock screen) blocks capture |
+| `capture.ts` | `DesktopCapturer` (`"capture": "screenshot-desktop"`, fallback and macOS/Linux): `screenshot-desktop` JPEG → `sharp` resize to 64×36 raw RGB; `listDisplays` for the `displays` command (its ids work for both backends) |
 | `network.ts` | Subnet broadcast addresses for every LAN adapter (reliable discovery on Windows) |
 | `cli.ts` / `config.ts` | Argument parsing, `ambientlight.config.json` loading and validation, defaults ← file ← flags |
 | `commands.ts` | `discover`, `state`, `displays`, `color`, `once` (reads the bulb back after sending), `sync` |
@@ -85,7 +103,11 @@ sets `"types": []` so the compiler enforces this. That's what lets the React Nat
    When the dominant hue does jump more than 60° between frames (`SCENE_CUT_HUE`), `SyncEngine` treats it as a
    scene cut and resets both smoothers, so the new color and brightness show at once. `EmaSmoother` blends in
    RGB, and a fade between hues that far apart passes a muddy color (red → green: olive, shown as brownish
-   yellow); up to 60° it stays vivid (red → yellow passes orange). Frames without a dominant hue never snap.
+   yellow); up to 60° it stays vivid (red → yellow passes orange). A frame whose pixels changed by `sceneCut`
+   (40) or more on average (`frameChange`, 0–255 per channel) is a scene cut too, so hard cuts in brightness
+   (a dark scene cutting to a bright one) or within one hue family snap as well (idea from MihirGupta07/wiz-sync,
+   which snaps above 40). A red → orange change of the whole screen (43) already counts; motion inside a scene
+   stays well below. 40 is a starting point for Phase 3 tuning; `sync -v` marks cut frames.
 6. **White LEDs for grays.** WiZ bulbs mix RGB white from their red, green and blue LEDs, and it looks
    lavender (a bulb told `rgb(255,254,255)` shows as `#FF00FF` in the WiZ app, which reads only the hue from
    `r,g,b` and the paleness from the white LEDs; see decision 7). Below `whiteSaturation` (0.15,
@@ -100,11 +122,13 @@ sets `"types": []` so the compiler enforces this. That's what lets the React Nat
    tinted by the hue (warm for red, cold for blue). `c` and `w` are always sent, 0 for saturated colors, so no
    white lingers from the previous frame. `previewRgb` undoes the encoding for logs. `paleWhite: 0` restores
    the RGB-only mix.
-8. **No backlog, newest frame wins.** The loop handles one frame at a time and waits
-   `interval − elapsed` between frames. If capture is slow, the frame rate drops gracefully instead of
-   queuing stale colors. A bulb that is behind is never flooded. Smoothing is time-based: `EmaSmoother` scales
-   each step by the time since the previous frame (`smoothing` is the share covered per 100 ms), so a slow
-   capture or another `fps` doesn't change how fast the light follows.
+8. **No backlog, newest frame wins.** The loop handles one frame at a time and sleeps until the next fixed frame
+   time (`start + n × interval`). Windows rounds timers up to ~16 ms, so sleeping `interval − elapsed` after each
+   frame made every frame late and gave 8.8 instead of 10 FPS; with fixed frame times a late wake-up shortens the
+   next wait. If a frame overruns its slot (slow capture), the next one starts at once, without a burst to catch
+   up, so the frame rate drops gracefully instead of queuing stale colors. A bulb that is behind is never flooded.
+   Smoothing is time-based: `EmaSmoother` scales each step by the time since the previous frame (`smoothing` is
+   the share covered per 100 ms), so a slow capture or another `fps` doesn't change how fast the light follows.
 9. **Change threshold plus keep-alive.** Frames that barely changed aren't sent, which spares the bulb's
    processor. Because UDP can drop packets, the current color is re-sent every `keepAliveMs` anyway.
 10. **Restore on exit.** `sync` reads each bulb's state with `getPilot` before starting. When it stops, it
@@ -113,6 +137,19 @@ sets `"types": []` so the compiler enforces this. That's what lets the React Nat
    `package.json` has a `"development"` export condition that points at `src/index.ts`. Dev scripts run
    `tsx --conditions=development`, so the CLI runs from source without building the core first. The
    normal build (`tsc -b`) uses `dist/`.
+12. **A capture helper that stays running.** Node.js can't call the Windows screen APIs itself; it needs a native
+   addon or a helper process. `screenshot-desktop` 1.15 uses a helper process but writes it into a new temp
+   folder for every frame. So every frame starts `cmd.exe`, searches for `csc.exe`, compiles the C# helper, starts
+   .NET, copies the screen, encodes a full-size JPEG to disk, and Node reads and decodes it (367 ms). The actual
+   screen copy is a small part of that. `GdiCapturer` compiles its own helper once (cached by a hash of the
+   source, so a source change rebuilds it), starts it once, and asks for frames over a pipe. The helper shrinks
+   the frame in GDI, so ~9 KB cross the pipe instead of a JPEG. That leaves the `BitBlt` of the desktop (~30 ms
+   at 1080p), which costs the same from C#, C++ or Rust. The helper declares itself per-monitor DPI-aware, so at
+   125 % scaling it copies all 1920×1080 physical pixels. node-screenshots (an in-process Rust addon doing the
+   same GDI copy) was the alternative. It needs a new native dependency, copies the full 8 MB frame into
+   JavaScript, and XCap doesn't set DPI awareness, so it may capture the wrong area at 125 %. If GDI ever isn't
+   enough, DXGI Desktop Duplication with a GPU downscale (HyperHDR, Lightpack) is the next step
+   ([ROADMAP.md](ROADMAP.md#later-ideas)).
 
 ## Adding a platform (Phase 4)
 

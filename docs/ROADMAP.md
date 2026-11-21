@@ -23,10 +23,17 @@ Based on the *WiZ PC Screen-Sync Ambilight Project Guide* (Google Drive).
 ## Phase 3: testing and calibration ⏳
 
 - [ ] Run full-screen YouTube Ambilight test videos and tune `saturationBoost`, `gamma`, `brightnessGamma`, `minDimming`
-- [ ] Measure end-to-end latency (screen change → bulb) and real FPS on Windows
-- [ ] Decide whether `screenshot-desktop` is fast enough (spawns a process per frame, ~50–200 ms on Windows).
-      If not, try a faster backend behind `ScreenCapturer` (e.g. `node-screenshots`, which captures in-process
-      and returns raw RGBA, or move to Electron early)
+- [x] Measure capture time and real FPS on Windows → `screenshot-desktop` took 367 ms per frame (685 ms with
+      `screen` set), so `sync` reached ~2.7 FPS. See the latency budget in [ARCHITECTURE.md](ARCHITECTURE.md#latency-budget)
+- [x] Decide whether `screenshot-desktop` is fast enough → no: it compiles its C# helper on every frame. A helper
+      that stays running (`"capture": "gdi"`, now the Windows default) takes 32 ms; `screenshot-desktop` stays
+      as the fallback
+- [x] Hold the configured FPS on Windows: the loop now sleeps to fixed frame times (8.8 → 10.0 FPS)
+- [x] Faster default `smoothing` (0.5 → 0.7: 90 % of a change after ~190 ms instead of ~330 ms)
+- [ ] Measure end-to-end latency (screen change → bulb), e.g. by filming the screen and the bulb together
+- [x] Find the bulb's real update limit → the `ESP25_SHRGB_01` keeps up at 20 FPS, so the default `fps` is now 20.
+      Rates above 20 are untested
+- [ ] Tune `sceneCut` (default 40) on real videos with `sync -v`, which marks cut frames
 - [ ] Black-bar (letterbox) detection so movie bars don't darken the light: 3-line probe from each edge, switch
       only after the border is stable for ~2 s (HyperHDR, hyperion.ng)
 - [ ] Hue-specific compensation (WiZ greens and yellows tend to look off): extra saturation for green/yellow
@@ -49,7 +56,8 @@ Lessons from the reference study ([REFERENCE_NOTES.md](REFERENCE_NOTES.md)):
 - [x] Time-based smoothing (`1 − e^(−dt/τ)`) so the feel doesn't change with FPS, plus an instant snap on scene
       cuts (HyperHDR, MihirGupta07/wiz-sync) → `smoothing` is now per 100 ms, and a dominant-hue jump of more
       than 60° snaps instead of fading through a muddy color (red → green no longer passes brownish yellow).
-      Not done: snapping on brightness-only cuts, blending in OKLab (wiz-pc)
+      Brightness cuts snap too: a mean pixel change of `sceneCut` (40) or more resets the smoothers
+      (MihirGupta07/wiz-sync). Not done: blending in OKLab (wiz-pc)
 - [ ] Dark scenes: below `blackThreshold`, fade to a configurable warm glow or hold the last hue instead of
       showing a noisy hue (ambient-setup, SignalRGB plugin)
 - [x] Take the hue from vivid pixels and the brightness from the plain luminance mean (ambient-setup,
@@ -92,7 +100,12 @@ Lessons from the reference study ([REFERENCE_NOTES.md](REFERENCE_NOTES.md)):
 - Push updates: `registration` with `register: true` and a listener on UDP 38900, so the Electron UI shows changes
   made in the WiZ app (pywizlight, wikari)
 - Send at a steady rate between captures with the time-based smoother, and an optional `delayMs` to match TV
-  input lag (hyperion.ng)
+  input lag (hyperion.ng). With capture at ~30 ms this matters less than it did at ~370 ms
+- DXGI Desktop Duplication capture if GDI ever isn't enough: copy only changed frames, shrink on the GPU with a
+  mip chain, read back a few KB, handle HDR (HyperHDR `DxGrabber`, Lightpack `DDuplGrabber`). Could live in the
+  same kind of helper as `native/gdi-capture.cs`, but D3D11 from C# 5 without libraries is a lot of interop
+- Faster end of a fade: HyperHDR speeds up small leftover differences (`k^0.6` below 16/255), so colors don't
+  creep toward the target for long
 - Per-bulb calibration (gamma and white balance) once several bulbs are supported (wiz-pc)
 
 ## Backlog: Bardi / Tuya Wi-Fi bulbs (side project)
