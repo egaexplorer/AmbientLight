@@ -1,4 +1,4 @@
-import { analyzeFrame } from "../color/average.js";
+import { analyzeFrame, type ColorMode } from "../color/average.js";
 import { type CalibrationOptions, calibrate } from "../color/calibration.js";
 import { clamp } from "../color/convert.js";
 import { colorDistance, EmaSmoother } from "../color/smoothing.js";
@@ -24,6 +24,8 @@ export interface SyncOptions {
   sampleStep: number;
   /** 0–1: how much more vivid pixels count when picking the hue (brightness always uses the plain average). */
   colorWeighting: number;
+  /** `"dominant"`: hue from the strongest hue family on screen; `"average"`: hue from all pixels mixed. */
+  colorMode: ColorMode;
   calibration: Partial<CalibrationOptions>;
 }
 
@@ -34,13 +36,14 @@ export const DEFAULT_SYNC_OPTIONS: Readonly<SyncOptions> = Object.freeze({
   keepAliveMs: 2000,
   sampleStep: 1,
   colorWeighting: 0.6,
+  colorMode: "dominant",
   calibration: {},
 });
 
 export interface FrameReport {
   /** Raw average screen color (drives brightness). */
   average: Rgb;
-  /** Color-weighted average (drives the hue). */
+  /** Color the hue is taken from (see `colorMode`). */
   color: Rgb;
   /** Color after smoothing and calibration. */
   output: WizColor;
@@ -70,6 +73,8 @@ export class SyncEngine {
   private readonly colorSmoother: EmaSmoother;
   private readonly brightnessSmoother: EmaSmoother;
   private white = false;
+  /** Dominant hue of the previous frame, so near-ties keep the same color. */
+  private hue: number | undefined;
 
   private isRunning = false;
   private loopPromise: Promise<void> | undefined;
@@ -109,10 +114,13 @@ export class SyncEngine {
     const frame = await this.capturer.capture();
     const captureMs = this.clock.now() - startedAt;
 
-    const { average, color } = analyzeFrame(frame, {
+    const { average, color, hue } = analyzeFrame(frame, {
       step: this.options.sampleStep,
       colorWeighting: this.options.colorWeighting,
+      colorMode: this.options.colorMode,
+      preferHue: this.hue,
     });
+    this.hue = hue;
     const output = calibrate(this.colorSmoother.next(color), this.options.calibration, {
       brightness: this.brightnessSmoother.next(average),
       wasWhite: this.white,
@@ -155,6 +163,7 @@ export class SyncEngine {
     this.colorSmoother.reset();
     this.brightnessSmoother.reset();
     this.white = false;
+    this.hue = undefined;
     this.lastSent = undefined;
     this.lastSentAt = Number.NEGATIVE_INFINITY;
   }

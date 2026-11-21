@@ -15,6 +15,7 @@ export interface CliFlags {
   screen?: string | number;
   smoothing?: number;
   colorWeighting?: number;
+  colorMode?: string;
   minChange?: number;
   saturation?: number;
   gamma?: number;
@@ -57,6 +58,7 @@ Options:
       --screen <id>       Display id from "displays" (default: primary display)
       --smoothing <0-1>   Weight of the newest frame; 1 = no smoothing (default 0.5)
       --color-weighting <0-1>  How much colorful areas outweigh gray ones for the hue (default 0.6)
+      --color-mode <mode> "dominant": strongest color on screen; "average": all colors mixed (default dominant)
       --min-change <n>    Skip updates smaller than this, 0-255 (default 4)
       --saturation <n>    Saturation boost (default 1.3)
       --gamma <n>         Color gamma (default 1.6)
@@ -115,6 +117,7 @@ export function parseCommandLine(argv: readonly string[]): ParsedCommandLine {
         screen: { type: "string" },
         smoothing: { type: "string" },
         "color-weighting": { type: "string" },
+        "color-mode": { type: "string" },
         "min-change": { type: "string" },
         saturation: { type: "string" },
         gamma: { type: "string" },
@@ -162,6 +165,7 @@ export function parseCommandLine(argv: readonly string[]): ParsedCommandLine {
   set("screen", parseScreen(values.screen));
   set("smoothing", toNumber("smoothing", values.smoothing));
   set("colorWeighting", toNumber("color-weighting", values["color-weighting"]));
+  set("colorMode", values["color-mode"]);
   set("minChange", toNumber("min-change", values["min-change"]));
   set("saturation", toNumber("saturation", values.saturation));
   set("gamma", toNumber("gamma", values.gamma));

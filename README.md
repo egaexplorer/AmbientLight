@@ -88,6 +88,7 @@ Command-line flags override it.
 | `sampleWidth` / `sampleHeight` | `64` / `36` | Size the screenshot is shrunk to before averaging. |
 | `smoothing` | `0.5` | Weight of the newest frame (0–1). Lower is calmer, higher reacts faster, `1` turns smoothing off. |
 | `colorWeighting` | `0.6` | How much bright, colorful areas outweigh gray ones when picking the hue (0 = plain average). Brightness always follows the whole screen. |
+| `colorMode` | `"dominant"` | `"dominant"`: the bulb shows the strongest color on screen (by area and vividness), so red and green never mix into an orange that isn't there. `"average"`: all colors are mixed. |
 | `minChange` | `4` | Changes smaller than this (0–255 scale) aren't sent, which avoids flooding the bulb. |
 | `keepAliveMs` | `2000` | Re-sends the current color this often in case a UDP packet was lost. |
 | `restoreOnExit` | `true` | Restores the bulb's previous color, white, or scene when sync stops. |
@@ -104,6 +105,8 @@ Command-line flags override it.
 - **Colors look pale:** raise `saturationBoost` (1.5–1.8) or `gamma` (2.0).
 - **The bulb stays white while a colorful video plays in a window:** raise `colorWeighting` (0.8–1.0), or lower
   `whiteSaturation` (0.1).
+- **The light shows a color that isn't on screen** (orange from red + green, lavender from blue + orange): keep
+  `colorMode` at `"dominant"`. If you prefer a blend of everything on screen, use `"average"`.
 - **White pages give a purple or pink light:** keep `whiteSaturation` above 0 so white uses the white LEDs; change
   `whiteTemp` (e.g. 2700 for warm, 6500 for cool) to taste.
 - **Flicker or nervous light:** lower `smoothing` (0.3) or raise `minChange` (6–8).

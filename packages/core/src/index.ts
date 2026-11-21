@@ -1,7 +1,15 @@
 // Color pipeline
 export type { Hsv, PixelFrame, Rgb, WizColor } from "./color/types.js";
 export { clamp, clamp01, hsvToRgb, linearToSrgb, rgbToHsv, srgbToLinear } from "./color/convert.js";
-export { type AnalyzeOptions, analyzeFrame, type AverageOptions, averageColor, type FrameColors } from "./color/average.js";
+export {
+  type AnalyzeOptions,
+  analyzeFrame,
+  type AverageOptions,
+  averageColor,
+  type ColorMode,
+  type FrameColors,
+  HUE_STICKINESS,
+} from "./color/average.js";
 export {
   type CalibrationContext,
   type CalibrationOptions,

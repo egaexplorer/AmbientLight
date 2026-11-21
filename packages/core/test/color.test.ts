@@ -191,6 +191,66 @@ describe("analyzeFrame", () => {
   });
 });
 
+describe("analyzeFrame dominant color", () => {
+  type Px = [number, number, number];
+  /** A one-row frame made of `count` pixels of each color, in order. */
+  function strip(...parts: Array<[count: number, color: Px]>): PixelFrame {
+    const pixels = parts.flatMap(([count, color]) => Array.from({ length: count }, () => color));
+    return { data: Uint8Array.from(pixels.flat()), width: pixels.length, height: 1, channels: 3 };
+  }
+  const RED: Px = [255, 0, 0];
+  const GREEN: Px = [0, 255, 0];
+  const BLUE: Px = [0, 0, 255];
+  const WHITE: Px = [255, 255, 255];
+
+  it("picks the strongest color instead of mixing distant hues", () => {
+    const frame = strip([6, RED], [4, GREEN]);
+    const mixedHue = rgbToHsv(analyzeFrame(frame, { colorWeighting: 0.6, colorMode: "average" }).color).h;
+    assert.ok(mixedHue > 30 && mixedHue < 90, `averaging red and green gives yellow/olive (hue ${mixedHue})`);
+
+    const { color, hue } = analyzeFrame(frame, { colorWeighting: 0.6 });
+    near(color.r, 255);
+    near(color.g, 0);
+    near(hue ?? -1, 0);
+  });
+
+  it("counts area and vividness when voting", () => {
+    // 3 bright blue pixels outvote 5 dull, dark red ones.
+    const { hue } = analyzeFrame(strip([5, [90, 40, 40]], [3, BLUE]));
+    near(hue ?? -1, 240);
+  });
+
+  it("keeps close hues together, so red and orange blend", () => {
+    const { hue } = analyzeFrame(strip([5, RED], [5, [255, 128, 0]], [3, BLUE]));
+    assert.ok(hue !== undefined && hue > 5 && hue < 30, `expected a red-orange hue, got ${hue}`);
+  });
+
+  it("treats hues on both sides of 0° as one family", () => {
+    const { color, hue } = analyzeFrame(strip([3, [255, 0, 40]], [3, [255, 40, 0]], [4, BLUE]));
+    assert.ok(hue !== undefined && (hue < 10 || hue > 350), `expected red, got ${hue}`);
+    assert.ok(color.b < 100, "the blue pixels are left out");
+  });
+
+  it("still lets white areas wash the color out, so a small detail on a white page stays white", () => {
+    const { color } = analyzeFrame(strip([1, RED], [1, GREEN], [48, WHITE]), { colorWeighting: 0.6 });
+    assert.equal(calibrate(color).temp, 5000);
+  });
+
+  it("returns the plain weighted color and no hue when nothing is colorful", () => {
+    const frame = strip([4, [200, 200, 200]], [4, [20, 20, 20]]);
+    const { color, average, hue } = analyzeFrame(frame);
+    assert.equal(hue, undefined);
+    assert.deepEqual(color, average);
+  });
+
+  it("keeps the previous hue on a near tie, and switches when another color clearly wins", () => {
+    const tie = strip([5, RED], [6, GREEN]);
+    near(analyzeFrame(tie).hue ?? -1, 120);
+    near(analyzeFrame(tie, { preferHue: 0 }).hue ?? -1, 0);
+    near(analyzeFrame(strip([5, RED], [8, GREEN]), { preferHue: 0 }).hue ?? -1, 120);
+  });
+});
+
 describe("smoothing", () => {
   it("passes the first sample through and then moves toward new samples", () => {
     const ema = new EmaSmoother(0.5);

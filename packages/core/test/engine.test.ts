@@ -1,6 +1,6 @@
 import assert from "node:assert/strict";
 import { describe, it } from "node:test";
-import { type ColorSink, SyncEngine } from "../src/index.js";
+import { type ColorSink, type PixelFrame, SyncEngine, type SyncOptions, type WizColor } from "../src/index.js";
 import { FakeCapturer, FakeClock, RecordingSink, solidFrame } from "./helpers.js";
 
 describe("SyncEngine", () => {
@@ -69,6 +69,27 @@ describe("SyncEngine", () => {
     await engine.tick();
     const { output } = await engine.tick();
     assert.ok(output.r > 0 && output.b > 0, "halfway between red and blue should mix both");
+  });
+
+  it("shows the dominant color of a multi-color screen and holds it on a near tie", async () => {
+    /** A one-row frame: `red` red pixels, then `green` green ones. */
+    const redGreen = (red: number, green: number): PixelFrame => ({
+      data: Uint8Array.from([...Array<number[]>(red).fill([255, 0, 0]), ...Array<number[]>(green).fill([0, 255, 0])].flat()),
+      width: red + green,
+      height: 1,
+      channels: 3,
+    });
+    const run = async (options: Partial<SyncOptions>): Promise<WizColor[]> => {
+      const engine = new SyncEngine(new FakeCapturer(redGreen(8, 2), redGreen(5, 6)), [], { smoothing: 1, ...options });
+      return [(await engine.tick()).output, (await engine.tick()).output];
+    };
+
+    const [first, second] = await run({});
+    assert.deepEqual(first, { r: 255, g: 0, b: 0, dimming: first?.dimming }, "red dominates, no olive mix");
+    assert.deepEqual(second, { r: 255, g: 0, b: 0, dimming: second?.dimming }, "a slightly bigger green area doesn't flip it");
+
+    const [mixed] = await run({ colorMode: "average" });
+    assert.ok(mixed !== undefined && mixed.g > 0, "average mode mixes red and green");
   });
 
   it("keeps sending to healthy bulbs when one fails, and reports the error", async () => {

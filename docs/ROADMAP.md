@@ -47,6 +47,8 @@ Lessons from the reference study ([REFERENCE_NOTES.md](REFERENCE_NOTES.md)):
       showing a noisy hue (ambient-setup, SignalRGB plugin)
 - [x] Take the hue from vivid pixels and the brightness from the plain luminance mean (ambient-setup,
       namanb-lab) → `colorWeighting`
+- [x] Dominant color instead of a mix of hues: vote colorful pixels into hue bins, average only the strongest
+      hue family, keep the previous one on near ties (hyperion.ng's dominant-color mode) → `colorMode`
 - [ ] Discovery: also broadcast `registration`; save bulbs by MAC and re-resolve their IP at startup; read
       `getSystemConfig` to tell color bulbs from white-only ones
 - [x] Requests (`getPilot` and others) retransmit once after 400 ms (homebridge-wiz-lan)

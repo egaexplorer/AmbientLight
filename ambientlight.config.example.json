@@ -6,6 +6,7 @@
   "sampleHeight": 36,
   "smoothing": 0.5,
   "colorWeighting": 0.6,
+  "colorMode": "dominant",
   "minChange": 4,
   "keepAliveMs": 2000,
   "restoreOnExit": true,

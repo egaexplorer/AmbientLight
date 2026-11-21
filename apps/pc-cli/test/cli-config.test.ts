@@ -70,6 +70,15 @@ describe("config", () => {
     assert.equal(config.restoreOnExit, true);
   });
 
+  it("reads colorMode from the file and --color-mode, and rejects unknown modes", () => {
+    assert.equal(resolveConfig(undefined, parseCommandLine(["sync"]).flags).colorMode, "dominant");
+    const file = validateConfigFile({ colorMode: "average" }, "test");
+    assert.equal(resolveConfig(file, parseCommandLine(["sync"]).flags).colorMode, "average");
+    assert.equal(resolveConfig(file, parseCommandLine(["sync", "--color-mode", "dominant"]).flags).colorMode, "dominant");
+    assert.throws(() => validateConfigFile({ colorMode: "mean" }, "test"), /"dominant" or "average"/);
+    assert.throws(() => resolveConfig(undefined, parseCommandLine(["sync", "--color-mode", "x"]).flags), /--color-mode/);
+  });
+
   it("does not mutate the defaults", () => {
     resolveConfig({ calibration: { gamma: 3 } }, parseCommandLine(["sync"]).flags);
     assert.equal(DEFAULT_CONFIG.calibration.gamma, 1.6);

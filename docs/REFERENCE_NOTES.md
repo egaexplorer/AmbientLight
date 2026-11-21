@@ -281,7 +281,8 @@ The original ambient-light engine.
 
 - **Image-to-LED modes** (`include/hyperion/ImageToLedsMap.h`): mean, mean of squares (closer to linear-light
   averaging), dominant color, and an advanced dominant color using clustering. Dominant color is an alternative to
-  lesson 4 when one object should set the light.
+  lesson 4 when one object should set the light. AmbientLight's `colorMode: "dominant"` uses a hue histogram
+  instead of clustering: it is deterministic and stable from frame to frame.
 - **Smoothing decoupled from capture** (`libsrc/hyperion/LinearColorSmoothing.cpp`): a settling time window
   (150 ms) and a separate output rate (25 Hz) mean the LEDs get interpolated values on a steady clock even if
   capture is slower. `updateDelay` delays output by N frames to match TV latency. A "decay" mode weights frames in

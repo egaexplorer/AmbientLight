@@ -1,6 +1,13 @@
 import fs from "node:fs";
 import path from "node:path";
-import { type CalibrationOptions, DEFAULT_CALIBRATION, DEFAULT_SYNC_OPTIONS, MAX_FPS, MIN_FPS } from "@ambientlight/core";
+import {
+  type CalibrationOptions,
+  type ColorMode,
+  DEFAULT_CALIBRATION,
+  DEFAULT_SYNC_OPTIONS,
+  MAX_FPS,
+  MIN_FPS,
+} from "@ambientlight/core";
 import { CliError, type CliFlags } from "./cli.js";
 
 export const CONFIG_FILE_NAME = "ambientlight.config.json";
@@ -17,6 +24,8 @@ export interface AppConfig {
   smoothing: number;
   /** 0–1: how much more colorful pixels count when picking the hue. */
   colorWeighting: number;
+  /** "dominant": hue from the strongest hue family on screen; "average": all colors mixed. */
+  colorMode: ColorMode;
   minChange: number;
   keepAliveMs: number;
   /** Put the bulbs back the way they were when sync stops. */
@@ -38,6 +47,7 @@ export const DEFAULT_CONFIG: Readonly<AppConfig> = Object.freeze({
   sampleHeight: 36,
   smoothing: DEFAULT_SYNC_OPTIONS.smoothing,
   colorWeighting: DEFAULT_SYNC_OPTIONS.colorWeighting,
+  colorMode: DEFAULT_SYNC_OPTIONS.colorMode,
   minChange: DEFAULT_SYNC_OPTIONS.minChange,
   keepAliveMs: DEFAULT_SYNC_OPTIONS.keepAliveMs,
   restoreOnExit: true,
@@ -45,6 +55,15 @@ export const DEFAULT_CONFIG: Readonly<AppConfig> = Object.freeze({
 });
 
 type Range = readonly [min: number, max: number, integer?: boolean];
+
+export const COLOR_MODES: readonly ColorMode[] = ["dominant", "average"];
+
+function checkColorMode(name: string, value: unknown, source: string): ColorMode {
+  if (typeof value !== "string" || !(COLOR_MODES as readonly string[]).includes(value)) {
+    throw new CliError(`${source}: "${name}" must be ${COLOR_MODES.map((m) => `"${m}"`).join(" or ")}, got ${JSON.stringify(value)}`);
+  }
+  return value as ColorMode;
+}
 
 const RANGES = {
   fps: [MIN_FPS, MAX_FPS],
@@ -102,6 +121,9 @@ export function validateConfigFile(value: unknown, source: string): ConfigFile {
           throw new CliError(`${source}: "screen" must be a display id, or null for the primary display`);
         }
         out.screen = raw;
+        break;
+      case "colorMode":
+        out.colorMode = checkColorMode("colorMode", raw, source);
         break;
       case "restoreOnExit":
         if (typeof raw !== "boolean") throw new CliError(`${source}: "restoreOnExit" must be true or false`);
@@ -179,6 +201,7 @@ export function resolveConfig(file: ConfigFile | undefined, flags: CliFlags): Ap
   if (flags.colorWeighting !== undefined) {
     config.colorWeighting = checkNumber("--color-weighting", flags.colorWeighting, RANGES.colorWeighting, source);
   }
+  if (flags.colorMode !== undefined) config.colorMode = checkColorMode("--color-mode", flags.colorMode, source);
   if (flags.minChange !== undefined) config.minChange = checkNumber("--min-change", flags.minChange, RANGES.minChange, source);
   if (flags.noRestore) config.restoreOnExit = false;
 
