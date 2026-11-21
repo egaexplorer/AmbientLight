@@ -92,3 +92,45 @@ Lessons from the reference study ([REFERENCE_NOTES.md](REFERENCE_NOTES.md)):
 - Send at a steady rate between captures with the time-based smoother, and an optional `delayMs` to match TV
   input lag (hyperion.ng)
 - Per-bulb calibration (gamma and white balance) once several bulbs are supported (wiz-pc)
+
+## Backlog: Bardi / Tuya Wi-Fi bulbs (side project)
+
+For after Phase 4; no code yet. Bardi bulbs are rebranded Tuya devices. Both routes below add a new `ColorSink`
+next to `WizLight`, so `SyncEngine` and `calibrate` don't change.
+
+**Route A: stock firmware, Tuya local protocol (no jailbreak)**
+
+- [ ] Get the device id and local key. The Tuya IoT platform can't link the Bardi app, so re-pair the bulb in the
+      Smart Life app, link that account to a Tuya IoT cloud project, and run `tinytuya wizard`. Re-pairing changes
+      the key.
+- [ ] `TuyaLight` in `packages/core/src/tuya/`: TCP port 6668. Protocol 3.1/3.3 uses AES-128-ECB + CRC32, 3.4 adds
+      session-key negotiation + HMAC-SHA256, and 3.5 uses AES-GCM with `0x6699` frames. Send a heartbeat about
+      every 10 s, reconnect when the connection drops, and send only the newest color while a write is in flight.
+      TCP and crypto must be injected interfaces like `UdpSocket` (the core can't import `node:net`/`node:crypto`).
+      This shares the injected-crypto work with the WiZ `signingKey` item.
+- [ ] Map `WizColor` to data points (DPs). Newer ("v2") lights use 20 on/off, 21 mode (`white`/`colour`),
+      22 brightness 10–1000, 23 white temperature 0–1000, and 24 color `HHHHSSSSVVVV` (hue 0–360, saturation and
+      value 0–1000). For sync, try 28 `control_data` or 27 `music_data`: the bulb doesn't save these and changes
+      color instantly. Older ("v1") lights use DPs 1–5. Read the bulb's DP list first, because it varies.
+- [ ] Restore on exit: read the DPs (`DP_QUERY`) before syncing and write them back afterwards.
+- [ ] Config: a `bulbs` entry can also be an object, e.g.
+      `{ "type": "tuya", "host", "id", "key", "version" }`. Plain IP strings stay WiZ.
+- Expect about 5–10 updates per second. A bulb may accept only one local connection, so close the app while
+  syncing.
+- Protocol references (MIT; clone them into `AmbientLight-references` when work starts):
+  `jasonacox/tinytuya` (3.1–3.5) and `codetheweb/tuyapi` (Node.js; 3.5 since 7.7.0).
+
+**Route B: jailbreak to OpenBeken, then DDP**
+
+- [ ] Identify the chip from the module label (e.g. Tuya WB2L = BK7231T, CB2L/CBLC = BK7231N) or a teardown on
+      elektroda.com. OpenBeken supports those and several other Tuya chips.
+- [ ] Flash over the air with tuya-cloudcutter if the bulb's firmware isn't patched (Tuya patched its SDK in 2022;
+      check the project's patched-firmware list). Otherwise open the bulb and flash it over serial, never while
+      it's on mains power. The warranty, the cloud and the app are lost, and a bad flash can brick the bulb.
+- [ ] Start OpenBeken's DDP driver from the startup command (`startDriver DDP`), because it resets on reboot.
+- [ ] `DdpLight` in the core: DDP over UDP 4048, a 10-byte header followed by RGB bytes. DDP has no brightness
+      field, so scale `r,g,b` by `dimming`. White mode sends an RGBW payload (OpenBeken 1.17.795 or later drives
+      the white channel) or a warm RGB. Needs binary `UdpSocket.send`, which only sends strings today.
+- [ ] Restore on exit: the light keeps the last DDP color, so restore it with OpenBeken's Tasmota-style HTTP
+      commands (`/cm?cmnd=...`).
+- Bonus: the same sink also drives WLED strips.
