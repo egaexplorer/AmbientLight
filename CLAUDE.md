@@ -18,5 +18,9 @@ AmbientLight syncs Philips WiZ bulbs to the PC/Android screen color. It's a Type
   ask the user to run `npm run state` / `npm run once` and paste the output (for the app's encoding: pick colors
   in the WiZ app, then `npm run state`). Don't assume reference libraries match the user's firmware; see
   `docs/WIZ_PROTOCOL.md` "Pale colors".
-- Keep the docs in `docs/*.md` up to date when behavior, config keys, or the roadmap change (the project's
-  code documentation lives in these Markdown files).
+- Always update the docs (`README.md` and `docs/*.md`; the project's code documentation lives in these
+  Markdown files) whenever there is new information or a change worth recording, in the same change as the
+  code. That covers changed behavior, config keys, scripts, or architecture; roadmap progress or new backlog
+  items; and new findings even without code changes (bulb/firmware measurements, WiZ app behavior, debugging
+  lessons, reference insights). Put each fact in the doc that owns it (see the list at the top), and don't
+  finish a task with the docs out of date.
