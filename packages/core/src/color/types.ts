@@ -8,6 +8,11 @@ export interface Rgb {
 /** A color ready to send to a WiZ bulb: integer 0–255 channels plus dimming in percent (10–100). */
 export interface WizColor extends Rgb {
   dimming: number;
+  /**
+   * When set, the bulb shows white from its dedicated white LEDs at this color temperature (Kelvin), and
+   * `r,g,b` are only a preview for logs. White mixed from the RGB LEDs looks lavender on WiZ bulbs.
+   */
+  temp?: number;
 }
 
 /** HSV with hue in degrees [0, 360), saturation and value in [0, 1]. */

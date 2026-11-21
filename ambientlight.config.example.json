@@ -5,6 +5,7 @@
   "sampleWidth": 64,
   "sampleHeight": 36,
   "smoothing": 0.5,
+  "colorWeighting": 0.6,
   "minChange": 4,
   "keepAliveMs": 2000,
   "restoreOnExit": true,
@@ -14,6 +15,8 @@
     "minDimming": 10,
     "maxDimming": 100,
     "brightnessGamma": 1.0,
-    "blackThreshold": 0.04
+    "blackThreshold": 0.04,
+    "whiteSaturation": 0.15,
+    "whiteTemp": 5000
   }
 }

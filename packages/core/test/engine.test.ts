@@ -41,6 +41,22 @@ describe("SyncEngine", () => {
     assert.deepEqual(sink.colors.at(-1), { r: 0, g: 0, b: 255, dimming: 100 });
   });
 
+  it("shows a gray screen with the white LEDs and switches back for colors", async () => {
+    const sink = new RecordingSink();
+    const engine = new SyncEngine(
+      new FakeCapturer(solidFrame(240, 240, 240), solidFrame(255, 0, 0)),
+      [sink],
+      { smoothing: 1 },
+      {},
+      new FakeClock(),
+    );
+    const gray = await engine.tick();
+    assert.equal(gray.output.temp, 5000);
+    const red = await engine.tick();
+    assert.equal(red.sent, true);
+    assert.deepEqual(red.output, { r: 255, g: 0, b: 0, dimming: 100 });
+  });
+
   it("smooths transitions between frames", async () => {
     const sink = new RecordingSink();
     const engine = new SyncEngine(

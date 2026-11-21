@@ -13,9 +13,9 @@ flowchart LR
     UDP[UdpSocket<br/>node:dgram / react-native-udp]
   end
   subgraph "@ambientlight/core"
-    AVG[averageColor<br/>linear-light mean]
+    AVG[analyzeFrame<br/>linear-light mean +<br/>vivid-weighted color]
     EMA[EmaSmoother]
-    CAL[calibrate<br/>hue/brightness split,<br/>saturation + gamma]
+    CAL[calibrate<br/>hue/brightness split,<br/>saturation + gamma,<br/>white LEDs for grays]
     GATE{changed ≥ minChange<br/>or keep-alive due?}
     WIZ[WizLight.setColor<br/>setPilot JSON]
   end
@@ -40,8 +40,8 @@ flowchart LR
 | `wiz/device.ts` | `SystemConfig`/`ModelConfig` types, `bulbKindFromModule` (color, tunable white, dimmable white, plug) |
 | `wiz/check.ts` | `checkBulb`: reachability, model, firmware, signed-firmware detection, test color and restore; shared by the CLI and future apps |
 | `wiz/discovery.ts` | `discoverBulbs`: broadcast `getPilot`, collect replies |
-| `color/average.ts` | `averageColor`: mean of a `PixelFrame` in linear light (RGB/RGBA/BGR(A), optional sampling step) |
-| `color/calibration.ts` | `calibrate`: turns a screen color into WiZ `{r,g,b,dimming}` |
+| `color/average.ts` | `analyzeFrame`: plain mean of a `PixelFrame` in linear light (brightness) plus a mean that weights vivid pixels (hue); `averageColor` returns the plain mean. RGB/RGBA/BGR(A), optional sampling step |
+| `color/calibration.ts` | `calibrate`: turns a screen color into WiZ `{r,g,b,dimming}`, or `{temp,dimming}` (white LEDs) for near-gray colors |
 | `color/smoothing.ts` | `EmaSmoother`, `colorDistance` |
 | `sync/engine.ts` | `SyncEngine`: the capture → process → transmit loop |
 | `sync/types.ts` | `ScreenCapturer` and `ColorSink` interfaces |
@@ -71,14 +71,21 @@ sets `"types": []` so the compiler enforces this. That's what lets the React Nat
    onto `minDimming..maxDimming`. A dark red scene therefore gives a dim red, not a muddy brown.
 3. **Saturation boost and gamma.** Averaging many pixels washes colors toward gray. Both knobs bring the
    color back. Defaults (1.3 / 1.6) are a starting point for Phase 3 calibration.
-4. **No backlog, newest frame wins.** The loop handles one frame at a time and waits
+4. **Hue from vivid pixels, brightness from the whole screen.** `analyzeFrame` returns two averages. In the
+   color one, a pixel counts `1 + colorWeighting × 9 × (saturation × brightness)²` times, so a video in part of
+   the screen sets the hue while a small icon on a white page doesn't. `dimming` comes from the plain average.
+5. **White LEDs for grays.** WiZ bulbs mix RGB white from their red, green and blue LEDs, and it looks
+   lavender (a bulb told `rgb(255,254,255)` shows as `#FF00FF` in the WiZ app). Below `whiteSaturation` (0.15,
+   after the boost) `calibrate` returns `temp` instead, and `WizLight.setColor` sends `{temp, dimming}`. A color
+   must rise 0.05 above the threshold to leave white mode again, so scenes near it don't flicker between modes.
+6. **No backlog, newest frame wins.** The loop handles one frame at a time and waits
    `interval − elapsed` between frames. If capture is slow, the frame rate drops gracefully instead of
    queuing stale colors. A bulb that is behind is never flooded.
-5. **Change threshold plus keep-alive.** Frames that barely changed aren't sent, which spares the bulb's
+7. **Change threshold plus keep-alive.** Frames that barely changed aren't sent, which spares the bulb's
    processor. Because UDP can drop packets, the current color is re-sent every `keepAliveMs` anyway.
-6. **Restore on exit.** `sync` reads each bulb's state with `getPilot` before starting. When it stops, it
+8. **Restore on exit.** `sync` reads each bulb's state with `getPilot` before starting. When it stops, it
    restores that state (scene, white temperature, or color, plus brightness).
-7. **Monorepo wiring.** npm workspaces and TypeScript project references are used. The core's
+9. **Monorepo wiring.** npm workspaces and TypeScript project references are used. The core's
    `package.json` has a `"development"` export condition that points at `src/index.ts`. Dev scripts run
    `tsx --conditions=development`, so the CLI runs from source without building the core first. The
    normal build (`tsc -b`) uses `dist/`.

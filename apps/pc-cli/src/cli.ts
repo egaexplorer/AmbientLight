@@ -14,11 +14,14 @@ export interface CliFlags {
   fps?: number;
   screen?: string | number;
   smoothing?: number;
+  colorWeighting?: number;
   minChange?: number;
   saturation?: number;
   gamma?: number;
   minDimming?: number;
   maxDimming?: number;
+  whiteSaturation?: number;
+  whiteTemp?: number;
   noRestore: boolean;
   timeoutMs?: number;
   rgb?: { r: number; g: number; b: number };
@@ -53,11 +56,14 @@ Options:
       --fps <n>           Updates per second (default 10; WiZ bulbs handle ~5-15)
       --screen <id>       Display id from "displays" (default: primary display)
       --smoothing <0-1>   Weight of the newest frame; 1 = no smoothing (default 0.5)
+      --color-weighting <0-1>  How much colorful areas outweigh gray ones for the hue (default 0.6)
       --min-change <n>    Skip updates smaller than this, 0-255 (default 4)
       --saturation <n>    Saturation boost (default 1.3)
       --gamma <n>         Color gamma (default 1.6)
       --min-dimming <n>   Dimming for dark scenes, 10-100 (default 10)
       --max-dimming <n>   Dimming for bright scenes, 10-100 (default 100)
+      --white-saturation <0-1>  Below this saturation use the white LEDs; 0 = never (default 0.15)
+      --white-temp <K>    Color temperature for white, 2200-6500 (default 5000)
       --no-restore        Don't restore the bulbs' previous state (sync, check)
       --timeout <ms>      How long "discover" (and "check" without a bulb) listens for replies (default 2000)
       --rgb <r,g,b>       Color for "color", or the test color for "check" (default 255,0,0)
@@ -108,11 +114,14 @@ export function parseCommandLine(argv: readonly string[]): ParsedCommandLine {
         fps: { type: "string" },
         screen: { type: "string" },
         smoothing: { type: "string" },
+        "color-weighting": { type: "string" },
         "min-change": { type: "string" },
         saturation: { type: "string" },
         gamma: { type: "string" },
         "min-dimming": { type: "string" },
         "max-dimming": { type: "string" },
+        "white-saturation": { type: "string" },
+        "white-temp": { type: "string" },
         "no-restore": { type: "boolean", default: false },
         timeout: { type: "string" },
         rgb: { type: "string" },
@@ -152,11 +161,14 @@ export function parseCommandLine(argv: readonly string[]): ParsedCommandLine {
   set("fps", toNumber("fps", values.fps));
   set("screen", parseScreen(values.screen));
   set("smoothing", toNumber("smoothing", values.smoothing));
+  set("colorWeighting", toNumber("color-weighting", values["color-weighting"]));
   set("minChange", toNumber("min-change", values["min-change"]));
   set("saturation", toNumber("saturation", values.saturation));
   set("gamma", toNumber("gamma", values.gamma));
   set("minDimming", toNumber("min-dimming", values["min-dimming"]));
   set("maxDimming", toNumber("max-dimming", values["max-dimming"]));
+  set("whiteSaturation", toNumber("white-saturation", values["white-saturation"]));
+  set("whiteTemp", toNumber("white-temp", values["white-temp"]));
   set("timeoutMs", toNumber("timeout", values.timeout));
   set("rgb", parseRgb(values.rgb));
   set("dimming", toNumber("dimming", values.dimming));

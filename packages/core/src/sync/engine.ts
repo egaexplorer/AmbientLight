@@ -1,4 +1,4 @@
-import { averageColor } from "../color/average.js";
+import { analyzeFrame } from "../color/average.js";
 import { type CalibrationOptions, calibrate } from "../color/calibration.js";
 import { clamp } from "../color/convert.js";
 import { colorDistance, EmaSmoother } from "../color/smoothing.js";
@@ -22,6 +22,8 @@ export interface SyncOptions {
   keepAliveMs: number;
   /** Average every Nth pixel of the captured frame. */
   sampleStep: number;
+  /** 0–1: how much more vivid pixels count when picking the hue (brightness always uses the plain average). */
+  colorWeighting: number;
   calibration: Partial<CalibrationOptions>;
 }
 
@@ -31,12 +33,15 @@ export const DEFAULT_SYNC_OPTIONS: Readonly<SyncOptions> = Object.freeze({
   minChange: 4,
   keepAliveMs: 2000,
   sampleStep: 1,
+  colorWeighting: 0.6,
   calibration: {},
 });
 
 export interface FrameReport {
-  /** Raw average screen color. */
+  /** Raw average screen color (drives brightness). */
   average: Rgb;
+  /** Color-weighted average (drives the hue). */
+  color: Rgb;
   /** Color after smoothing and calibration. */
   output: WizColor;
   /** Whether the color was sent to the bulbs this frame. */
@@ -62,7 +67,9 @@ export class SyncEngine {
   private readonly sinks: readonly ColorSink[];
   private readonly events: SyncEvents;
   private readonly clock: Clock;
-  private readonly smoother: EmaSmoother;
+  private readonly colorSmoother: EmaSmoother;
+  private readonly brightnessSmoother: EmaSmoother;
+  private white = false;
 
   private isRunning = false;
   private loopPromise: Promise<void> | undefined;
@@ -84,7 +91,8 @@ export class SyncEngine {
     this.sinks = sinks;
     this.events = events;
     this.clock = clock;
-    this.smoother = new EmaSmoother(this.options.smoothing);
+    this.colorSmoother = new EmaSmoother(this.options.smoothing);
+    this.brightnessSmoother = new EmaSmoother(this.options.smoothing);
   }
 
   get running(): boolean {
@@ -101,8 +109,15 @@ export class SyncEngine {
     const frame = await this.capturer.capture();
     const captureMs = this.clock.now() - startedAt;
 
-    const average = averageColor(frame, { step: this.options.sampleStep });
-    const output = calibrate(this.smoother.next(average), this.options.calibration);
+    const { average, color } = analyzeFrame(frame, {
+      step: this.options.sampleStep,
+      colorWeighting: this.options.colorWeighting,
+    });
+    const output = calibrate(this.colorSmoother.next(color), this.options.calibration, {
+      brightness: this.brightnessSmoother.next(average),
+      wasWhite: this.white,
+    });
+    this.white = output.temp !== undefined;
 
     const now = this.clock.now();
     const sent =
@@ -116,7 +131,7 @@ export class SyncEngine {
       this.lastSentAt = now;
     }
 
-    return { average, output, sent, captureMs, totalMs: this.clock.now() - startedAt };
+    return { average, color, output, sent, captureMs, totalMs: this.clock.now() - startedAt };
   }
 
   start(): void {
@@ -137,7 +152,9 @@ export class SyncEngine {
 
   /** Forget smoothing history and the last sent color (e.g. after switching displays). */
   reset(): void {
-    this.smoother.reset();
+    this.colorSmoother.reset();
+    this.brightnessSmoother.reset();
+    this.white = false;
     this.lastSent = undefined;
     this.lastSentAt = Number.NEGATIVE_INFINITY;
   }

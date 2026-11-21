@@ -1,6 +1,7 @@
 import assert from "node:assert/strict";
 import { describe, it } from "node:test";
 import {
+  analyzeFrame,
   averageColor,
   calibrate,
   colorDistance,
@@ -122,6 +123,74 @@ describe("calibrate", () => {
   });
 });
 
+describe("calibrate white mode", () => {
+  it("sends near-gray colors to the white LEDs instead of mixing white from RGB", () => {
+    const out = calibrate({ r: 248, g: 247, b: 248 });
+    assert.equal(out.temp, 5000);
+    assert.ok(out.dimming > 90);
+    assert.equal(calibrate({ r: 200, g: 200, b: 200 }, { whiteTemp: 2700 }).temp, 2700);
+  });
+
+  it("can be turned off with whiteSaturation 0", () => {
+    const out = calibrate({ r: 248, g: 247, b: 248 }, { whiteSaturation: 0 });
+    assert.equal(out.temp, undefined);
+    assert.equal(out.r, 255);
+  });
+
+  it("keeps clearly colored scenes in RGB", () => {
+    assert.equal(calibrate({ r: 200, g: 150, b: 150 }).temp, undefined);
+  });
+
+  it("uses hysteresis so a color near the threshold doesn't flip modes", () => {
+    // Saturation 0.13 × boost 1.3 ≈ 0.17: above the 0.15 threshold, below 0.15 + hysteresis.
+    const borderline = { r: 255, g: 222, b: 222 };
+    assert.equal(calibrate(borderline).temp, undefined, "entering white needs < 0.15");
+    assert.equal(calibrate(borderline, {}, { wasWhite: true }).temp, 5000, "leaving white needs > 0.20");
+  });
+
+  it("takes dimming from the brightness color when given", () => {
+    const vivid = { r: 255, g: 0, b: 0 };
+    const out = calibrate(vivid, {}, { brightness: { r: 40, g: 40, b: 40 } });
+    assert.deepEqual([out.r, out.g, out.b], [255, 0, 0]);
+    assert.ok(out.dimming < calibrate(vivid).dimming);
+  });
+});
+
+describe("analyzeFrame", () => {
+  /** A frame of `width` pixels: the first `colored` are (r,g,b), the rest white. */
+  function mixed(colored: number, width: number, [r, g, b]: [number, number, number]): PixelFrame {
+    const data = new Uint8Array(width * 3).fill(255);
+    for (let i = 0; i < colored; i++) data.set([r, g, b], i * 3);
+    return { data, width, height: 1, channels: 3 };
+  }
+
+  it("matches averageColor when colorWeighting is 0", () => {
+    const frame = mixed(3, 10, [255, 0, 0]);
+    const { average, color } = analyzeFrame(frame, { colorWeighting: 0 });
+    assert.deepEqual(color, average);
+    assert.deepEqual(average, averageColor(frame));
+  });
+
+  it("lets a colorful area set the hue when it covers part of the screen", () => {
+    const { average, color } = analyzeFrame(mixed(2, 10, [255, 0, 0]), { colorWeighting: 0.6 });
+    assert.ok(rgbToHsv(color).s > rgbToHsv(average).s * 2, "weighted color is much more saturated");
+    assert.equal(calibrate(color).temp, undefined, "20 % red shows as a color");
+    assert.equal(calibrate(average).temp, 5000, "the plain average would have been white");
+  });
+
+  it("keeps a small colorful detail on a white page close to white", () => {
+    const { color } = analyzeFrame(mixed(1, 50, [255, 0, 0]), { colorWeighting: 0.6 });
+    assert.equal(calibrate(color).temp, 5000);
+  });
+
+  it("gives dark colors much less weight than bright ones", () => {
+    const dark = analyzeFrame(mixed(5, 10, [40, 0, 0]), { colorWeighting: 1 });
+    const bright = analyzeFrame(mixed(5, 10, [255, 0, 0]), { colorWeighting: 1 });
+    near(dark.color.g, dark.average.g, 10);
+    assert.ok(bright.average.g - bright.color.g > 60, "bright red pulls the color strongly");
+  });
+});
+
 describe("smoothing", () => {
   it("passes the first sample through and then moves toward new samples", () => {
     const ema = new EmaSmoother(0.5);
@@ -139,5 +208,12 @@ describe("smoothing", () => {
   it("measures the largest channel or dimming change", () => {
     assert.equal(colorDistance({ r: 10, g: 10, b: 10, dimming: 50 }, { r: 13, g: 10, b: 10, dimming: 50 }), 3);
     assert.equal(colorDistance({ r: 0, g: 0, b: 0, dimming: 50 }, { r: 0, g: 0, b: 0, dimming: 52 }), 5.1);
+  });
+
+  it("treats switching between white mode and RGB as a change", () => {
+    const white = { r: 255, g: 255, b: 255, dimming: 50, temp: 4000 };
+    assert.equal(colorDistance(white, { r: 255, g: 255, b: 255, dimming: 50 }), Number.POSITIVE_INFINITY);
+    assert.equal(colorDistance(white, { ...white, temp: 2700 }), Number.POSITIVE_INFINITY);
+    assert.equal(colorDistance(white, { ...white, dimming: 52 }), 5.1);
   });
 });

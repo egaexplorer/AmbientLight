@@ -31,6 +31,7 @@ function syncOptions(config: AppConfig): Partial<SyncOptions> {
   return {
     fps: config.fps,
     smoothing: config.smoothing,
+    colorWeighting: config.colorWeighting,
     minChange: config.minChange,
     keepAliveMs: config.keepAliveMs,
     calibration: config.calibration,
@@ -135,7 +136,9 @@ export async function runSync(config: AppConfig, options: { once: boolean; verbo
       // Phase 1: one frame, no smoothing.
       const engine = new SyncEngine(capturer, lights, { ...syncOptions(config), smoothing: 1 });
       const report = await engine.tick();
-      console.log(`Screen average ${swatch(report.average)}rgb(${report.average.r.toFixed(0)}, ${report.average.g.toFixed(0)}, ${report.average.b.toFixed(0)})`);
+      const rgb = (c: { r: number; g: number; b: number }): string =>
+        `${swatch(c)}rgb(${c.r.toFixed(0)}, ${c.g.toFixed(0)}, ${c.b.toFixed(0)})`;
+      console.log(`Screen average ${rgb(report.average)}  color weighted toward vivid areas ${rgb(report.color)}`);
       console.log(`Sent ${swatch(report.output)}${formatColor(report.output)} to ${config.bulbs.join(", ")} (capture ${report.captureMs.toFixed(0)} ms)`);
       return 0;
     }

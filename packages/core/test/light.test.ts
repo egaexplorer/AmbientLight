@@ -27,6 +27,12 @@ describe("WizLight", () => {
     ]);
   });
 
+  it("sends white-mode colors as a color temperature", async () => {
+    const socket = new FakeSocket();
+    await new WizLight("192.168.1.50", socket).setColor({ r: 255, g: 255, b: 255, dimming: 60, temp: 4000 });
+    assert.equal(socket.sent[0]?.message, '{"method":"setPilot","params":{"temp":4000,"dimming":60}}');
+  });
+
   it("reads state with getPilot, ignoring replies from other bulbs", async () => {
     const socket = new FakeSocket();
     socket.responder = () => [

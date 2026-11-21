@@ -37,8 +37,10 @@ export class EmaSmoother {
 /**
  * Largest visible difference between two WiZ colors, in 0–255 channel units.
  * Dimming (0–100 %) is scaled by 2.55 so both are comparable against one threshold.
+ * Switching between white mode (`temp`) and RGB, or to another temperature, always counts as a change.
  */
 export function colorDistance(a: WizColor, b: WizColor): number {
+  if (a.temp !== b.temp) return Number.POSITIVE_INFINITY;
   return Math.max(
     Math.abs(a.r - b.r),
     Math.abs(a.g - b.g),

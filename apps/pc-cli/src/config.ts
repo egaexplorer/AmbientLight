@@ -15,6 +15,8 @@ export interface AppConfig {
   sampleWidth: number;
   sampleHeight: number;
   smoothing: number;
+  /** 0–1: how much more colorful pixels count when picking the hue. */
+  colorWeighting: number;
   minChange: number;
   keepAliveMs: number;
   /** Put the bulbs back the way they were when sync stops. */
@@ -35,6 +37,7 @@ export const DEFAULT_CONFIG: Readonly<AppConfig> = Object.freeze({
   sampleWidth: 64,
   sampleHeight: 36,
   smoothing: DEFAULT_SYNC_OPTIONS.smoothing,
+  colorWeighting: DEFAULT_SYNC_OPTIONS.colorWeighting,
   minChange: DEFAULT_SYNC_OPTIONS.minChange,
   keepAliveMs: DEFAULT_SYNC_OPTIONS.keepAliveMs,
   restoreOnExit: true,
@@ -48,6 +51,7 @@ const RANGES = {
   sampleWidth: [1, 512, true],
   sampleHeight: [1, 512, true],
   smoothing: [0.01, 1],
+  colorWeighting: [0, 1],
   minChange: [0, 255],
   keepAliveMs: [100, 60_000, true],
 } as const satisfies Partial<Record<keyof AppConfig, Range>>;
@@ -59,6 +63,8 @@ const CALIBRATION_RANGES = {
   maxDimming: [10, 100, true],
   brightnessGamma: [0.1, 5],
   blackThreshold: [0, 0.99],
+  whiteSaturation: [0, 1],
+  whiteTemp: [2200, 6500, true],
 } as const satisfies Record<keyof CalibrationOptions, Range>;
 
 function checkNumber(name: string, value: unknown, range: Range, source: string): number {
@@ -170,6 +176,9 @@ export function resolveConfig(file: ConfigFile | undefined, flags: CliFlags): Ap
   if (flags.fps !== undefined) config.fps = checkNumber("--fps", flags.fps, RANGES.fps, source);
   if (flags.screen !== undefined) config.screen = flags.screen;
   if (flags.smoothing !== undefined) config.smoothing = checkNumber("--smoothing", flags.smoothing, RANGES.smoothing, source);
+  if (flags.colorWeighting !== undefined) {
+    config.colorWeighting = checkNumber("--color-weighting", flags.colorWeighting, RANGES.colorWeighting, source);
+  }
   if (flags.minChange !== undefined) config.minChange = checkNumber("--min-change", flags.minChange, RANGES.minChange, source);
   if (flags.noRestore) config.restoreOnExit = false;
 
@@ -183,6 +192,12 @@ export function resolveConfig(file: ConfigFile | undefined, flags: CliFlags): Ap
   }
   if (flags.maxDimming !== undefined) {
     cal.maxDimming = checkNumber("--max-dimming", flags.maxDimming, CALIBRATION_RANGES.maxDimming, source);
+  }
+  if (flags.whiteSaturation !== undefined) {
+    cal.whiteSaturation = checkNumber("--white-saturation", flags.whiteSaturation, CALIBRATION_RANGES.whiteSaturation, source);
+  }
+  if (flags.whiteTemp !== undefined) {
+    cal.whiteTemp = checkNumber("--white-temp", flags.whiteTemp, CALIBRATION_RANGES.whiteTemp, source);
   }
   if (cal.minDimming > cal.maxDimming) {
     throw new CliError(`minDimming (${cal.minDimming}) cannot be higher than maxDimming (${cal.maxDimming})`);

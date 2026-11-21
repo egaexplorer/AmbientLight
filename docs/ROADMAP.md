@@ -31,8 +31,8 @@ Based on the *WiZ PC Screen-Sync Ambilight Project Guide* (Google Drive).
       only after the border is stable for ~2 s (HyperHDR, hyperion.ng)
 - [ ] Hue-specific compensation (WiZ greens and yellows tend to look off): extra saturation for green/yellow
       hues, per-channel gains scaled by saturation so grays stay neutral (ambient-setup, namanb-lab)
-- [ ] Route low-saturation colors to the white channels (`c`/`w` or `temp`) for cleaner whites, with hysteresis
-      so a scene near the threshold doesn't flip modes (wiz-pc, namanb-lab)
+- [x] Route low-saturation colors to the white LEDs (`temp`) for cleaner whites, with hysteresis so a scene near
+      the threshold doesn't flip modes (wiz-pc, namanb-lab) → `whiteSaturation`, `whiteTemp`
 - [ ] Presets: gaming (fast), movie (smooth), ambient (very smooth, dimmer)
 
 Lessons from the reference study ([REFERENCE_NOTES.md](REFERENCE_NOTES.md)):
@@ -45,8 +45,8 @@ Lessons from the reference study ([REFERENCE_NOTES.md](REFERENCE_NOTES.md)):
       cuts (HyperHDR, MihirGupta07/wiz-sync)
 - [ ] Dark scenes: below `blackThreshold`, fade to a configurable warm glow or hold the last hue instead of
       showing a noisy hue (ambient-setup, SignalRGB plugin)
-- [ ] Take the hue from vivid pixels and the brightness from the plain luminance mean (`colorWeighting` 0–1)
-      (ambient-setup, namanb-lab)
+- [x] Take the hue from vivid pixels and the brightness from the plain luminance mean (ambient-setup,
+      namanb-lab) → `colorWeighting`
 - [ ] Discovery: also broadcast `registration`; save bulbs by MAC and re-resolve their IP at startup; read
       `getSystemConfig` to tell color bulbs from white-only ones
 - [x] Requests (`getPilot` and others) retransmit once after 400 ms (homebridge-wiz-lan)

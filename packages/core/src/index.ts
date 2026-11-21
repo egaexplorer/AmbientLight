@@ -1,8 +1,14 @@
 // Color pipeline
 export type { Hsv, PixelFrame, Rgb, WizColor } from "./color/types.js";
 export { clamp, clamp01, hsvToRgb, linearToSrgb, rgbToHsv, srgbToLinear } from "./color/convert.js";
-export { type AverageOptions, averageColor } from "./color/average.js";
-export { type CalibrationOptions, calibrate, DEFAULT_CALIBRATION } from "./color/calibration.js";
+export { type AnalyzeOptions, analyzeFrame, type AverageOptions, averageColor, type FrameColors } from "./color/average.js";
+export {
+  type CalibrationContext,
+  type CalibrationOptions,
+  calibrate,
+  DEFAULT_CALIBRATION,
+  WHITE_HYSTERESIS,
+} from "./color/calibration.js";
 export { colorDistance, EmaSmoother } from "./color/smoothing.js";
 
 // WiZ local UDP protocol

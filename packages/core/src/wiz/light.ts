@@ -93,7 +93,9 @@ export class WizLight implements ColorSink {
     resultOf(this.host, await this.exchange("setPilot", setPilotMessage(params), options));
   }
 
+  /** Sends a calibrated color: RGB, or the white LEDs at `temp` when the color is in white mode. */
   setColor(color: WizColor): Promise<void> {
+    if (color.temp !== undefined) return this.setPilot({ temp: color.temp, dimming: color.dimming });
     return this.setPilot({ r: color.r, g: color.g, b: color.b, dimming: color.dimming });
   }
 

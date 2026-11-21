@@ -15,6 +15,7 @@ export function swatch(color: Rgb): string {
 }
 
 export function formatColor(color: WizColor): string {
+  if (color.temp !== undefined) return `white ${color.temp} K dim ${color.dimming}%`;
   return `${toHex(color)} rgb(${color.r}, ${color.g}, ${color.b}) dim ${color.dimming}%`;
 }
 
