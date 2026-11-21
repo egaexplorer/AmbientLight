@@ -35,7 +35,7 @@ docs/             Architecture, WiZ protocol notes, roadmap, development guide
 ## Quick start (Windows PowerShell)
 
 ```powershell
-cd C:\Project\AmbientLight
+cd C:\AI_Sandbox\Project\AmbientLight
 npm install
 
 # 1. Find your bulb's IP address
@@ -115,7 +115,7 @@ Protocol details are in [docs/WIZ_PROTOCOL.md](docs/WIZ_PROTOCOL.md).
 
 ## References
 
-These open-source projects informed the design. See the project guide for details.
+These open-source projects informed the design. See [docs/PROJECT_GUIDE.md](docs/PROJECT_GUIDE.md) for details.
 
 - [one-adnan/ambient-setup](https://github.com/one-adnan/ambient-setup): color pipeline ideas (saturation boost, gamma, EMA smoothing, presets)
 - [uditkarode/wikari](https://github.com/uditkarode/wikari): TypeScript WiZ library (discovery, getPilot/setPilot)
