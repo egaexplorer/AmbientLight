@@ -115,7 +115,9 @@ Protocol details are in [docs/WIZ_PROTOCOL.md](docs/WIZ_PROTOCOL.md).
 
 ## References
 
-These open-source projects informed the design. See [docs/PROJECT_GUIDE.md](docs/PROJECT_GUIDE.md) for details.
+These open-source projects informed the design. See [docs/PROJECT_GUIDE.md](docs/PROJECT_GUIDE.md) for the full
+list with licenses, and [docs/REFERENCE_NOTES.md](docs/REFERENCE_NOTES.md) for what each one teaches and how it applies
+to AmbientLight.
 
 - [one-adnan/ambient-setup](https://github.com/one-adnan/ambient-setup): color pipeline ideas (saturation boost, gamma, EMA smoothing, presets)
 - [uditkarode/wikari](https://github.com/uditkarode/wikari): TypeScript WiZ library (discovery, getPilot/setPilot)

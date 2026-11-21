@@ -54,6 +54,10 @@ and license notice is kept (Apache-2.0 also requires keeping any NOTICE file and
 code must not be copied into this project unless the whole project is released under GPL-3.0. Repositories with no
 license are all rights reserved, so use them only as design references and write the code independently.
 
+All 16 repositories are cloned locally for study in `C:\AI_Sandbox\Project\AmbientLight-references\<owner>__<repo>`
+(outside this repository). What each one teaches, and how it applies to AmbientLight, is in
+[REFERENCE_NOTES.md](REFERENCE_NOTES.md).
+
 Screen-sync implementations:
 
 - [one-adnan/ambient-setup](https://github.com/one-adnan/ambient-setup) (Python, cross-platform): HSV saturation
@@ -100,7 +104,7 @@ Broader ecosystems:
   grabber per platform, including a Windows Desktop Duplication (DXGI) grabber.
   License: GPL-3.0.
 - [kershner/screenBloom](https://github.com/kershner/screenBloom) (Python): screen sync for Philips Hue bulbs.
-  Inactive since 2022.
+  Last commit in 2018.
   License: none (all rights reserved).
 
 Screen capture and UDP building blocks (Phases 3–4):

@@ -84,9 +84,34 @@ Broadcast `getPilot` and collect the replies: each bulb answers from its own IP.
 - **Black:** the core never sends all-zero RGB. Dark scenes keep a hue and drop to `minDimming`
   (10 %) instead of switching the bulb off, which avoids on/off flicker.
 - **Fixed IP:** bulbs get their address from DHCP. Reserve it in the router so the config keeps working.
+- **No request ids:** replies carry no id, so they are matched by the bulb's IP and the method name. A late
+  duplicate reply can be mistaken for the answer to a newer request (homebridge-wiz-lan).
 
-## Not used yet (candidates for later phases)
+## Signed requests (newer firmware)
 
-- `registration` / `syncPilot`: bulbs push state changes to a registered listener (wikari uses this).
-- Routing low-saturation colors to the `c`/`w` white channels or `temp`. This gives cleaner whites than RGB
-  LEDs (see noturbob/wiz-pc).
+Not supported by AmbientLight yet (see ROADMAP Phase 3). Source: pywizlight README and `sign_request`.
+
+Some newer firmware replies with `"env":"pro"` and an `hmac` field. Reads (`getPilot`) still work, but an
+unsigned `setPilot` fails with `-32602 Invalid params`, and a bad signature with `-32605 Security error`.
+Because AmbientLight sends `setPilot` without waiting for the reply, such a bulb silently ignores every color.
+
+- Key: `udp_signing_key` (32 hex characters, one per home) from the WiZ app's local integration export.
+- Add `sigTs` (Unix time in seconds) to `params`.
+- `hmac` = base64 of HMAC-SHA256 over the compact JSON of `params` (no spaces), keyed with the hex-decoded key.
+- Send `{"method": ..., "env": "pro", "params": {...}, "hmac": "..."}`.
+- The bulb rejects a `sigTs` about a minute old, so the computer's clock must be correct.
+
+## Other methods (not used yet)
+
+Collected from the references in [REFERENCE_NOTES.md](REFERENCE_NOTES.md).
+
+| Method | What it does | Source |
+| --- | --- | --- |
+| `registration` with `register: false` | Discovery probe. Some firmware answers only this and not a `getPilot` broadcast, so send both. Reply `result` has `mac` and `success`. | MihirGupta07/wiz-sync, wiz-pc, SignalRGB plugin, homebridge-wiz-lan |
+| `registration` with `register: true`, `phoneIp`, `phoneMac` | Subscribes to push updates: the bulb sends `syncPilot` (its state) to UDP **38900** on `phoneIp`, roughly every 5 s and on changes, and `firstBeat` when it boots. Acknowledging `syncPilot` is not needed. | pywizlight, wikari, homebridge-wiz-lan |
+| `getSystemConfig` | `moduleName` (e.g. `ESP25_SHRGB_01`), `fwVersion`, `mac`. `RGB` in the module name means color; `TW` (tunable white) and `DW` (dimmable white) are white-only. | homebridge-wiz-lan, MihirGupta07/wiz-sync, pywizlight |
+| `getModelConfig` | `minDimLevel` (use 10 when missing), `cctRange` on newer firmware, e.g. `[2200,2700,6500,6500]`. | pywizlight |
+| `pulse` with `delta`, `duration` | Briefly pulses the brightness; HyperHDR uses `{"delta":100,"duration":1000}` to identify a bulb. | HyperHDR |
+
+White channels: routing low-saturation colors to `temp` (or `c`/`w`) gives cleaner whites than the RGB LEDs.
+wiz-pc switches below saturation 0.15 (`temp 4000`), namanb-lab/wiz-sync below 0.12 (`temp 4500`).

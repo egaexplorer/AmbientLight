@@ -25,11 +25,32 @@ Based on the *WiZ PC Screen-Sync Ambilight Project Guide* (Google Drive).
 - [ ] Run full-screen YouTube Ambilight test videos and tune `saturationBoost`, `gamma`, `brightnessGamma`, `minDimming`
 - [ ] Measure end-to-end latency (screen change → bulb) and real FPS on Windows
 - [ ] Decide whether `screenshot-desktop` is fast enough (spawns a process per frame, ~50–200 ms on Windows).
-      If not, try a faster backend behind `ScreenCapturer` (e.g. `node-screenshots`, or move to Electron early)
-- [ ] Black-bar (letterbox) detection so movie bars don't darken the light
-- [ ] Hue-specific compensation (WiZ greens and yellows tend to look off)
-- [ ] Route low-saturation colors to the white channels (`c`/`w` or `temp`) for cleaner whites
+      If not, try a faster backend behind `ScreenCapturer` (e.g. `node-screenshots`, which captures in-process
+      and returns raw RGBA, or move to Electron early)
+- [ ] Black-bar (letterbox) detection so movie bars don't darken the light: 3-line probe from each edge, switch
+      only after the border is stable for ~2 s (HyperHDR, hyperion.ng)
+- [ ] Hue-specific compensation (WiZ greens and yellows tend to look off): extra saturation for green/yellow
+      hues, per-channel gains scaled by saturation so grays stay neutral (ambient-setup, namanb-lab)
+- [ ] Route low-saturation colors to the white channels (`c`/`w` or `temp`) for cleaner whites, with hysteresis
+      so a scene near the threshold doesn't flip modes (wiz-pc, namanb-lab)
 - [ ] Presets: gaming (fast), movie (smooth), ambient (very smooth, dimmer)
+
+Lessons from the reference study ([REFERENCE_NOTES.md](REFERENCE_NOTES.md)):
+
+- [ ] Detect bulbs that require signed `setPilot` (`-32602` reply, `"env":"pro"`) and tell the user; support an
+      optional `signingKey` through an injected HMAC-SHA256 function, since the core can't import `node:crypto`
+      (pywizlight)
+- [ ] Time-based smoothing (`1 − e^(−dt/τ)`) so the feel doesn't change with FPS, plus an instant snap on scene
+      cuts (HyperHDR, MihirGupta07/wiz-sync)
+- [ ] Dark scenes: below `blackThreshold`, fade to a configurable warm glow or hold the last hue instead of
+      showing a noisy hue (ambient-setup, SignalRGB plugin)
+- [ ] Take the hue from vivid pixels and the brightness from the plain luminance mean (`colorWeighting` 0–1)
+      (ambient-setup, namanb-lab)
+- [ ] Discovery: also broadcast `registration`; save bulbs by MAC and re-resolve their IP at startup; read
+      `getSystemConfig` to tell color bulbs from white-only ones
+- [ ] `getPilot`: retransmit once after ~400 ms; clamp dimming to `getModelConfig.minDimLevel` (homebridge-wiz-lan,
+      pywizlight)
+- [ ] `identify` command that flashes one bulb (ambient-setup, HyperHDR)
 
 ## Phase 4: desktop app (Electron) and Android port (React Native) 🗓️
 
@@ -43,10 +64,23 @@ Based on the *WiZ PC Screen-Sync Ambilight Project Guide* (Google Drive).
 
 - [ ] React Native app reusing `@ambientlight/core` and shared UI
 - [ ] UDP through `react-native-udp` (implements the core's `UdpSocket`)
-- [ ] Kotlin native module: `MediaProjection` in a foreground service, downscaled RGB streamed to TypeScript
-- [ ] Android TV support (see namanb-lab/wiz-sync)
+- [ ] Kotlin native module: `MediaProjection` in a foreground service, downscaled RGB streamed to TypeScript.
+      Render the `VirtualDisplay` ~96 px wide so the GPU downscales, use `ImageReader` with 2 images and
+      `acquireLatestImage()`, respect `rowStride`, register the projection callback before
+      `createVirtualDisplay` (Android 14+), and resize on rotation (namanb-lab, hyperion-android-reborn)
+- [ ] Android TV support (see namanb-lab/wiz-sync); DRM apps capture as black, which can't be worked around
+
+**Electron, from the reference study**
+
+- [ ] Re-run discovery periodically (e.g. every 60 s) so bulbs that join later appear (SignalRGB plugin)
 
 ## Later ideas
 
 - Multi-zone: several bulbs mapped to screen regions (left/right/top), like Hyperion edge mapping
+  (HyperHDR's WiZ driver maps one zone per bulb)
 - Audio-reactive mode (WASAPI loopback, see MihirGupta07/wiz-sync)
+- Push updates: `registration` with `register: true` and a listener on UDP 38900, so the Electron UI shows changes
+  made in the WiZ app (pywizlight, wikari)
+- Send at a steady rate between captures with the time-based smoother, and an optional `delayMs` to match TV
+  input lag (hyperion.ng)
+- Per-bulb calibration (gamma and white balance) once several bulbs are supported (wiz-pc)
