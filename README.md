@@ -131,6 +131,8 @@ Command-line flags override it.
   Or try one level on a playing video with `npm run sync -- --color-base 40`. The higher the base, the smaller
   the difference between dark and bright scenes, so take the lowest one that looks strong enough. A dark theme
   with a tint (e.g. navy) counts as color and gets brighter too.
+  The right level depends on the placement: the default 10 can be enough with the bulb close by; if the screen or
+  the bulb moves farther away, try 30 or 50.
 - **Flicker or nervous light:** lower `smoothing` (0.4–0.5), raise `minChange` (6–8), or raise `sceneCut` (60) if
   `sync -v` shows `cut` on frames that aren't real cuts.
 - **Light lags behind the picture:** check the `capture` time in `sync -v`. About 20–35 ms is normal for

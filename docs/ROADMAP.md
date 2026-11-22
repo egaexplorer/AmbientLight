@@ -29,7 +29,8 @@ Based on the *WiZ PC Screen-Sync Ambilight Project Guide* (Google Drive).
         darker; after comparing levels by eye, colors turned out to be too dim in general
 - [x] Separate base brightness for colors → `colorBaseBrightness` / `--color-base`, default 10 (off)
 - [x] Try it on the bulb → 2026-11-22: the user saw a noticeable difference in brightness and liked the result
-- [ ] Pick the value to keep and decide the default (the user hasn't named a level yet, so the default stays 10)
+- [x] Pick the value to keep and decide the default → 10 for both (user, 2026-11-22): enough with the bulb where
+      it is now. The user plans to raise theirs to 30 or 50 if the device or the bulb moves farther away
 - [x] Save the analyzed frame for offline tuning → `once --save-frame`
 - [x] Measure that lamp shot with `--save-frame`, plus the doorway shot as a reference that must not change → lamps:
       average `23,18,16`, winning hue family on 2.3 % of the screen, dimming 15. Doorway (teal on video): average
