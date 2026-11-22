@@ -51,7 +51,7 @@ Based on the *WiZ PC Screen-Sync Ambilight Project Guide* (Google Drive).
 - [x] Let large dim areas count a little more for the hue, only if the lamp shot stays orange → no change: there
       are no large teal areas to count. Even at chroma 0.06 (instead of `MIN_CHROMA` 0.12) the lamp shot has 150
       warm pixels and 10 teal-blue ones
-- [ ] Doorway shot: the light is too yellow, the user sees white-blue-teal (2026-11-22). Not caused by the orange
+- [x] Doorway shot: the light is too yellow, the user sees white-blue-teal (2026-11-22). Not caused by the orange
       lamp (without its pixels the frame still gives yellow-green) and not by the capture (equals a screenshot
       that looks like the video). The cause is the mapping: saturation 0.29 → 0.52 (`saturationBoost`, `gamma`) and
       67 % warm white for a ~5400 K color (hue 78°).
@@ -61,9 +61,10 @@ Based on the *WiZ PC Screen-Sync Ambilight Project Guide* (Google Drive).
             reach) → `mutedGreenCorrection` / `--muted-green`, default 1. Global settings can't do that:
             `saturationBoost` 1 + `gamma` 1 pales the lamp orange and skin, `whiteSaturation` 0.4 turns beige and
             pale blue white
-      - [ ] The user watches a playing movie with it (and with `--muted-green 0`) before it's merged. So far it is
-            tested on two measured shots and their crops, test colors, and 37 bundled Windows photos (none changed,
-            but few are greenish)
+      - [x] The user tries it before it's merged → "looks good enough" (2026-11-22, by eye; which scenes wasn't
+            reported). The other evidence is two measured shots and their crops, test colors, and 37 bundled Windows
+            photos (none changed, but few are greenish). If a green scene looks too cool, lower
+            `mutedGreenCorrection` or narrow its range
 - [x] Measure capture time and real FPS on Windows → `screenshot-desktop` took 367 ms per frame (685 ms with
       `screen` set), so `sync` reached ~2.7 FPS. See the latency budget in [ARCHITECTURE.md](ARCHITECTURE.md#latency-budget)
 - [x] Decide whether `screenshot-desktop` is fast enough → no: it compiles its C# helper on every frame. A helper
