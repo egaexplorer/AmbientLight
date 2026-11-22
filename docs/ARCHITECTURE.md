@@ -61,6 +61,7 @@ the capture itself. `minChange` keeps the bulb from being flooded: in that ~23-m
 | `color/smoothing.ts` | `EmaSmoother`, `colorDistance` |
 | `sync/engine.ts` | `SyncEngine`: the capture → process → transmit loop on fixed frame times; resets the smoothers on scene cuts |
 | `sync/types.ts` | `ScreenCapturer` and `ColorSink` interfaces |
+| `weather/rain.ts` | `assessRain`: turns a `WeatherSnapshot` (alerts, forecast, airport report) into a `RainLevel` and the facts behind it. No I/O |
 | `platform/timers.ts` | `setTimeout` and the clock without Node.js or DOM typings |
 
 **Rule:** the core must not import `node:*` modules or use Node.js/DOM-only globals. Its `tsconfig.json`
@@ -79,6 +80,9 @@ sets `"types": []` so the compiler enforces this. That's what lets the React Nat
 | `commands.ts` | `discover`, `state`, `displays`, `color`, `once` (reads the bulb back after sending, optionally saves the frame), `sync` |
 | `check.ts` | `check` (`npm run check-bulb`): runs `checkBulb` on each bulb and prints the report |
 | `frame-file.ts` | `saveFramePng`: writes the analyzed frame as a PNG for `once --save-frame` |
+| `weather.ts` | `WeatherClient`: fetches and validates BMKG forecast, BMKG CAP alerts (cached per file) and METAR |
+| `advisor.ts` | Optional AI advice through Gemini's or Groq's chat-completions endpoint, checked against what the rules allow |
+| `rain.ts` | The `rain` command: 2-minute loop, signal colors, simulations, keep-alive, restore on exit |
 | `log.ts` | Live status line with a true-color swatch |
 
 ## Design decisions
@@ -174,6 +178,31 @@ sets `"types": []` so the compiler enforces this. That's what lets the React Nat
    ([ROADMAP.md](ROADMAP.md#later-ideas)).
    The helper's byte order was checked on 2026-11-22: a full-screen pure blue window arrived as `[255,0,0,0]`
    (BGRX) and was analyzed as hue 240.
+
+## Rain signal
+
+A prototype of an option that is on hold ([ROADMAP.md](ROADMAP.md#option-rain-signal-on-hold)).
+
+```mermaid
+flowchart LR
+  BMKG[BMKG alerts and forecast] --> RULES[assessRain]
+  METAR[METAR airport report] --> RULES
+  RULES -->|color at once| BULB((WiZ bulb))
+  RULES -->|facts and allowed levels| AI[AI model, optional]
+  PLAN[User's plan] --> AI
+  AI --> GUARD[checkAdvice]
+  GUARD -->|allowed color and one sentence| BULB
+```
+
+1. **Rules before AI.** The bulb gets the rule color before the AI is called, so a slow or failing model can't delay
+   a warning. `checkAdvice` then rejects levels outside `ALLOWED` and invented times.
+2. **Never green on missing data.** Any failed or stale source gives `unknown`, except that a known danger still
+   shows red. A changed alert format throws instead of reading as "no alerts".
+3. **Polygons, not titles.** An alert titled "Jakarta" covered Depok, Bogor and South Tangerang but neither test point in central
+   Jakarta, so every alert in the list is read and matched by polygon and time. Files are cached, which keeps the
+   requests under BMKG's 60 per minute.
+4. **No SDK.** Both AI providers take the same single POST, so `fetch` is enough and the provider follows the key.
+   The AI is asked again only when the facts change or the last call failed, to spare free quotas.
 
 ## Adding a platform (Phase 4)
 

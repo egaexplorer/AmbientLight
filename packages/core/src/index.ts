@@ -72,6 +72,20 @@ export {
   type TestColorResult,
 } from "./wiz/check.js";
 
+// Rain signal
+export {
+  type AirportObservation,
+  assessRain,
+  clockTime,
+  type ForecastSlot,
+  insidePolygon,
+  type LatLon,
+  type RainAssessment,
+  type RainLevel,
+  type WeatherAlert,
+  type WeatherSnapshot,
+} from "./weather/rain.js";
+
 // Sync loop
 export type { ColorSink, ScreenCapturer } from "./sync/types.js";
 export {

@@ -1,10 +1,12 @@
 #!/usr/bin/env node
+import path from "node:path";
 import process from "node:process";
 import { runCheck } from "./check.js";
 import { CliError, parseCommandLine, USAGE } from "./cli.js";
 import { runColor, runDiscover, runDisplays, runState, runSync } from "./commands.js";
 import { type ConfigFile, findConfigFile, loadConfigFile, resolveConfig } from "./config.js";
 import { errorMessage } from "./log.js";
+import { runRain } from "./rain.js";
 
 async function main(argv: readonly string[]): Promise<number> {
   const { command, flags } = parseCommandLine(argv);
@@ -32,6 +34,9 @@ async function main(argv: readonly string[]): Promise<number> {
       return runColor(config, flags);
     case "once":
       return runSync(config, { once: true, verbose: flags.verbose, saveFrame: flags.saveFrame });
+    case "rain":
+      // .env sits next to the config file.
+      return runRain(config, flags, configPath ? path.dirname(configPath) : (process.env.INIT_CWD ?? process.cwd()));
     case "sync":
       return runSync(config, { once: false, verbose: flags.verbose });
   }

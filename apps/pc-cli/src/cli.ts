@@ -1,7 +1,10 @@
 import { parseArgs } from "node:util";
 
-export const COMMANDS = ["discover", "check", "state", "displays", "color", "once", "sync", "help"] as const;
+export const COMMANDS = ["discover", "check", "state", "displays", "color", "once", "sync", "rain", "help"] as const;
 export type Command = (typeof COMMANDS)[number];
+
+export const SIMULATIONS = ["go", "prepare", "wait", "danger", "unknown"] as const;
+export type SimulatedWeather = (typeof SIMULATIONS)[number];
 
 /** A user-facing error: printed without a stack trace. */
 export class CliError extends Error {
@@ -31,6 +34,8 @@ export interface CliFlags {
   noRestore: boolean;
   timeoutMs?: number;
   saveFrame?: string;
+  plan?: string;
+  simulate?: SimulatedWeather;
   rgb?: { r: number; g: number; b: number };
   dimming?: number;
   verbose: boolean;
@@ -56,6 +61,7 @@ Commands:
   color               Set a fixed color to test a bulb   (--rgb 255,0,0 [--dimming 80])
   once                Capture one frame and send its color (Phase 1)
   sync                Continuously sync the screen to the bulbs (Phase 2)
+  rain                Show on the bulb whether it's a good time to head out (BMKG, METAR, optional AI)
   help                Show this help
 
 Options:
@@ -82,6 +88,8 @@ Options:
       --no-restore        Don't restore the bulbs' previous state (sync, check)
       --timeout <ms>      How long "discover" (and "check" without a bulb) listens for replies (default 2000)
       --save-frame <file> Save the frame "once" analyzed as a PNG, to study a scene
+      --plan <text>       Your plan for "rain", for the AI (e.g. "naik motor, bisa tunggu sampai 19:00")
+      --simulate <name>   Made-up weather for "rain": go, prepare, wait, danger or unknown
       --rgb <r,g,b>       Color for "color", or the test color for "check" (default 255,0,0)
       --dimming <n>       Dimming for "color" and "check" (default 100)
   -v, --verbose           Print every frame
@@ -111,6 +119,14 @@ function parseRgb(raw: string | undefined): CliFlags["rgb"] {
   }
   const [r, g, b] = parts as [number, number, number];
   return { r, g, b };
+}
+
+function parseSimulation(raw: string | undefined): SimulatedWeather | undefined {
+  if (raw === undefined) return undefined;
+  if (!(SIMULATIONS as readonly string[]).includes(raw)) {
+    throw new CliError(`--simulate expects one of ${SIMULATIONS.join(", ")}, got "${raw}"`);
+  }
+  return raw as SimulatedWeather;
 }
 
 function parseScreen(raw: string | undefined): string | number | undefined {
@@ -148,6 +164,8 @@ export function parseCommandLine(argv: readonly string[]): ParsedCommandLine {
         "no-restore": { type: "boolean", default: false },
         timeout: { type: "string" },
         "save-frame": { type: "string" },
+        plan: { type: "string" },
+        simulate: { type: "string" },
         rgb: { type: "string" },
         dimming: { type: "string" },
         verbose: { type: "boolean", short: "v", default: false },
@@ -202,6 +220,10 @@ export function parseCommandLine(argv: readonly string[]): ParsedCommandLine {
   set("timeoutMs", toNumber("timeout", values.timeout));
   set("saveFrame", values["save-frame"]);
   if (flags.saveFrame !== undefined && name !== "once") throw new CliError('--save-frame only works with "once"');
+  set("plan", values.plan);
+  if (flags.plan !== undefined && name !== "rain") throw new CliError('--plan only works with "rain"');
+  set("simulate", parseSimulation(values.simulate));
+  if (flags.simulate !== undefined && name !== "rain") throw new CliError('--simulate only works with "rain"');
   set("rgb", parseRgb(values.rgb));
   set("dimming", toNumber("dimming", values.dimming));
 

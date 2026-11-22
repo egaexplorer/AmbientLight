@@ -151,6 +151,101 @@ Lessons from the reference study ([REFERENCE_NOTES.md](REFERENCE_NOTES.md)):
   creep toward the target for long
 - Per-bulb calibration (gamma and white balance) once several bulbs are supported (wiz-pc)
 
+## Option: rain signal (on hold)
+
+Put on hold on 2026-11-22: the user prefers a feature closer to ambient light and is comparing ideas (next section).
+The prototype works and stays available as an option; the open boxes below wait until it is picked.
+
+`npm run rain` (2026-11-22): the bulb shows whether it's a good time to go outside. Sources were first tried
+on 2026-11-22 at 20:18–20:19 WIB, for central Jakarta (-6.2, 106.8; BMKG forecast: Kemayoran, `31.71.03.1001`):
+
+| Source | Returned | Use and limit |
+| --- | --- | --- |
+| BMKG nowcast (CAP XML) | Active "Jakarta" heavy-rain alert, 18:05–21:05; neither test point was inside its polygons | Best local warning. Match polygon and `effective`/`expires`, never the province in the title |
+| Aviation Weather METAR (WIHH, WIII) | No rain at 20:00; WIHH had thunderstorms and rain to the southwest until 18:30 | Real observations every 30 min, but only at airports (12–18 km from the test point) |
+| BMKG forecast | Cloudy at 20:00, light rain at 23:00 | Village level, but 3-hour steps |
+| Open-Meteo | 0 mm now with 69 % probability; for the same hour ICON gave 0.9 mm, JMA 0.4, ECMWF and GFS 0 | `current` is model output, and 15-minute values are interpolated in Indonesia. Not proof of dry weather |
+| RainViewer radar | Coverage tile is solid black (no coverage) at the test point | Not usable there |
+
+- "No alert" doesn't mean "no rain": show risk and the data's age, and give missing or stale data its own color.
+- BMKG requires visible attribution and allows 60 requests per minute per IP. Open-Meteo's free API is non-commercial.
+- Decided: a separate command (not mixed into `sync`), steady colors without blinking, Open-Meteo and radar not used.
+  The AI only weighs the user's plan, within limits set by the rules.
+
+- [x] Rules, data sources, AI guard, simulations and tests
+- [x] Live data, 20:42–20:45 WIB on 2026-11-22: a dry area gave green, Pamulang Barat (`36.74.06.1001`) gave red from
+      a real warning until 21:05 while its forecast said cloudy
+- [x] End to end on a fake bulb: five colors, restore on exit, offline → purple, an AI downgrade of red rejected
+- [ ] Check the five colors on the real bulb, especially yellow (`255,190,0`) and purple against blue
+- [ ] A real AI answer. Only the endpoints were tried (with an invalid key), so model id and JSON schema are unproven
+- [ ] Judge the rules against real weather for a few days; the thresholds are a first guess
+- [ ] Later: phone notification for when the bulb is out of sight
+
+## Options: ambient features with a public API (nothing picked)
+
+Brainstorm of 2026-11-22. Each must build on screen sync, use a public API and work without AI (AI is optional).
+
+| # | Idea | Public API | Without AI | Optional AI | Found when probed |
+| --- | --- | --- | --- | --- | --- |
+| 1 | Film director: a look per film or series on top of screen sync | Wikidata (CC0), TVmaze (CC BY-SA) | Genre → small hue turn, saturation, brightness, white temperature | A look per title from its description | Genre for 6 of 7 test films. The seventh (Petualangan Sherina) has it in its Indonesian Wikipedia summary ("komedi musikal", CC BY-SA), readable by keywords or AI; keep a manual genre for the rest |
+| 2 | Night watching: screen colors stay, brightness and white follow the sun | Sunrise-Sunset (attribution link) | Minutes after sunset → `maxDimming`, `whiteTemp` (only gray and white scenes get warmer) | Plain-language preferences | No key, answered in 0.5 s |
+| 3 | Hearing through light: pulses for sound captions, for deaf viewers | OpenSubtitles (5 downloads a day, 20 with an account) | Keywords in captions such as [explosion] | Classify captions and emotion | The API refused a generic client: needs a registered app. Not tested further |
+| 4 | Lyric stage: choruses and quiet parts shape the screen's color | LRCLIB (no key, no stated license for lyrics) | Repeated lines = chorus | Emotion per line | Timed lyrics for 5 of 5 test songs, 3 of them Indonesian |
+| 5 | Space window: full-screen space photos light the room | NASA Image Library (no key) | Screen sync as it is, plus a slideshow | Narrate each photo | Search and 3 test images worked |
+
+Suggested: 1 and 2 together. Both act on the calibration step and need no key.
+
+**How to make a film look.** Simulated with `calibrate` and `previewRgb` on 540 test colors (36 hues, 5 saturations,
+3 brightnesses) and 3 looks (horror, romance, animation). This replaces a first test that was wrong: its "romance"
+look used the default saturation and gamma, and the 25 % blend it recommended breaks colors.
+
+| Method | Visibly different from default | Hue change | Colors broken |
+| --- | --- | --- | --- |
+| Settings only (saturation, gamma, brightness, white temperature) | 73–89 % | mean ≤ 3°, max 8° | none, but no genre tone |
+| Blend 25 % of a genre color | 95–97 % | mean 29–34°, max 179° | up to 41 % move > 30°, up to 5 % of vivid colors turn white (sky → white) |
+| **Settings + hue turn of at most 20° toward the genre** (fades to none at the opposite hue) | 91–96 % | mean 12–13°, max 31° after gamma | ≤ 2 % move > 30°, none turn white |
+
+"Visibly different" means hue ≥ 10°, saturation ≥ 0.1, dimming ≥ 10 points, or white temperature ≥ 1000 K. That is a
+threshold, not a judgment by eye: none of this was seen on the bulb. Constraints found:
+
+- The hue turn goes between smoothing and `calibrate`, so scene-cut detection still sees the screen's own hue.
+- Leave muted greens out of the turn: with it, the romance look made the doorway shot yellow (`#fffc99`) again.
+- Night watching changes no hue. A cap of 100 → 25 takes skin from 80 to 22 but dark shots only from 15 to 11, a step
+  that is hard to see on this bulb.
+- Combined, the cap is the lower of genre and night, and `colorBaseBrightness` must shrink with it: a base of 45
+  under a cap of 25 gave 7 of 8 test scenes the same brightness.
+- Titles are ambiguous ("Interstellar" first finds the interstellar medium) and films have up to 12 genres, so search
+  results need a film filter and genres a priority ("comedy horror" should not look like horror).
+
+Findings for whichever is built:
+
+- Windows' media session API answers from PowerShell 5.1, so ideas 1, 3 and 4 may get title and position from it.
+  Only the session count was read; whether browsers report a usable position is untested.
+- DRM video often captures as black, so test and demo with YouTube or open movies.
+- Wikimedia wants a User-Agent with a contact, and LRCLIB one that names the app.
+
+What the film and music APIs allow (verbatim terms read on 2026-11-22; our reading, not legal advice):
+
+| Use | Verdict | Basis |
+| --- | --- | --- |
+| TMDB genre lookup, no AI in the app | Allowed for non-commercial use | FAQ. Credit TMDB with its logo in About/Credits; cache at most 6 months |
+| Genre → look through a fixed table | Probably fine, not stated | 1.C also bans "derivatives" of TMDB content, without defining them |
+| TMDB data as AI input, also after fetching it | Not allowed without written permission | 1.C: "in connection with, including for training" an ML or AI based application. 1.A: information obtained from the API is TMDB Content |
+| TMDB in an app whose AI never sees TMDB data | Unclear, ask TMDB | The wording covers the application, not only the model's input |
+| Deezer data as AI input | Not allowed | III.8 names "using Content as input" |
+| Deezer without AI | Possible after approval | Private, non-commercial use; no derivative works |
+| iTunes artwork as a light source | Not allowed | Promotional content only, "not for entertainment purposes" |
+
+So for idea 1, either TMDB with a fixed table and no AI, or Wikidata + Wikipedia + TVmaze with optional AI. A TMDB
+forum question about inference-only use (2026-07-30) had no staff answer.
+
+Ruled out:
+
+| Source | Why |
+| --- | --- |
+| TheSportsDB goal lights | Live scores are paid only |
+| Met and Art Institute of Chicago paintings | Images or API answered scripts with a bot check |
+
 ## Backlog: Bardi / Tuya Wi-Fi bulbs (side project)
 
 For after Phase 4; no code yet. Bardi bulbs are rebranded Tuya devices. Both routes below add a new `ColorSink`

@@ -2,7 +2,9 @@
 
 Turn a Philips WiZ smart bulb into an ambient backlight for your PC (and later Android) screen.
 AmbientLight captures the screen, works out its average color, and sends it straight to the bulb
-over your local network (UDP port 38899). It doesn't need a cloud service or extra hardware.
+over your local network (UDP port 38899). Screen sync doesn't need a cloud service or extra hardware.
+An optional prototype, [`rain`](#rain-signal) (not chosen as a product feature yet), turns the bulb into a "is it a good time to head out?" light. It reads public
+weather data and can ask a free AI model for advice, so that mode needs internet.
 
 ```text
 Capture screen  ->  Downscale + average color  ->  Calibrate + smooth  ->  UDP setPilot  ->  WiZ bulb
@@ -11,7 +13,8 @@ Capture screen  ->  Downscale + average color  ->  Calibrate + smooth  ->  UDP s
 
 **Status:** Phases 1–2 work end to end in the PC command-line app (capture, average, calibrate,
 smooth, throttle, send, restore on exit). Phase 3 (calibrating on real hardware) is in progress, and Phase 4
-(Electron desktop app, Android app) is next. See [docs/ROADMAP.md](docs/ROADMAP.md).
+(Electron desktop app, Android app) is next. The rain signal is a parked option: tested on live weather data and a fake bulb, not
+yet on a real bulb or with a real AI answer. See [docs/ROADMAP.md](docs/ROADMAP.md).
 
 ## Repository layout
 
@@ -76,6 +79,7 @@ You can pass any setting on the command line instead of the config file, e.g.
 | `npm run color -- --rgb r,g,b [--dimming n]` | Sets a fixed color to test connectivity |
 | `npm run once` | Captures one frame and sends its color (Phase 1). Add `-- --save-frame <file.png>` to also save the frame it analyzed |
 | `npm run sync` | Continuous screen sync (Phase 2). Add `-v` to print every frame |
+| `npm run rain` | Weather signal on the bulb ([Rain signal](#rain-signal)). Don't run it at the same time as `sync` |
 | `npm run help` | All options |
 
 ## Configuration
@@ -96,7 +100,8 @@ Command-line flags override it.
 | `colorMode` | `"dominant"` | `"dominant"`: the bulb shows the strongest color on screen (by area and vividness), so red and green never mix into an orange that isn't there. `"average"`: all colors are mixed. |
 | `minChange` | `4` | Changes smaller than this (0–255 scale) aren't sent, which avoids flooding the bulb. |
 | `keepAliveMs` | `2000` | Re-sends the current color this often in case a UDP packet was lost. |
-| `restoreOnExit` | `true` | Restores the bulb's previous color, white, or scene when sync stops. |
+| `restoreOnExit` | `true` | Restores the bulb's previous color, white, or scene when `sync` or `rain` stops. |
+| `weatherArea` | `null` | BMKG village code (adm4) for `rain`, e.g. `"31.71.03.1001"` (Kemayoran). |
 | `calibration.saturationBoost` | `1.3` | Makes washed-out average colors more vivid. |
 | `calibration.gamma` | `1.6` | Deepens colors. Weak channels fade faster. |
 | `calibration.minDimming` / `maxDimming` | `10` / `100` | Brightness range in %. WiZ accepts 10–100. |
@@ -147,6 +152,44 @@ Command-line flags override it.
   `minDimming` at 10.
 - **A scene gets a color or brightness you didn't expect:** save what the analysis saw with `once --save-frame`
   ([how](docs/DEVELOPMENT.md#debugging-a-scene)). A phone photo of the screen doesn't show those colors.
+
+## Rain signal
+
+> An option on hold while other features are compared ([roadmap](docs/ROADMAP.md#option-rain-signal-on-hold)).
+
+`npm run rain` checks the weather every 2 minutes and shows the result on the bulb until Ctrl+C. Its output is in
+Indonesian, like the data.
+
+| Color | Meaning | Set by the rules when |
+| --- | --- | --- |
+| Green | Go now | All sources answered and none shows rain |
+| Yellow | Take a raincoat | Light rain is forecast, or the airport reports thunder or showers nearby |
+| Blue | Wait | Moderate or heavier rain is forecast, or it rains at the airport |
+| Red | Don't leave | A BMKG warning covers the point now or within an hour, or the airport reports heavy rain or a thunderstorm with rain |
+| Purple | Unknown | A source failed or is stale, and no known danger |
+
+1. Set `weatherArea` in `ambientlight.config.json` to your village's BMKG code.
+2. Optional AI: put a key in a git-ignored `.env` next to that file, either `GEMINI_API_KEY=...`
+   ([Google AI Studio](https://aistudio.google.com/apikey)) or `GROQ_API_KEY=...`
+   ([Groq](https://console.groq.com/keys)). If both are set, Gemini is used.
+3. Run it:
+
+```powershell
+npm run rain -- --plan "naik motor, bisa tunggu sampai 19:00"
+npm run rain -- --simulate danger    # made-up data: go, prepare, wait, danger or unknown
+```
+
+The AI weighs your plan against the facts, within limits that the code enforces: green can become yellow, and yellow
+and blue can swap. It can never clear rain, change red or purple, or mention a time that isn't in the input. Without
+a key, or when the AI fails, the rules decide alone.
+
+The AI gets the facts, the current time and your plan, but no coordinates or place names. Free tiers may use what they
+receive to improve their models, so keep personal details out of `--plan`.
+
+It is an estimate, not a promise of dry weather: forecasts come in 3-hour steps and the only observation is the nearest
+airport within 15 km (if there is none, the forecast and warnings decide).
+
+Weather data: **BMKG (Badan Meteorologi, Klimatologi, dan Geofisika)** and NOAA Aviation Weather Center (METAR).
 
 ## Development
 

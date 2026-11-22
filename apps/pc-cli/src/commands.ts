@@ -23,7 +23,7 @@ export const FIREWALL_HINT =
   "If you're on Windows, make sure Node.js is allowed through Windows Defender Firewall on Private networks,\n" +
   'that the PC and bulb are on the same Wi-Fi/subnet, and that "Allow local communication" is on in the WiZ app.';
 
-function requireBulbs(config: AppConfig): void {
+export function requireBulbs(config: AppConfig): void {
   if (config.bulbs.length === 0) {
     throw new CliError(
       'No bulb configured. Run "npm run discover", then pass --bulb <ip> or add it to ambientlight.config.json.',
@@ -70,7 +70,7 @@ async function createCapturer(config: AppConfig): Promise<ScreenCapturer> {
   return new DesktopCapturer(options);
 }
 
-function waitForShutdown(): Promise<string> {
+export function waitForShutdown(): Promise<string> {
   const signals = ["SIGINT", "SIGTERM", "SIGBREAK"] as const;
   return new Promise((resolve) => {
     const handler = (signal: string): void => {

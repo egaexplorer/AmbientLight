@@ -31,7 +31,7 @@ dependency change.
 | `npm test` | Runs all `*.test.ts` with Node's built-in test runner (via `tsx`) |
 | `npm run typecheck` | Type-checks source and tests together (`tsconfig.tests.json`) |
 | `npm run check` | build + typecheck + test (what CI runs) |
-| `npm run discover` / `check-bulb` / `state` / `displays` / `color` / `once` / `sync` / `help` | Run the CLI from source (`check-bulb` runs the CLI's `check` command; `npm run check` is the build + test script) |
+| `npm run discover` / `check-bulb` / `state` / `displays` / `color` / `once` / `sync` / `rain` / `help` | Run the CLI from source (`check-bulb` runs the CLI's `check` command; `npm run check` is the build + test script) |
 
 Pass CLI flags after `--`: `npm run sync -- --bulb 192.168.1.50 -v`.
 To run the compiled CLI instead: `npm run build`, then `node apps/pc-cli/dist/main.js sync`.
@@ -65,6 +65,15 @@ To run the compiled CLI instead: `npm run build`, then `node apps/pc-cli/dist/ma
 - Run a single file: `npx tsx --conditions=development --test packages/core/test/color.test.ts`.
 - The GDI capture helper needs a real screen, so tests cover only its byte-stream handling (`FrameAssembler`).
   After changing `native/gdi-capture.cs` or `gdi-capture.ts`, check capture time and colors by hand with `sync -v`.
+
+## Testing the rain signal
+
+- `npm run rain -- --simulate <level>` runs made-up data through the real rules and AI. With the fake bulb below, add
+  `--bulb 127.0.0.1` so the real bulb stays untouched.
+- Tests inject `fetch`, so they need no network, key or quota.
+- For a live red, pick a village inside a currently active warning from <https://www.bmkg.go.id/alerts/nowcast/id>.
+- A 400 (Gemini) or 401 (Groq) after "AI gagal" means the key is wrong; a 404 probably means the model id in
+  `apps/pc-cli/src/advisor.ts` was retired; a 429 means the free quota is used up. The rules keep working in all cases.
 
 ## Debugging a scene
 

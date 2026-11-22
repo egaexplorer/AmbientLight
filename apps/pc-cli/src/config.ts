@@ -40,12 +40,15 @@ export interface AppConfig {
   keepAliveMs: number;
   /** Put the bulbs back the way they were when sync stops. */
   restoreOnExit: boolean;
+  /** BMKG village code (adm4) for `rain`. */
+  weatherArea: string | undefined;
   calibration: CalibrationOptions;
 }
 
 /** Shape of ambientlight.config.json — every field optional. */
-export type ConfigFile = Partial<Omit<AppConfig, "screen" | "calibration">> & {
+export type ConfigFile = Partial<Omit<AppConfig, "screen" | "weatherArea" | "calibration">> & {
   screen?: string | number | null;
+  weatherArea?: string | null;
   calibration?: Partial<CalibrationOptions>;
 };
 
@@ -63,6 +66,7 @@ export const DEFAULT_CONFIG: Readonly<AppConfig> = Object.freeze({
   sceneCut: DEFAULT_SYNC_OPTIONS.sceneCut,
   keepAliveMs: DEFAULT_SYNC_OPTIONS.keepAliveMs,
   restoreOnExit: true,
+  weatherArea: undefined,
   calibration: { ...DEFAULT_CALIBRATION },
 });
 
@@ -138,6 +142,12 @@ export function validateConfigFile(value: unknown, source: string): ConfigFile {
         }
         out.screen = raw;
         break;
+      case "weatherArea":
+        if (raw !== null && (typeof raw !== "string" || !/^\d\d\.\d\d\.\d\d\.\d{4}$/.test(raw))) {
+          throw new CliError(`${source}: "weatherArea" must be a BMKG village code like "31.71.03.1001", or null`);
+        }
+        out.weatherArea = raw;
+        break;
       case "colorMode":
         out.colorMode = checkChoice("colorMode", raw, COLOR_MODES, source);
         break;
@@ -206,9 +216,10 @@ export function resolveConfig(file: ConfigFile | undefined, flags: CliFlags): Ap
   };
 
   if (file) {
-    const { calibration, screen, ...rest } = file;
+    const { calibration, screen, weatherArea, ...rest } = file;
     Object.assign(config, rest);
     if (screen !== undefined) config.screen = screen ?? undefined;
+    if (weatherArea !== undefined) config.weatherArea = weatherArea ?? undefined;
     if (calibration) Object.assign(config.calibration, calibration);
   }
 

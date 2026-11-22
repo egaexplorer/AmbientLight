@@ -24,7 +24,8 @@
     "displays": "npm run dev -w @ambientlight/pc-cli -- displays",
     "color": "npm run dev -w @ambientlight/pc-cli -- color",
     "once": "npm run dev -w @ambientlight/pc-cli -- once",
-    "sync": "npm run dev -w @ambientlight/pc-cli -- sync"
+    "sync": "npm run dev -w @ambientlight/pc-cli -- sync",
+    "rain": "npm run dev -w @ambientlight/pc-cli -- rain"
   },
   "devDependencies": {
     "@types/node": "^24.0.0",
