@@ -22,7 +22,34 @@ Based on the *WiZ PC Screen-Sync Ambilight Project Guide* (Google Drive).
 
 ## Phase 3: testing and calibration ⏳
 
-- [ ] Run full-screen YouTube Ambilight test videos and tune `saturationBoost`, `gamma`, `brightnessGamma`, `minDimming`
+- [ ] Run full-screen YouTube Ambilight test videos and tune `saturationBoost`, `gamma`, `brightnessGamma`, `minDimming`, `colorBaseBrightness`
+      - First clip (2026-11-22, 20 FPS, phone video): the room turns orange in a dark shot with two small wall
+        lamps. The user likes the orange (the most vibrant color). The shot looked teal on video, but its saved
+        frame is near-black brown, so the orange is correct (see the next items). The user first wanted it
+        darker; after comparing levels by eye, colors turned out to be too dim in general
+- [x] Separate base brightness for colors → `colorBaseBrightness` / `--color-base`, default 10 (off)
+- [x] Try it on the bulb → 2026-11-22: the user saw a noticeable difference in brightness and liked the result
+- [ ] Pick the value to keep and decide the default (the user hasn't named a level yet, so the default stays 10)
+- [x] Save the analyzed frame for offline tuning → `once --save-frame`
+- [x] Measure that lamp shot with `--save-frame`, plus the doorway shot as a reference that must not change → lamps:
+      average `23,18,16`, winning hue family on 2.3 % of the screen, dimming 15. Doorway (teal on video): average
+      `32,35,25` (olive), family on 1.4 %, dimming 19. Without the family's pixels the lamp shot is still warm,
+      only paler
+- [ ] Deferred by the user: make the light darker when its color comes from a small area. Revisit if small lights
+      look too strong at the chosen color base (at base 40 the first rule takes the lamp shot from 43 to 38 and
+      leaves the other dark scenes tested alone). Measured dimming per rule at base 10:
+
+      | Rule | Lamps (now 15) | Doorway (now 19) | White page + 2 % red icon (now 100) |
+      | --- | --- | --- | --- |
+      | Scale only the family's light by `min(1, coverage / 0.10)` | 13 | 19 | 99 |
+      | Scale the whole dimming above 10 by the same factor | 11 | 11 | 28 |
+      | `brightnessGamma` 1.5 (config only, all scenes) | 11 | 13 | 100 |
+
+      The first rule is the one that leaves the references alone. 13 is as far as it can go on this shot (the same
+      with the family's light removed entirely). The second breaks both references
+- [x] Let large dim areas count a little more for the hue, only if the lamp shot stays orange → no change: there
+      are no large teal areas to count. Even at chroma 0.06 (instead of `MIN_CHROMA` 0.12) the lamp shot has 150
+      warm pixels and 10 teal-blue ones
 - [x] Measure capture time and real FPS on Windows → `screenshot-desktop` took 367 ms per frame (685 ms with
       `screen` set), so `sync` reached ~2.7 FPS. See the latency budget in [ARCHITECTURE.md](ARCHITECTURE.md#latency-budget)
 - [x] Decide whether `screenshot-desktop` is fast enough → no: it compiles its C# helper on every frame. A helper

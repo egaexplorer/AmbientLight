@@ -1,6 +1,7 @@
 import { setTimeout as delay } from "node:timers/promises";
 import {
   discoverBulbs,
+  type PixelFrame,
   pilotToRestoreParams,
   RECOMMENDED_MAX_FPS,
   type ScreenCapturer,
@@ -12,6 +13,7 @@ import {
 } from "@ambientlight/core";
 import { CliError, type CliFlags } from "./cli.js";
 import type { AppConfig } from "./config.js";
+import { saveFramePng } from "./frame-file.js";
 import { GdiCapturer } from "./gdi-capture.js";
 import { colorSwatch, errorMessage, formatColor, formatPilot, StatusLine, swatch } from "./log.js";
 import { broadcastAddresses } from "./network.js";
@@ -157,7 +159,10 @@ export async function runColor(config: AppConfig, flags: CliFlags): Promise<numb
   return 0;
 }
 
-export async function runSync(config: AppConfig, options: { once: boolean; verbose: boolean }): Promise<number> {
+export async function runSync(
+  config: AppConfig,
+  options: { once: boolean; verbose: boolean; saveFrame?: string | undefined },
+): Promise<number> {
   requireBulbs(config);
   const capturer = await createCapturer(config);
   const socket = await createNodeUdpSocket();
@@ -166,8 +171,14 @@ export async function runSync(config: AppConfig, options: { once: boolean; verbo
   try {
     if (options.once) {
       // Phase 1: one frame, no smoothing.
-      const engine = new SyncEngine(capturer, lights, { ...syncOptions(config), smoothing: 1 });
+      let frame: PixelFrame | undefined;
+      // Keeps the frame the engine analyzed for --save-frame, without skewing the capture time it reports.
+      const recorder: ScreenCapturer = { capture: async () => (frame = await capturer.capture()) };
+      const engine = new SyncEngine(recorder, lights, { ...syncOptions(config), smoothing: 1 });
       const report = await engine.tick();
+      if (options.saveFrame !== undefined && frame) {
+        console.log(`Saved the analyzed frame to ${await saveFramePng(frame, options.saveFrame)}`);
+      }
       const rgb = (c: { r: number; g: number; b: number }): string =>
         `${swatch(c)}rgb(${c.r.toFixed(0)}, ${c.g.toFixed(0)}, ${c.b.toFixed(0)})`;
       const paleWhite = config.calibration.paleWhite;

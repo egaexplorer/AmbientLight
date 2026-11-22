@@ -11,6 +11,11 @@ export interface CalibrationOptions {
   minDimming: number;
   /** Dimming (%) used for the brightest scenes. */
   maxDimming: number;
+  /**
+   * Dimming (%) that dark colored scenes start from, because colors look dim on WiZ bulbs. It fades out toward
+   * white and toward black, which keep `minDimming`. No effect at or below `minDimming`.
+   */
+  colorBaseBrightness: number;
   /** Curve applied to screen brightness before mapping to dimming. <1 lifts dark scenes, >1 deepens them. */
   brightnessGamma: number;
   /** Screen brightness (0–1) below which the bulb is held at minDimming. */
@@ -35,6 +40,7 @@ export const DEFAULT_CALIBRATION: Readonly<CalibrationOptions> = Object.freeze({
   gamma: 1.6,
   minDimming: WIZ_MIN_DIMMING,
   maxDimming: WIZ_MAX_DIMMING,
+  colorBaseBrightness: WIZ_MIN_DIMMING,
   brightnessGamma: 1,
   blackThreshold: 0.04,
   whiteSaturation: 0.15,
@@ -47,6 +53,14 @@ export const DEFAULT_CALIBRATION: Readonly<CalibrationOptions> = Object.freeze({
  * near the threshold doesn't flip the bulb between white and color LEDs every frame.
  */
 export const WHITE_HYSTERESIS = 0.05;
+
+/**
+ * Saturation range over which `colorBaseBrightness` fades in. It starts above the white-mode hysteresis, so the
+ * brightness doesn't jump when the bulb switches between white and color.
+ */
+const COLOR_BASE_SATURATION_RAMP = 0.15;
+/** Screen brightness range above `blackThreshold` over which it fades in, so black and near-black noise stay dark. */
+const COLOR_BASE_BRIGHTNESS_RAMP = 0.04;
 
 export interface CalibrationContext {
   /**
@@ -79,7 +93,11 @@ export function calibrate(input: Rgb, options: Partial<CalibrationOptions> = {},
   let dimming = minDimming;
   if (value > threshold) {
     const t = (value - threshold) / (1 - threshold);
-    dimming = minDimming + (maxDimming - minDimming) * t ** Math.max(0.01, o.brightnessGamma);
+    const colorful = clamp01((saturation - o.whiteSaturation - WHITE_HYSTERESIS) / COLOR_BASE_SATURATION_RAMP);
+    const visible = clamp01((value - threshold) / COLOR_BASE_BRIGHTNESS_RAMP);
+    const colorBase = clamp(o.colorBaseBrightness, minDimming, maxDimming);
+    const base = minDimming + (colorBase - minDimming) * colorful * visible;
+    dimming = base + (maxDimming - base) * t ** Math.max(0.01, o.brightnessGamma);
   }
   dimming = Math.round(clamp(dimming, minDimming, maxDimming));
 

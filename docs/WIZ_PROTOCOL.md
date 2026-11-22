@@ -98,6 +98,11 @@ Broadcast `getPilot` and collect the replies: each bulb answers from its own IP.
   `keepAliveMs` (2 s), so a dropped packet self-heals.
 - **Black:** the core never sends all-zero RGB. Dark scenes keep a hue and drop to `minDimming`
   (10 %) instead of switching the bulb off, which avoids on/off flicker.
+- **Colors are dim:** on the user's `ESP25_SHRGB_01`, colors look dim from the start, and steps between
+  `dimming` 15, 13, 11 and 10 are hard to see (user, by eye, 2026-11-22). Probably the RGB LEDs are much weaker
+  than the white ones; not measured. `dimming` 100 is the limit, so `calibration.colorBaseBrightness` can only
+  lift the darker scenes. That lift does show: with a raised color base the user saw a noticeable difference in
+  brightness on the bulb and liked the result (same day, by eye).
 - **Fixed IP:** bulbs get their address from DHCP. Reserve it in the router so the config keeps working.
 - **No request ids:** replies carry no id, so they are matched by the bulb's IP and the method name. A late
   duplicate reply can be mistaken for the answer to a newer request (homebridge-wiz-lan).

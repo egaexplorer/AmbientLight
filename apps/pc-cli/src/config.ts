@@ -93,6 +93,7 @@ const CALIBRATION_RANGES = {
   gamma: [0.1, 5],
   minDimming: [10, 100, true],
   maxDimming: [10, 100, true],
+  colorBaseBrightness: [10, 100, true],
   brightnessGamma: [0.1, 5],
   blackThreshold: [0, 0.99],
   whiteSaturation: [0, 1],
@@ -235,6 +236,9 @@ export function resolveConfig(file: ConfigFile | undefined, flags: CliFlags): Ap
   if (flags.maxDimming !== undefined) {
     cal.maxDimming = checkNumber("--max-dimming", flags.maxDimming, CALIBRATION_RANGES.maxDimming, source);
   }
+  if (flags.colorBase !== undefined) {
+    cal.colorBaseBrightness = checkNumber("--color-base", flags.colorBase, CALIBRATION_RANGES.colorBaseBrightness, source);
+  }
   if (flags.whiteSaturation !== undefined) {
     cal.whiteSaturation = checkNumber("--white-saturation", flags.whiteSaturation, CALIBRATION_RANGES.whiteSaturation, source);
   }
@@ -246,6 +250,9 @@ export function resolveConfig(file: ConfigFile | undefined, flags: CliFlags): Ap
   }
   if (cal.minDimming > cal.maxDimming) {
     throw new CliError(`minDimming (${cal.minDimming}) cannot be higher than maxDimming (${cal.maxDimming})`);
+  }
+  if (cal.colorBaseBrightness > cal.maxDimming) {
+    throw new CliError(`colorBaseBrightness (${cal.colorBaseBrightness}) cannot be higher than maxDimming (${cal.maxDimming})`);
   }
 
   return config;

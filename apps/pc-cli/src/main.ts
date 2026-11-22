@@ -31,7 +31,7 @@ async function main(argv: readonly string[]): Promise<number> {
     case "color":
       return runColor(config, flags);
     case "once":
-      return runSync(config, { once: true, verbose: flags.verbose });
+      return runSync(config, { once: true, verbose: flags.verbose, saveFrame: flags.saveFrame });
     case "sync":
       return runSync(config, { once: false, verbose: flags.verbose });
   }

@@ -5,6 +5,11 @@ import { CliError, parseCommandLine } from "../src/cli.js";
 import { DEFAULT_CONFIG, resolveConfig, validateConfigFile } from "../src/config.js";
 
 describe("parseCommandLine", () => {
+  it("takes --save-frame for once only", () => {
+    assert.equal(parseCommandLine(["once", "--save-frame", "lamp.png"]).flags.saveFrame, "lamp.png");
+    assert.throws(() => parseCommandLine(["sync", "--save-frame", "lamp.png"]), CliError);
+  });
+
   it("defaults to help", () => {
     assert.equal(parseCommandLine([]).command, "help");
   });
@@ -107,6 +112,17 @@ describe("config", () => {
     assert.equal(resolveConfig(file, parseCommandLine(["sync"]).flags).calibration.paleWhite, 0);
     assert.equal(resolveConfig(file, parseCommandLine(["sync", "--pale-white", "90"]).flags).calibration.paleWhite, 90);
     assert.throws(() => validateConfigFile({ calibration: { paleWhite: 300 } }, "test"), /between 0 and 255/);
+  });
+
+  it("reads colorBaseBrightness from the file and --color-base, within 10-100 and maxDimming", () => {
+    assert.equal(resolveConfig(undefined, parseCommandLine(["sync"]).flags).calibration.colorBaseBrightness, 10);
+    const file = validateConfigFile({ calibration: { colorBaseBrightness: 40 } }, "test");
+    assert.equal(resolveConfig(file, parseCommandLine(["sync"]).flags).calibration.colorBaseBrightness, 40);
+    const flags = parseCommandLine(["once", "--color-base", "70"]).flags;
+    assert.equal(resolveConfig(file, flags).calibration.colorBaseBrightness, 70);
+    assert.throws(() => validateConfigFile({ calibration: { colorBaseBrightness: 5 } }, "test"), /between 10 and 100/);
+    assert.throws(() => resolveConfig(undefined, parseCommandLine(["sync", "--color-base", "101"]).flags), /--color-base/);
+    assert.throws(() => resolveConfig(file, parseCommandLine(["sync", "--max-dimming", "30"]).flags), /cannot be higher/);
   });
 
   it("does not mutate the defaults", () => {

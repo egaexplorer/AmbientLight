@@ -16,6 +16,7 @@
     "gamma": 1.6,
     "minDimming": 10,
     "maxDimming": 100,
+    "colorBaseBrightness": 10,
     "brightnessGamma": 1.0,
     "blackThreshold": 0.04,
     "whiteSaturation": 0.15,

@@ -12,6 +12,7 @@ import {
   previewRgb,
   linearToSrgb,
   type PixelFrame,
+  type Rgb,
   rgbToHsv,
   srgbToLinear,
 } from "../src/index.js";
@@ -146,6 +147,67 @@ describe("calibrate", () => {
       const out = calibrate({ r: (i * 37) % 256, g: (i * 91) % 256, b: (i * 53) % 256 });
       for (const ch of [out.r, out.g, out.b, out.c ?? 0, out.w ?? 0]) assert.ok(Number.isInteger(ch) && ch >= 0 && ch <= 255);
       assert.ok(Number.isInteger(out.dimming) && out.dimming >= 10 && out.dimming <= 100);
+    }
+  });
+});
+
+describe("calibrate color base brightness", () => {
+  const dimming = (color: Rgb, colorBaseBrightness?: number, brightness: Rgb = color): number =>
+    calibrate(color, colorBaseBrightness === undefined ? {} : { colorBaseBrightness }, { brightness }).dimming;
+
+  it("lifts dark colors (two movie shots measured on the user's screen)", () => {
+    const lamps = [{ r: 27, g: 20, b: 16 }, { r: 23, g: 18, b: 16 }] as const; // hue source, screen average
+    assert.equal(dimming(lamps[0], undefined, lamps[1]), 15, "off by default");
+    assert.equal(dimming(lamps[0], 40, lamps[1]), 43);
+    const doorway = { r: 32, g: 35, b: 25 };
+    assert.equal(dimming(doorway), 19);
+    assert.equal(dimming(doorway, 40), 46);
+  });
+
+  it("leaves black, near-black noise, gray and white screens alone", () => {
+    const screens = [
+      { r: 0, g: 0, b: 0 },
+      { r: 6, g: 2, b: 2 },
+      { r: 40, g: 40, b: 40 },
+      { r: 244, g: 244, b: 244 },
+    ];
+    for (const screen of screens) assert.equal(dimming(screen, 70), dimming(screen), JSON.stringify(screen));
+  });
+
+  it("raises the bottom of the range, not the top", () => {
+    const dark = { r: 35, g: 0, b: 0 };
+    const full = { r: 255, g: 0, b: 0 };
+    assert.ok(dimming(dark, 50) > dimming(dark) + 25);
+    assert.equal(dimming(full, 50), 100);
+  });
+
+  it("never lowers minDimming or exceeds maxDimming", () => {
+    const red = { r: 60, g: 0, b: 0 };
+    assert.deepEqual(calibrate(red, { minDimming: 30, colorBaseBrightness: 20 }), calibrate(red, { minDimming: 30 }));
+    assert.equal(calibrate(red, { maxDimming: 50, colorBaseBrightness: 90 }).dimming, 50);
+  });
+
+  it("still gets brighter with the screen, without a jump out of black", () => {
+    let previous = dimming({ r: 0, g: 0, b: 0 }, 70);
+    for (let v = 1; v <= 255; v++) {
+      const next = dimming({ r: v, g: 0, b: 0 }, 70);
+      assert.ok(next >= previous, `drops at v=${v}`);
+      assert.ok(next - previous <= 8, `jumps at v=${v}: ${previous} -> ${next}`);
+      previous = next;
+    }
+  });
+
+  it("doesn't jump when white mode switches on or off", () => {
+    for (const wasWhite of [false, true]) {
+      let previous: number | undefined;
+      for (let other = 128; other >= 80; other -= 0.5) {
+        const color = { r: 128, g: other, b: other };
+        const lifted = calibrate(color, { colorBaseBrightness: 70 }, { wasWhite });
+        const plain = calibrate(color, {}, { wasWhite });
+        if (lifted.temp !== undefined) assert.equal(lifted.dimming, plain.dimming, "no lift in white mode");
+        if (previous !== undefined) assert.ok(Math.abs(lifted.dimming - previous) <= 2, `jumps at g=b=${other}`);
+        previous = lifted.dimming;
+      }
     }
   });
 });

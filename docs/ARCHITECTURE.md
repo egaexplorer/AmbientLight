@@ -76,8 +76,9 @@ sets `"types": []` so the compiler enforces this. That's what lets the React Nat
 | `capture.ts` | `DesktopCapturer` (`"capture": "screenshot-desktop"`, fallback and macOS/Linux): `screenshot-desktop` JPEG → `sharp` resize to 64×36 raw RGB; `listDisplays` for the `displays` command (its ids work for both backends) |
 | `network.ts` | Subnet broadcast addresses for every LAN adapter (reliable discovery on Windows) |
 | `cli.ts` / `config.ts` | Argument parsing, `ambientlight.config.json` loading and validation, defaults ← file ← flags |
-| `commands.ts` | `discover`, `state`, `displays`, `color`, `once` (reads the bulb back after sending), `sync` |
+| `commands.ts` | `discover`, `state`, `displays`, `color`, `once` (reads the bulb back after sending, optionally saves the frame), `sync` |
 | `check.ts` | `check` (`npm run check-bulb`): runs `checkBulb` on each bulb and prints the report |
+| `frame-file.ts` | `saveFramePng`: writes the analyzed frame as a PNG for `once --save-frame` |
 | `log.ts` | Live status line with a true-color swatch |
 
 ## Design decisions
@@ -87,6 +88,11 @@ sets `"types": []` so the compiler enforces this. That's what lets the React Nat
 2. **Split hue from brightness.** WiZ treats `r,g,b` as the color mix and `dimming` as brightness.
    `calibrate` normalizes the color to full value (brightest channel = 255) and maps screen brightness
    onto `minDimming..maxDimming`. A dark red scene therefore gives a dim red, not a muddy brown.
+   Colors look dim on the bulb, so for them the bottom of that range can rise to `colorBaseBrightness`
+   (default 10 = off). Raising `minDimming` instead would also light the room on black and gray screens. The lift
+   has two ramps. It fades in over saturation 0.20–0.35 (with the default `whiteSaturation`), so it is zero wherever
+   white mode can switch and switching doesn't jump. It also fades in over screen brightness 0.04–0.08 (from
+   `blackThreshold`), so black and near-black noise stay dark. The top of the range doesn't move.
 3. **Saturation boost and gamma.** Averaging many pixels washes colors toward gray. Both knobs bring the
    color back. Defaults (1.3 / 1.6) are a starting point for Phase 3 calibration.
 4. **Hue from vivid pixels, brightness from the whole screen.** `analyzeFrame` returns two averages. In the
@@ -150,6 +156,8 @@ sets `"types": []` so the compiler enforces this. That's what lets the React Nat
    JavaScript, and XCap doesn't set DPI awareness, so it may capture the wrong area at 125 %. If GDI ever isn't
    enough, DXGI Desktop Duplication with a GPU downscale (HyperHDR, Lightpack) is the next step
    ([ROADMAP.md](ROADMAP.md#later-ideas)).
+   The helper's byte order was checked on 2026-11-22: a full-screen pure blue window arrived as `[255,0,0,0]`
+   (BGRX) and was analyzed as hue 240.
 
 ## Adding a platform (Phase 4)
 

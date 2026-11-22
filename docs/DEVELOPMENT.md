@@ -66,6 +66,31 @@ To run the compiled CLI instead: `npm run build`, then `node apps/pc-cli/dist/ma
 - The GDI capture helper needs a real screen, so tests cover only its byte-stream handling (`FrameAssembler`).
   After changing `native/gdi-capture.cs` or `gdi-capture.ts`, check capture time and colors by hand with `sync -v`.
 
+## Debugging a scene
+
+When the light looks wrong on a particular shot, save the pixels the analysis saw (a 64×36 lossless PNG). Pause on
+the shot, run this, and switch to the full-screen video before the 5 seconds are up, so that the terminal and the
+player's controls aren't captured:
+
+```powershell
+Start-Sleep 5; npm run once -- --save-frame "$env:TEMP\lamp.png"
+```
+
+`once` also sends that color to the bulb and prints the screen average, the hue source, and what was sent. A
+relative path starts in the folder you ran npm from. Saved frames show whatever was on screen, so keep them out
+of git.
+
+Phone footage of the screen can show *when* the light changes, but not *why*, and never what color the screen is:
+under a warm bulb, exposure and white balance make the screen look brighter and bluer. Measured on 2026-11-22
+with the same paused shots (average of the screen):
+
+| Shot | Saved frame | Phone photo |
+| --- | --- | --- |
+| Wall lamps | `23,18,16` (near-black brown) | `64,81,91` (blue) |
+| Doorway | `32,35,25` (dark olive) | `79,105,113` (teal) |
+
+The display's gamma ramp was neutral, so it doesn't explain the difference.
+
 ## Trying it without a bulb
 
 A tiny fake bulb is handy when you change protocol code:

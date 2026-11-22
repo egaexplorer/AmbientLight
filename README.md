@@ -10,8 +10,8 @@ Capture screen  ->  Downscale + average color  ->  Calibrate + smooth  ->  UDP s
 ```
 
 **Status:** Phases 1–2 work end to end in the PC command-line app (capture, average, calibrate,
-smooth, throttle, send, restore on exit). Phase 3 (calibrating on real hardware) and Phase 4
-(Electron desktop app, Android app) are next. See [docs/ROADMAP.md](docs/ROADMAP.md).
+smooth, throttle, send, restore on exit). Phase 3 (calibrating on real hardware) is in progress, and Phase 4
+(Electron desktop app, Android app) is next. See [docs/ROADMAP.md](docs/ROADMAP.md).
 
 ## Repository layout
 
@@ -74,7 +74,7 @@ You can pass any setting on the command line instead of the config file, e.g.
 | `npm run state` | Shows each bulb's current color exactly as the bulb reports it (`r,g,b,c,w`, `temp`, dimming). Changes nothing |
 | `npm run check-bulb` | Tests each bulb (all bulbs found on the network if none is configured): reply time, signal, model, firmware, whether it accepts colors (or needs signed commands), then restores it |
 | `npm run color -- --rgb r,g,b [--dimming n]` | Sets a fixed color to test connectivity |
-| `npm run once` | Captures one frame and sends its color (Phase 1) |
+| `npm run once` | Captures one frame and sends its color (Phase 1). Add `-- --save-frame <file.png>` to also save the frame it analyzed |
 | `npm run sync` | Continuous screen sync (Phase 2). Add `-v` to print every frame |
 | `npm run help` | All options |
 
@@ -100,6 +100,7 @@ Command-line flags override it.
 | `calibration.saturationBoost` | `1.3` | Makes washed-out average colors more vivid. |
 | `calibration.gamma` | `1.6` | Deepens colors. Weak channels fade faster. |
 | `calibration.minDimming` / `maxDimming` | `10` / `100` | Brightness range in %. WiZ accepts 10–100. |
+| `calibration.colorBaseBrightness` | `10` | Brightness in % that dark **colored** scenes start from; brighter scenes spread between it and `maxDimming`. Raise it if colors look weak. Black, gray and white screens keep the `minDimming` base, and full-brightness colors stay at `maxDimming`. CLI: `--color-base`. |
 | `calibration.brightnessGamma` | `1.0` | Values below 1 lift dark scenes; values above 1 make them darker. |
 | `calibration.blackThreshold` | `0.04` | Screen brightness below which the bulb stays at `minDimming`. |
 | `calibration.whiteSaturation` | `0.15` | Below this saturation the bulb uses its white LEDs instead of mixing white from RGB, which looks lavender on WiZ bulbs. `0` = never. |
@@ -119,13 +120,28 @@ Command-line flags override it.
   `npm run once` prints what was sent and what the bulb reports back.
 - **White pages give a purple or pink light:** keep `whiteSaturation` above 0 so white uses the white LEDs; change
   `whiteTemp` (e.g. 2700 for warm, 6500 for cool) to taste.
+- **Colors are too dim, white is fine:** raise `colorBaseBrightness`. To compare levels, pause on a dark colored
+  shot, run this in PowerShell and switch to the full-screen video within 5 seconds (judge by eye: a phone camera
+  adjusts its exposure):
+
+  ```powershell
+  Start-Sleep 5; foreach ($b in 10,30,40,50,70) { npm run once -- --color-base $b; Start-Sleep 4 }
+  ```
+
+  Or try one level on a playing video with `npm run sync -- --color-base 40`. The higher the base, the smaller
+  the difference between dark and bright scenes, so take the lowest one that looks strong enough. A dark theme
+  with a tint (e.g. navy) counts as color and gets brighter too.
 - **Flicker or nervous light:** lower `smoothing` (0.4–0.5), raise `minChange` (6–8), or raise `sceneCut` (60) if
   `sync -v` shows `cut` on frames that aren't real cuts.
 - **Light lags behind the picture:** check the `capture` time in `sync -v`. About 20–35 ms is normal for
   `"capture": "gdi"`; several hundred ms means the slow `screenshot-desktop` fallback is in use. Then raise
   `smoothing` (0.85–1.0), or lower `sceneCut` (25–30) so more cuts snap. If the bulb itself falls behind or
   skips colors, lower `fps` (15).
-- **Dark movie scenes too bright:** set `brightnessGamma` to 1.5 and keep `minDimming` at 10.
+- **Dark movie scenes too bright:** lower `colorBaseBrightness` if you raised it, set `brightnessGamma` to 1.5, and keep
+  `minDimming` at 10.
+- **A scene gets a color or brightness you didn't expect:** don't judge it from a phone photo, which can turn a
+  dark brown scene blue. Save what the analysis saw with `once --save-frame`
+  ([how](docs/DEVELOPMENT.md#debugging-a-scene)).
 
 ## Development
 

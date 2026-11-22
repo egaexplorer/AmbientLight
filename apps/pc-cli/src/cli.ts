@@ -23,11 +23,13 @@ export interface CliFlags {
   gamma?: number;
   minDimming?: number;
   maxDimming?: number;
+  colorBase?: number;
   whiteSaturation?: number;
   whiteTemp?: number;
   paleWhite?: number;
   noRestore: boolean;
   timeoutMs?: number;
+  saveFrame?: string;
   rgb?: { r: number; g: number; b: number };
   dimming?: number;
   verbose: boolean;
@@ -71,11 +73,13 @@ Options:
       --gamma <n>         Color gamma (default 1.6)
       --min-dimming <n>   Dimming for dark scenes, 10-100 (default 10)
       --max-dimming <n>   Dimming for bright scenes, 10-100 (default 100)
+      --color-base <n>    Dimming that dark colored scenes start from, 10-100 (default 10)
       --white-saturation <0-1>  Below this saturation use the white LEDs; 0 = never (default 0.15)
       --white-temp <K>    Color temperature for white, 2200-6500 (default 5000)
       --pale-white <n>    White LED level for pale colors, 0-255; 0 = RGB only (default 140)
       --no-restore        Don't restore the bulbs' previous state (sync, check)
       --timeout <ms>      How long "discover" (and "check" without a bulb) listens for replies (default 2000)
+      --save-frame <file> Save the frame "once" analyzed as a PNG, to study a scene
       --rgb <r,g,b>       Color for "color", or the test color for "check" (default 255,0,0)
       --dimming <n>       Dimming for "color" and "check" (default 100)
   -v, --verbose           Print every frame
@@ -134,11 +138,13 @@ export function parseCommandLine(argv: readonly string[]): ParsedCommandLine {
         gamma: { type: "string" },
         "min-dimming": { type: "string" },
         "max-dimming": { type: "string" },
+        "color-base": { type: "string" },
         "white-saturation": { type: "string" },
         "white-temp": { type: "string" },
         "pale-white": { type: "string" },
         "no-restore": { type: "boolean", default: false },
         timeout: { type: "string" },
+        "save-frame": { type: "string" },
         rgb: { type: "string" },
         dimming: { type: "string" },
         verbose: { type: "boolean", short: "v", default: false },
@@ -185,10 +191,13 @@ export function parseCommandLine(argv: readonly string[]): ParsedCommandLine {
   set("gamma", toNumber("gamma", values.gamma));
   set("minDimming", toNumber("min-dimming", values["min-dimming"]));
   set("maxDimming", toNumber("max-dimming", values["max-dimming"]));
+  set("colorBase", toNumber("color-base", values["color-base"]));
   set("whiteSaturation", toNumber("white-saturation", values["white-saturation"]));
   set("whiteTemp", toNumber("white-temp", values["white-temp"]));
   set("paleWhite", toNumber("pale-white", values["pale-white"]));
   set("timeoutMs", toNumber("timeout", values.timeout));
+  set("saveFrame", values["save-frame"]);
+  if (flags.saveFrame !== undefined && name !== "once") throw new CliError('--save-frame only works with "once"');
   set("rgb", parseRgb(values.rgb));
   set("dimming", toNumber("dimming", values.dimming));
 
