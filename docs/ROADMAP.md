@@ -25,7 +25,7 @@ Based on the *WiZ PC Screen-Sync Ambilight Project Guide* (Google Drive).
 - [ ] Run full-screen YouTube Ambilight test videos and tune `saturationBoost`, `gamma`, `brightnessGamma`, `minDimming`, `colorBaseBrightness`
       - First clip (2026-11-22, 20 FPS, phone video): the room turns orange in a dark shot with two small wall
         lamps. The user likes the orange (the most vibrant color). The shot looked teal on video, but its saved
-        frame is near-black brown, so the orange is correct (see the next items). The user first wanted it
+        frame is near-black brown, so the orange follows the pixels (see the next items). The user first wanted it
         darker; after comparing levels by eye, colors turned out to be too dim in general
 - [x] Separate base brightness for colors → `colorBaseBrightness` / `--color-base`, default 10 (off)
 - [x] Try it on the bulb → 2026-11-22: the user saw a noticeable difference in brightness and liked the result
@@ -51,6 +51,19 @@ Based on the *WiZ PC Screen-Sync Ambilight Project Guide* (Google Drive).
 - [x] Let large dim areas count a little more for the hue, only if the lamp shot stays orange → no change: there
       are no large teal areas to count. Even at chroma 0.06 (instead of `MIN_CHROMA` 0.12) the lamp shot has 150
       warm pixels and 10 teal-blue ones
+- [ ] Doorway shot: the light is too yellow, the user sees white-blue-teal (2026-11-22). Not caused by the orange
+      lamp (without its pixels the frame still gives yellow-green) and not by the capture (equals a screenshot
+      that looks like the video). The cause is the mapping: saturation 0.29 → 0.52 (`saturationBoost`, `gamma`) and
+      67 % warm white for a ~5400 K color (hue 78°).
+      - [x] The user picks the target on the bulb → cool white with the screen's faint olive (key 3 of 7; the range 3 to 5,
+            i.e. also plain 5000 and 6500 K, was liked)
+      - [x] Apply it only to muted yellow-green to green scenes of dark or medium brightness (the user's choice of
+            reach) → `mutedGreenCorrection` / `--muted-green`, default 1. Global settings can't do that:
+            `saturationBoost` 1 + `gamma` 1 pales the lamp orange and skin, `whiteSaturation` 0.4 turns beige and
+            pale blue white
+      - [ ] The user watches a playing movie with it (and with `--muted-green 0`) before it's merged. So far it is
+            tested on two measured shots and their crops, test colors, and 37 bundled Windows photos (none changed,
+            but few are greenish)
 - [x] Measure capture time and real FPS on Windows → `screenshot-desktop` took 367 ms per frame (685 ms with
       `screen` set), so `sync` reached ~2.7 FPS. See the latency budget in [ARCHITECTURE.md](ARCHITECTURE.md#latency-budget)
 - [x] Decide whether `screenshot-desktop` is fast enough → no: it compiles its C# helper on every frame. A helper
@@ -64,7 +77,8 @@ Based on the *WiZ PC Screen-Sync Ambilight Project Guide* (Google Drive).
 - [ ] Tune `sceneCut` (default 40) on real videos with `sync -v`, which marks cut frames
 - [ ] Black-bar (letterbox) detection so movie bars don't darken the light: 3-line probe from each edge, switch
       only after the border is stable for ~2 s (HyperHDR, hyperion.ng)
-- [ ] Hue-specific compensation (WiZ greens and yellows tend to look off): extra saturation for green/yellow
+- [ ] Hue-specific compensation (WiZ greens and yellows tend to look off; muted greens are done, see
+      `mutedGreenCorrection`, vivid ones are untested): extra saturation for green/yellow
       hues, per-channel gains scaled by saturation so grays stay neutral (ambient-setup, namanb-lab)
 - [x] Route low-saturation colors to the white LEDs (`temp`) for cleaner whites, with hysteresis so a scene near
       the threshold doesn't flip modes (wiz-pc, namanb-lab) → `whiteSaturation`, `whiteTemp`

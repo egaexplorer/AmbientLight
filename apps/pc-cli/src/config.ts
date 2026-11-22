@@ -99,6 +99,7 @@ const CALIBRATION_RANGES = {
   whiteSaturation: [0, 1],
   whiteTemp: [2200, 6500, true],
   paleWhite: [0, 255, true],
+  mutedGreenCorrection: [0, 1],
 } as const satisfies Record<keyof CalibrationOptions, Range>;
 
 function checkNumber(name: string, value: unknown, range: Range, source: string): number {
@@ -247,6 +248,9 @@ export function resolveConfig(file: ConfigFile | undefined, flags: CliFlags): Ap
   }
   if (flags.paleWhite !== undefined) {
     cal.paleWhite = checkNumber("--pale-white", flags.paleWhite, CALIBRATION_RANGES.paleWhite, source);
+  }
+  if (flags.mutedGreen !== undefined) {
+    cal.mutedGreenCorrection = checkNumber("--muted-green", flags.mutedGreen, CALIBRATION_RANGES.mutedGreenCorrection, source);
   }
   if (cal.minDimming > cal.maxDimming) {
     throw new CliError(`minDimming (${cal.minDimming}) cannot be higher than maxDimming (${cal.maxDimming})`);

@@ -186,13 +186,21 @@ the bulb looks like the app's. Verified on the same bulb: we sent `rgb(136, 61, 
 (intended #ffbb84), `getPilot` reported exactly that, and the app showed **#FFBB84**. Brightness is independent:
 #ffbc85 picked at 100 % reads the same `r,g,b,c,w` with `dimming 100`.
 
+**One deliberate exception: muted greens.** The app's cold share gives a yellow-green (hue 73°) 69 % warm white,
+which looks yellow next to a screen. For a dark olive-gray shot the user compared seven lights on the bulb
+(2026-11-22, `dimming 19`) and liked `r 73 g 94 b 0 c 140 w 0` most (the same faint hue, all white on the cold
+LEDs); plain 5000 K and 6500 K were also liked. `calibration.mutedGreenCorrection` sends that for such
+scenes ([ARCHITECTURE.md](ARCHITECTURE.md), design decision 7). The app should show the same hue and paleness, but
+the white is cooler than the app would choose.
+
 pywizlight's `rgbcw.py` describes an older version of the same idea (full hue down to s = 0.5, white capped at
 128, warm white only). It does not match this firmware/app: with it the bulb looked more orange, more saturated
 and darker than the app's color.
 
 To measure the app's encoding for another color or bulb model: pick the color in the WiZ app (it accepts hex),
 run `npm run state`, and compare the `r,g,b,c,w` line with what `calibrate` produces for the same color with
-`gamma 1, saturationBoost 1, whiteSaturation 0` (the fixtures in `packages/core/test/color.test.ts` do this).
+`gamma 1, saturationBoost 1, whiteSaturation 0, mutedGreenCorrection 0` (the fixtures in
+`packages/core/test/color.test.ts` do this).
 
 White channels: routing low-saturation colors to `temp` (or `c`/`w`) gives cleaner whites than the RGB LEDs.
 wiz-pc switches below saturation 0.15 (`temp 4000`), namanb-lab/wiz-sync below 0.12 (`temp 4500`).

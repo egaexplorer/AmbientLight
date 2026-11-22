@@ -105,7 +105,8 @@ Command-line flags override it.
 | `calibration.blackThreshold` | `0.04` | Screen brightness below which the bulb stays at `minDimming`. |
 | `calibration.whiteSaturation` | `0.15` | Below this saturation the bulb uses its white LEDs instead of mixing white from RGB, which looks lavender on WiZ bulbs. `0` = never. |
 | `calibration.whiteTemp` | `5000` | Color temperature (K, 2200–6500) for white: lower is warmer (4000 looks warm next to a screen), 6500 matches a screen's white but looks cool. |
-| `calibration.paleWhite` | `140` | White LED level (0–255) for pale colors. They are sent exactly as the WiZ app sends them: the pure hue plus the white LEDs, tinted warm or cold by the hue. Mixed from RGB alone they look pink. `0` = RGB only. |
+| `calibration.paleWhite` | `140` | White LED level (0–255) for pale colors. They are sent as the WiZ app sends them: the pure hue plus the white LEDs, tinted warm or cold by the hue (except muted greens, see the next row). Mixed from RGB alone they look pink. `0` = RGB only. |
+| `calibration.mutedGreenCorrection` | `1` | Muted (grayish) yellow-green to green scenes of dark or medium brightness get their own faint tint on cool white, because with `saturationBoost`, `gamma` and warm white they look yellow. Orange, skin, vivid colors and bright pages aren't affected, and brightness never changes. `0` = off, values between blend. CLI: `--muted-green`. |
 
 ### Tuning tips (Phase 3)
 
@@ -118,6 +119,9 @@ Command-line flags override it.
   at 140 (what the WiZ app uses). Raise it (160–200) if pale colors look too strong, lower it (90–120) if they
   look washed out.
   `npm run once` prints what was sent and what the bulb reports back.
+- **Grayish green or olive scenes light the room yellow:** keep `mutedGreenCorrection` at 1. If such scenes now look
+  too cool, lower it (0.5–0.8). To compare on a playing video, switch between `npm run sync` and
+  `npm run sync -- --muted-green 0`.
 - **White pages give a purple or pink light:** keep `whiteSaturation` above 0 so white uses the white LEDs; change
   `whiteTemp` (e.g. 2700 for warm, 6500 for cool) to taste.
 - **Colors are too dim, white is fine:** raise `colorBaseBrightness`. To compare levels, pause on a dark colored
@@ -141,9 +145,8 @@ Command-line flags override it.
   skips colors, lower `fps` (15).
 - **Dark movie scenes too bright:** lower `colorBaseBrightness` if you raised it, set `brightnessGamma` to 1.5, and keep
   `minDimming` at 10.
-- **A scene gets a color or brightness you didn't expect:** don't judge it from a phone photo, which can turn a
-  dark brown scene blue. Save what the analysis saw with `once --save-frame`
-  ([how](docs/DEVELOPMENT.md#debugging-a-scene)).
+- **A scene gets a color or brightness you didn't expect:** save what the analysis saw with `once --save-frame`
+  ([how](docs/DEVELOPMENT.md#debugging-a-scene)). A phone photo of the screen doesn't show those colors.
 
 ## Development
 

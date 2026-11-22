@@ -9,7 +9,8 @@ export interface Rgb {
  * A color ready to send to a WiZ bulb: integer 0–255 channels plus dimming in percent (10–100).
  *
  * Like the WiZ app, pale colors put only the hue on `r,g,b` (smallest channel 0) and the paleness on the white
- * LEDs (`c`, `w`); `previewRgb` turns that back into the color it shows.
+ * LEDs (`c`, `w`); `previewRgb` turns that back into the color it shows (hue and saturation, not the white's
+ * warmth).
  */
 export interface WizColor extends Rgb {
   dimming: number;

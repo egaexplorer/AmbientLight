@@ -33,6 +33,12 @@ export interface CalibrationOptions {
    * alone looks pink on WiZ bulbs. 0 = mix pale colors from RGB only (no `c`/`w` sent).
    */
   paleWhite: number;
+  /**
+   * 0–1: how far muted yellow-green to green scenes of dark or medium brightness are shown as their own faint tint
+   * on cool white, instead of the boosted color on warm white, which looks yellow. Never changes the dimming.
+   * Needs the white LEDs (`paleWhite` above 0). 0 = off.
+   */
+  mutedGreenCorrection: number;
 }
 
 export const DEFAULT_CALIBRATION: Readonly<CalibrationOptions> = Object.freeze({
@@ -46,6 +52,7 @@ export const DEFAULT_CALIBRATION: Readonly<CalibrationOptions> = Object.freeze({
   whiteSaturation: 0.15,
   whiteTemp: 5000,
   paleWhite: 140,
+  mutedGreenCorrection: 1,
 });
 
 /**
@@ -61,6 +68,28 @@ export const WHITE_HYSTERESIS = 0.05;
 const COLOR_BASE_SATURATION_RAMP = 0.15;
 /** Screen brightness range above `blackThreshold` over which it fades in, so black and near-black noise stay dark. */
 const COLOR_BASE_BRIGHTNESS_RAMP = 0.04;
+
+// Where `mutedGreenCorrection` applies. Each limit is a fade, so a moving camera or a brightening scene doesn't make
+// the light jump (docs/ARCHITECTURE.md, design decision 7).
+/** Hue fade-in (degrees): none at 50, full from 65. Leaves orange, skin, beige and gold alone. */
+const MUTED_GREEN_HUE_IN = [50, 65] as const;
+/** Hue fade-out (degrees): full up to 150, none from 170. Leaves teal and blue alone. */
+const MUTED_GREEN_HUE_OUT = [150, 170] as const;
+/** Saturation fade-out, before `saturationBoost`: full up to 0.35, none from 0.5. Leaves grass and vivid colors alone. */
+const MUTED_GREEN_SATURATION_OUT = [0.35, 0.5] as const;
+/** Screen brightness fade-out: full up to 0.5, none from 0.7. Leaves bright pages and daylight scenes alone. */
+const MUTED_GREEN_BRIGHTNESS_OUT = [0.5, 0.7] as const;
+
+/** 0–1: how much a screen color counts as a muted green scene. */
+function mutedGreenAmount(hue: number, saturation: number, brightness: number): number {
+  const fadeIn = ([from, to]: readonly [number, number], x: number): number => clamp01((x - from) / (to - from));
+  const fadeOut = ([from, to]: readonly [number, number], x: number): number => clamp01((to - x) / (to - from));
+  return (
+    Math.min(fadeIn(MUTED_GREEN_HUE_IN, hue), fadeOut(MUTED_GREEN_HUE_OUT, hue)) *
+    fadeOut(MUTED_GREEN_SATURATION_OUT, saturation) *
+    fadeOut(MUTED_GREEN_BRIGHTNESS_OUT, brightness)
+  );
+}
 
 export interface CalibrationContext {
   /**
@@ -78,7 +107,8 @@ export interface CalibrationContext {
  * WiZ bulbs treat r/g/b as the *hue mix* and `dimming` as brightness, so the color is
  * normalized to full value (brightest channel = 255) and the screen brightness drives
  * `dimming` instead. Saturation boost and gamma compensate for averaging washing colors out.
- * Nearly gray colors are shown with the bulb's white LEDs (`temp`) instead of RGB.
+ * Nearly gray colors are shown with the bulb's white LEDs (`temp`) instead of RGB. Muted greens skip the boost and
+ * gamma and get cool white (`mutedGreenCorrection`).
  */
 export function calibrate(input: Rgb, options: Partial<CalibrationOptions> = {}, context: CalibrationContext = {}): WizColor {
   const o: CalibrationOptions = { ...DEFAULT_CALIBRATION, ...options };
@@ -106,18 +136,24 @@ export function calibrate(input: Rgb, options: Partial<CalibrationOptions> = {},
     return { r: 255, g: 255, b: 255, dimming, temp: Math.round(clamp(o.whiteTemp, WIZ_MIN_TEMP, WIZ_MAX_TEMP)) };
   }
 
-  let { r, g, b } = hsvToRgb({ h: hsv.h, s: saturation, v: 1 });
-  if (o.gamma > 0 && o.gamma !== 1) {
-    r = 255 * (r / 255) ** o.gamma;
-    g = 255 * (g / 255) ** o.gamma;
-    b = 255 * (b / 255) ** o.gamma;
+  const paleWhite = clamp(o.paleWhite, 0, 255);
+  // 1 = the screen's own saturation on cool white. Only the color changes: white mode and dimming are decided above.
+  const correction = paleWhite > 0 ? clamp01(o.mutedGreenCorrection) * mutedGreenAmount(hsv.h, hsv.s, value) : 0;
+  const shownSaturation = saturation + (hsv.s - saturation) * correction;
+  const baseGamma = o.gamma > 0 ? o.gamma : 1; // 0 = no gamma
+  const gamma = baseGamma + (1 - baseGamma) * correction;
+
+  let { r, g, b } = hsvToRgb({ h: hsv.h, s: shownSaturation, v: 1 });
+  if (gamma !== 1) {
+    r = 255 * (r / 255) ** gamma;
+    g = 255 * (g / 255) ** gamma;
+    b = 255 * (b / 255) ** gamma;
   }
 
-  const paleWhite = clamp(o.paleWhite, 0, 255);
   if (paleWhite === 0) {
     return { r: Math.round(clamp(r, 0, 255)), g: Math.round(clamp(g, 0, 255)), b: Math.round(clamp(b, 0, 255)), dimming };
   }
-  return { ...encodePale({ r, g, b }, paleWhite), dimming };
+  return { ...encodePale({ r, g, b }, paleWhite, correction), dimming };
 }
 
 // How the WiZ app encodes a color, fitted to readings of the app's own colors (docs/WIZ_PROTOCOL.md, "Pale
@@ -154,13 +190,15 @@ export function paleColdShare(hue: number): number {
 /**
  * Splits a color into the WiZ app's encoding: the pure hue on `r,g,b` at a level that grows with saturation,
  * and the paleness on the white LEDs, tinted warm or cold by the hue. A gray has hue 0° (red), as in the app.
+ * `cool` (0–1) departs from the app: it moves the white toward the cold LEDs without changing its total.
  */
-function encodePale(color: Rgb, paleWhite: number): { r: number; g: number; b: number; c: number; w: number } {
+function encodePale(color: Rgb, paleWhite: number, cool: number): { r: number; g: number; b: number; c: number; w: number } {
   const { h, s } = rgbToHsv(color);
   const pure = hsvToRgb({ h, s: 1, v: 1 });
   const level = paleHueLevel(s);
   const white = Math.round(clamp(paleWhiteLevel(s, paleWhite), 0, 255));
-  const c = Math.round(white * paleColdShare(h));
+  const share = paleColdShare(h);
+  const c = Math.round(white * (share + (1 - share) * cool));
   return {
     r: Math.round(clamp(pure.r * level, 0, 255)),
     g: Math.round(clamp(pure.g * level, 0, 255)),

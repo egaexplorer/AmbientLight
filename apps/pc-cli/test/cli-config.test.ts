@@ -125,6 +125,16 @@ describe("config", () => {
     assert.throws(() => resolveConfig(file, parseCommandLine(["sync", "--max-dimming", "30"]).flags), /cannot be higher/);
   });
 
+  it("reads mutedGreenCorrection from the file and --muted-green, within 0-1", () => {
+    assert.equal(resolveConfig(undefined, parseCommandLine(["sync"]).flags).calibration.mutedGreenCorrection, 1);
+    const file = validateConfigFile({ calibration: { mutedGreenCorrection: 0.5 } }, "test");
+    assert.equal(resolveConfig(file, parseCommandLine(["sync"]).flags).calibration.mutedGreenCorrection, 0.5);
+    const flags = parseCommandLine(["sync", "--muted-green", "0"]).flags;
+    assert.equal(resolveConfig(file, flags).calibration.mutedGreenCorrection, 0);
+    assert.throws(() => validateConfigFile({ calibration: { mutedGreenCorrection: 2 } }, "test"), /between 0 and 1/);
+    assert.throws(() => resolveConfig(undefined, parseCommandLine(["sync", "--muted-green", "-1"]).flags));
+  });
+
   it("does not mutate the defaults", () => {
     resolveConfig({ calibration: { gamma: 3 } }, parseCommandLine(["sync"]).flags);
     assert.equal(DEFAULT_CONFIG.calibration.gamma, 1.6);

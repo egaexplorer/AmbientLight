@@ -72,7 +72,7 @@ sets `"types": []` so the compiler enforces this. That's what lets the React Nat
 | --- | --- |
 | `udp.ts` | `UdpSocket` over `node:dgram` (ephemeral port, optional broadcast) |
 | `gdi-capture.ts` | `GdiCapturer` (`"capture": "gdi"`, the Windows default): compiles `native/gdi-capture.cs` once into `%LOCALAPPDATA%\AmbientLight\gdi-capture-<hash>.exe`, keeps it running, and reads one 64×36 BGRA frame per request over stdin/stdout. `FrameAssembler` splits the byte stream into frames |
-| `native/gdi-capture.cs` | The helper (C# 5, compiled by the `csc.exe` that ships with Windows): per-monitor DPI-aware, `BitBlt` of the display into a bitmap allocated once, `StretchBlt` with `HALFTONE` (area average) down to the frame size. Resends the last frame while the secure desktop (UAC, lock screen) blocks capture |
+| `native/gdi-capture.cs` | The helper (C# 5, compiled by the `csc.exe` that ships with Windows): per-monitor DPI-aware, `BitBlt` of the display into a bitmap allocated once, `StretchBlt` with `HALFTONE` (area average, measured within 0.5 of the true mean) down to the frame size. Resends the last frame while the secure desktop (UAC, lock screen) blocks capture |
 | `capture.ts` | `DesktopCapturer` (`"capture": "screenshot-desktop"`, fallback and macOS/Linux): `screenshot-desktop` JPEG → `sharp` resize to 64×36 raw RGB; `listDisplays` for the `displays` command (its ids work for both backends) |
 | `network.ts` | Subnet broadcast addresses for every LAN adapter (reliable discovery on Windows) |
 | `cli.ts` / `config.ts` | Argument parsing, `ambientlight.config.json` loading and validation, defaults ← file ← flags |
@@ -122,12 +122,28 @@ sets `"types": []` so the compiler enforces this. That's what lets the React Nat
 7. **Pale colors as hue + white LEDs.** The WiZ app sends a pale color as the pure hue on `r,g,b` (smallest
    channel 0) plus the white LEDs, and reads saturation back from them. A pale color mixed from the RGB LEDs alone
    looks pink: `rgb(255,188,133)` (a peach) lit the bulb magenta, and the app reported it as `#FF7300`. So
-   `calibrate` encodes colors exactly as the app does, fitted to 11 readings of the app's own colors
+   `calibrate` encodes colors as the app does (one exception, below), fitted to 11 readings of the app's own colors
    ([WIZ_PROTOCOL.md](WIZ_PROTOCOL.md#pale-colors-hue-on-rgb-paleness-on-the-white-leds)): the hue level rises
    with saturation, white stays at `paleWhite` (140) up to saturation 0.5 and then fades out, and the white is
    tinted by the hue (warm for red, cold for blue). `c` and `w` are always sent, 0 for saturated colors, so no
    white lingers from the previous frame. `previewRgb` undoes the encoding for logs. `paleWhite: 0` restores
    the RGB-only mix.
+   **Exception: muted greens** (`mutedGreenCorrection`). The app's tint depends only on the hue, and
+   `saturationBoost` plus `gamma` raise the saturation first, so a measured doorway shot (`32,35,25`: saturation
+   0.29, about 5400 K, a slightly green white) became saturation 0.52 on 67 % warm white and lit the room yellow.
+   For such scenes `calibrate` moves boost and gamma back to 1 and the white to the cold LEDs, which is the light
+   the user picked on the bulb. White mode and `dimming` are decided before it, so neither changes. It fades by
+   three limits, each there to protect something:
+
+   | Limit | Full effect | No effect | Protects |
+   | --- | --- | --- | --- |
+   | Hue | 65–150° | below 50°, above 170° | orange, skin, beige, gold; teal and blue |
+   | Saturation before the boost | up to 0.35 | from 0.5 | grass, vivid colors |
+   | Screen brightness | up to 0.5 | from 0.7 | bright pages (mint, pale yellow), daylight scenes |
+
+   It is a rule on the average color, because the app can't recognize a shot. Matching just that one color failed:
+   in 6 of 15 simulated camera moves (crops) the same shot fell out of the range and turned yellow again. The
+   saturation fade is 0.15 wide to keep steps at 16 or less (of 255) per 0.01 of saturation.
 8. **No backlog, newest frame wins.** The loop handles one frame at a time and sleeps until the next fixed frame
    time (`start + n × interval`). Windows rounds timers up to ~16 ms, so sleeping `interval − elapsed` after each
    frame made every frame late and gave 8.8 instead of 10 FPS; with fixed frame times a late wake-up shortens the

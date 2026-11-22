@@ -212,6 +212,100 @@ describe("calibrate color base brightness", () => {
   });
 });
 
+describe("calibrate muted greens", () => {
+  const OFF = { mutedGreenCorrection: 0 };
+  // The doorway shot measured on the user's screen: hue source and screen average.
+  const doorway = { r: 33.32, g: 35.65, b: 25.07 };
+  const brightness = { r: 32.21, g: 35.13, b: 24.82 };
+
+  it("shows the doorway shot as the light picked on the bulb: its faint olive on cool white", () => {
+    assert.deepEqual(calibrate(doorway, {}, { brightness }), { r: 73, g: 94, b: 0, c: 140, w: 0, dimming: 19 });
+    assert.deepEqual(calibrate(doorway, OFF, { brightness }), { r: 120, g: 159, b: 0, c: 40, w: 88, dimming: 19 });
+  });
+
+  it("can be set in between", () => {
+    const half = calibrate(doorway, { mutedGreenCorrection: 0.5 }, { brightness });
+    assert.ok(half.g > 94 && half.g < 159, `g ${half.g}`);
+    assert.ok(half.c !== undefined && half.c > 40 && half.c < 140, `c ${half.c}`);
+  });
+
+  it("still treats gamma 0 as no gamma", () => {
+    const at = (gamma: number): unknown => calibrate(doorway, { gamma, mutedGreenCorrection: 0.5 }, { brightness });
+    assert.deepEqual(at(0), at(1));
+  });
+
+  it("applies to similar dark and medium scenes", () => {
+    const scenes = {
+      "foggy forest": { r: 90, g: 105, b: 85 },
+      "dim green-lit room": { r: 95, g: 115, b: 92 },
+      "dark green tint": { r: 50, g: 72, b: 52 },
+      "olive wall": { r: 85, g: 90, b: 60 },
+    };
+    for (const [name, color] of Object.entries(scenes)) assert.equal(calibrate(color).w, 0, name);
+  });
+
+  it("leaves other scenes as they were", () => {
+    const scenes = {
+      "orange lamp shot": { r: 26.91, g: 20.21, b: 16.44 },
+      skin: { r: 200, g: 150, b: 130 },
+      "olive skin": { r: 170, g: 140, b: 110 },
+      beige: { r: 240, g: 225, b: 200 },
+      sepia: { r: 112, g: 90, b: 70 },
+      gold: { r: 220, g: 190, b: 40 },
+      grass: { r: 90, g: 130, b: 50 },
+      "vivid green": { r: 30, g: 200, b: 60 },
+      "muted teal": { r: 70, g: 105, b: 105 },
+      "pale blue": { r: 160, g: 190, b: 220 },
+      navy: { r: 13, g: 17, b: 23 },
+      gray: { r: 80, g: 80, b: 80 },
+      "bright mint": { r: 150, g: 200, b: 175 },
+      "mint page": { r: 215, g: 245, b: 220 },
+      "pale yellow page": { r: 250, g: 250, b: 205 },
+      "hazy meadow": { r: 170, g: 190, b: 140 },
+    };
+    for (const [name, color] of Object.entries(scenes)) assert.deepEqual(calibrate(color), calibrate(color, OFF), name);
+  });
+
+  it("never changes the brightness or which colors use white mode", () => {
+    for (let h = 0; h < 360; h += 5) {
+      for (let s = 0; s <= 1; s += 0.05) {
+        for (const v of [0.05, 0.14, 0.3, 0.6, 0.9]) {
+          for (const wasWhite of [false, true]) {
+            const color = hsvToRgb({ h, s, v });
+            const options = { colorBaseBrightness: 40 };
+            const on = calibrate(color, options, { wasWhite });
+            const off = calibrate(color, { ...options, ...OFF }, { wasWhite });
+            assert.deepEqual([on.dimming, on.temp], [off.dimming, off.temp], `h=${h} s=${s} v=${v}`);
+          }
+        }
+      }
+    }
+  });
+
+  it("does nothing without the white LEDs (paleWhite 0)", () => {
+    assert.deepEqual(calibrate(doorway, { paleWhite: 0 }), calibrate(doorway, { paleWhite: 0, ...OFF }));
+  });
+
+  it("fades in without steps", () => {
+    const sweeps: Array<[name: string, from: number, to: number, inc: number, color: (x: number) => Rgb]> = [
+      ["hue", 30, 190, 1, (h) => hsvToRgb({ h, s: 0.28, v: 0.3 })],
+      ["saturation", 0.17, 0.7, 0.01, (s) => hsvToRgb({ h: 78, s, v: 0.3 })],
+      ["brightness", 0.1, 0.9, 0.01, (v) => hsvToRgb({ h: 78, s: 0.28, v })],
+    ];
+    for (const [name, from, to, inc, color] of sweeps) {
+      let previous = calibrate(color(from));
+      for (let x = from + inc; x <= to; x += inc) {
+        const out = calibrate(color(x));
+        for (const key of ["r", "g", "b", "c", "w"] as const) {
+          const step = Math.abs((out[key] ?? 0) - (previous[key] ?? 0));
+          assert.ok(step <= 16, `${name} ${x}: ${key} steps by ${step}`);
+        }
+        previous = out;
+      }
+    }
+  });
+});
+
 describe("calibrate pale colors (hue + white LEDs, like the WiZ app)", () => {
   /** What the WiZ app sent for colors picked in it, read back with `npm run state` (ESP25_SHRGB_01, fw 1.38.0). */
   const APP_READINGS: Array<[hex: string, sent: { r: number; g: number; b: number; c: number; w: number }]> = [
@@ -232,8 +326,8 @@ describe("calibrate pale colors (hue + white LEDs, like the WiZ app)", () => {
     g: Number.parseInt(h.slice(3, 5), 16),
     b: Number.parseInt(h.slice(5, 7), 16),
   });
-  /** No boost, no gamma, no white mode: the color goes to the encoder exactly as picked in the app. */
-  const AS_IS = { gamma: 1, saturationBoost: 1, whiteSaturation: 0 };
+  /** No boost, gamma, white mode or correction: the color goes to the encoder exactly as picked in the app. */
+  const AS_IS = { gamma: 1, saturationBoost: 1, whiteSaturation: 0, mutedGreenCorrection: 0 };
 
   for (const [color, sent] of APP_READINGS) {
     it(`sends ${color} the way the WiZ app does`, () => {

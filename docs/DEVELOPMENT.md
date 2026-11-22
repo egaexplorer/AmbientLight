@@ -80,16 +80,22 @@ Start-Sleep 5; npm run once -- --save-frame "$env:TEMP\lamp.png"
 relative path starts in the folder you ran npm from. Saved frames show whatever was on screen, so keep them out
 of git.
 
-Phone footage of the screen can show *when* the light changes, but not *why*, and never what color the screen is:
-under a warm bulb, exposure and white balance make the screen look brighter and bluer. Measured on 2026-11-22
-with the same paused shots (average of the screen):
+Phone footage of the screen can show *when* the light changes, but it can't measure the screen's color. Measured
+on 2026-11-22 with the same paused shots (average of the screen):
 
 | Shot | Saved frame | Phone photo |
 | --- | --- | --- |
 | Wall lamps | `23,18,16` (near-black brown) | `64,81,91` (blue) |
 | Doorway | `32,35,25` (dark olive) | `79,105,113` (teal) |
 
-The display's gamma ramp was neutral, so it doesn't explain the difference.
+**The saved frame is the right one.** A Win+PrtSc screenshot of the doorway averages `31,35,25` (GDI frame
+`32,35,25`, mean difference 1.9 of 255), and shown full screen it looks the same as the video in Edge to the user.
+So nothing recolors the video after capture. To check another scene or player, repeat exactly that: screenshot,
+compare by eye on the same display, compare its average with the saved frame.
+
+A scene can still *feel* different from its pixels (the user reads this olive-gray as white with a little blue
+teal), possibly because eyes and cameras adapt to the bulb's light. Treat that as a wish for the mapping, not as
+a capture error.
 
 ## Trying it without a bulb
 

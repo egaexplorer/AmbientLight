@@ -21,6 +21,7 @@
     "blackThreshold": 0.04,
     "whiteSaturation": 0.15,
     "whiteTemp": 5000,
-    "paleWhite": 140
+    "paleWhite": 140,
+    "mutedGreenCorrection": 1
   }
 }

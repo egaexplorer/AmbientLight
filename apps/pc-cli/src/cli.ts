@@ -27,6 +27,7 @@ export interface CliFlags {
   whiteSaturation?: number;
   whiteTemp?: number;
   paleWhite?: number;
+  mutedGreen?: number;
   noRestore: boolean;
   timeoutMs?: number;
   saveFrame?: string;
@@ -77,6 +78,7 @@ Options:
       --white-saturation <0-1>  Below this saturation use the white LEDs; 0 = never (default 0.15)
       --white-temp <K>    Color temperature for white, 2200-6500 (default 5000)
       --pale-white <n>    White LED level for pale colors, 0-255; 0 = RGB only (default 140)
+      --muted-green <0-1> Cool white for muted green scenes instead of yellow; 0 = off (default 1)
       --no-restore        Don't restore the bulbs' previous state (sync, check)
       --timeout <ms>      How long "discover" (and "check" without a bulb) listens for replies (default 2000)
       --save-frame <file> Save the frame "once" analyzed as a PNG, to study a scene
@@ -142,6 +144,7 @@ export function parseCommandLine(argv: readonly string[]): ParsedCommandLine {
         "white-saturation": { type: "string" },
         "white-temp": { type: "string" },
         "pale-white": { type: "string" },
+        "muted-green": { type: "string" },
         "no-restore": { type: "boolean", default: false },
         timeout: { type: "string" },
         "save-frame": { type: "string" },
@@ -195,6 +198,7 @@ export function parseCommandLine(argv: readonly string[]): ParsedCommandLine {
   set("whiteSaturation", toNumber("white-saturation", values["white-saturation"]));
   set("whiteTemp", toNumber("white-temp", values["white-temp"]));
   set("paleWhite", toNumber("pale-white", values["pale-white"]));
+  set("mutedGreen", toNumber("muted-green", values["muted-green"]));
   set("timeoutMs", toNumber("timeout", values.timeout));
   set("saveFrame", values["save-frame"]);
   if (flags.saveFrame !== undefined && name !== "once") throw new CliError('--save-frame only works with "once"');
