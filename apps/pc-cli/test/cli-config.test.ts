@@ -42,6 +42,11 @@ describe("parseCommandLine", () => {
     assert.equal(parseCommandLine(["state"]).command, "state");
   });
 
+  it("knows the on and off commands", () => {
+    assert.equal(parseCommandLine(["on"]).command, "on");
+    assert.equal(parseCommandLine(["off", "--bulb", "192.168.1.50"]).flags.bulbs?.[0], "192.168.1.50");
+  });
+
   it("reports user mistakes as CliError", () => {
     assert.throws(() => parseCommandLine(["dance"]), CliError);
     assert.throws(() => parseCommandLine(["sync", "--fps", "fast"]), CliError);

@@ -1,7 +1,7 @@
 import { parseArgs } from "node:util";
 import { LOOK_NAMES, type LookName } from "@ambientlight/core";
 
-export const COMMANDS = ["discover", "check", "state", "displays", "color", "once", "sync", "rain", "help"] as const;
+export const COMMANDS = ["discover", "check", "state", "on", "off", "displays", "color", "once", "sync", "rain", "help"] as const;
 export type Command = (typeof COMMANDS)[number];
 
 export const SIMULATIONS = ["go", "prepare", "wait", "danger", "unknown"] as const;
@@ -61,6 +61,7 @@ Commands:
   check               Test a bulb: reply time, model, firmware, and whether it accepts colors
                       (npm run check-bulb; checks every bulb found if none is configured)
   state               Show each bulb's current color exactly as the bulb reports it (changes nothing)
+  on / off            Turn the bulbs on (last color and brightness) or off; an off bulb stays reachable
   displays            List displays available for capture
   color               Set a fixed color to test a bulb   (--rgb 255,0,0 [--dimming 80])
   once                Capture one frame and send its color (Phase 1)
@@ -107,6 +108,7 @@ Examples:
   npm run discover
   npm run check-bulb -- --bulb 192.168.1.50
   npm run state
+  npm run off
   npm run color -- --bulb 192.168.1.50 --rgb 255,0,0
   npm run sync -- --bulb 192.168.1.50 --fps 10
   npm run sync -- --film "Pengabdi Setan"`;

@@ -39,6 +39,11 @@ Replies echo the method and carry either `result` or `error`:
 | `sceneId` | 1–32 | Built-in scenes (0 = none) |
 | `speed` | 10–200 | Scene animation speed % |
 
+`{"state":false}` is a software off: the Wi-Fi module stays on. Measured on the user's ESP25_SHRGB_01 (fw 1.38.0,
+2026-11-23): while off, the bulb still answers `getPilot` (`state:false`) and acknowledges `setPilot`, and a bare
+`{"state":true}` brings it back at its last setting (`temp 5000 K dim 32%`). A bulb switched off at the wall has
+no power and answers nothing. `npm run on` / `npm run off` send these with `setPilotConfirmed`.
+
 Send only the fields that change. `sanitizeSetPilot()` clamps and rounds everything, because
 out-of-range values are a common cause of silently ignored commands.
 

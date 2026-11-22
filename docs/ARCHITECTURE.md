@@ -52,7 +52,7 @@ the capture itself. `minChange` keeps the bulb from being flooded: in that ~23-m
 | `wiz/constants.ts` | Port 38899, dimming 10–100, broadcast address |
 | `wiz/protocol.ts` | `setPilot` / `getPilot` JSON encoding, value sanitizing, reply parsing, `pilotToRestoreParams` |
 | `wiz/socket.ts` | `UdpSocket` interface implemented by each platform |
-| `wiz/light.ts` | `WizLight`: one bulb. `setColor`/`setPilot` (fire-and-forget), `request` (reply matched by IP + method, one retransmit after 400 ms), `getPilot`, `getSystemConfig`, `getModelConfig`, `setPilotConfirmed`, `turnOff` |
+| `wiz/light.ts` | `WizLight`: one bulb. `setColor`/`setPilot` (fire-and-forget), `request` (reply matched by IP + method, one retransmit after 400 ms), `getPilot`, `getSystemConfig`, `getModelConfig`, `setPilotConfirmed`, `turnOn`, `turnOff` |
 | `wiz/device.ts` | `SystemConfig`/`ModelConfig` types, `bulbKindFromModule` (color, tunable white, dimmable white, plug) |
 | `wiz/check.ts` | `checkBulb`: reachability, model, firmware, signed-firmware detection, test color and restore; shared by the CLI and future apps |
 | `wiz/discovery.ts` | `discoverBulbs`: broadcast `getPilot`, collect replies |

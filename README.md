@@ -77,6 +77,7 @@ You can pass any setting on the command line instead of the config file, e.g.
 | `npm run discover` | Broadcasts `getPilot` on every LAN adapter and lists the bulbs that answer |
 | `npm run displays` | Lists display ids for `--screen` (multi-monitor setups) |
 | `npm run state` | Shows each bulb's current color exactly as the bulb reports it (`r,g,b,c,w`, `temp`, dimming). Changes nothing |
+| `npm run on` / `npm run off` | Turns the bulbs on (at their last color and brightness) or off. An off bulb stays connected: `state` still reads it and `on` brings it back. Only cutting power at the wall switch makes it unreachable |
 | `npm run check-bulb` | Tests each bulb (all bulbs found on the network if none is configured): reply time, signal, model, firmware, whether it accepts colors (or needs signed commands), then restores it |
 | `npm run color -- --rgb r,g,b [--dimming n]` | Sets a fixed color to test connectivity |
 | `npm run once` | Captures one frame and sends its color (Phase 1). Add `-- --save-frame <file.png>` to also save the frame it analyzed |

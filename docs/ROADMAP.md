@@ -10,6 +10,7 @@ Based on the *WiZ PC Screen-Sync Ambilight Project Guide* (Google Drive).
 - [x] Send a `setPilot` UDP packet with `node:dgram` → `npm run once`
 - [x] Connectivity test command → `npm run color -- --rgb 255,0,0`
 - [x] Bulb discovery (`getPilot` broadcast) → `npm run discover`
+- [x] Turn the bulbs on/off → `npm run on` / `npm run off` (an off bulb stays reachable; tested 2026-11-23)
 
 ## Phase 2: continuous sync loop and throttling ✅
 

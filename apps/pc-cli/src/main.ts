@@ -3,7 +3,7 @@ import path from "node:path";
 import process from "node:process";
 import { runCheck } from "./check.js";
 import { CliError, parseCommandLine, USAGE } from "./cli.js";
-import { runColor, runDiscover, runDisplays, runState, runSync } from "./commands.js";
+import { runColor, runDiscover, runDisplays, runPower, runState, runSync } from "./commands.js";
 import { type ConfigFile, findConfigFile, loadConfigFile, resolveConfig } from "./config.js";
 import { chooseLook } from "./film.js";
 import { errorMessage } from "./log.js";
@@ -32,6 +32,9 @@ async function main(argv: readonly string[]): Promise<number> {
       return runCheck(config, flags);
     case "state":
       return runState(config);
+    case "on":
+    case "off":
+      return runPower(config, command === "on");
     case "displays":
       return runDisplays();
     case "color":

@@ -105,6 +105,12 @@ export class WizLight implements ColorSink {
     return this.setPilot(params);
   }
 
+  /** Turns the light on at its last color and brightness (like the WiZ app's power button). */
+  turnOn(): Promise<void> {
+    return this.setPilot({ state: true });
+  }
+
+  /** Turns the light off. The bulb's Wi-Fi stays on, so it still answers and can be turned back on. */
   turnOff(): Promise<void> {
     return this.setPilot({ state: false });
   }

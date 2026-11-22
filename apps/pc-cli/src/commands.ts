@@ -11,6 +11,7 @@ import {
   type SyncOptions,
   WIZ_PORT,
   WizLight,
+  WizTimeoutError,
 } from "@ambientlight/core";
 import { CliError, type CliFlags } from "./cli.js";
 import type { AppConfig } from "./config.js";
@@ -128,6 +129,39 @@ export async function runState(config: AppConfig): Promise<number> {
     await socket.close();
   }
   if (failed) console.log(`\n${FIREWALL_HINT}`);
+  return failed ? 1 : 0;
+}
+
+/**
+ * Turns every configured bulb on or off and waits for each bulb's acknowledgement. Off is a software off: the
+ * bulb's Wi-Fi stays on, so it still answers `state` and comes back with `on`.
+ */
+export async function runPower(config: AppConfig, on: boolean): Promise<number> {
+  requireBulbs(config);
+  const word = on ? "on" : "off";
+  const socket = await createNodeUdpSocket();
+  let failed = false;
+  let noReply = false;
+  try {
+    for (const ip of config.bulbs) {
+      try {
+        await new WizLight(ip, socket).setPilotConfirmed({ state: on });
+        console.log(`Turned ${word} ${ip}`);
+      } catch (error) {
+        failed = true;
+        if (error instanceof WizTimeoutError) {
+          noReply = true;
+          console.log(`Sent "${word}" to ${ip}, but it didn't answer (it may still have worked): ${error.message}`);
+        } else {
+          console.log(`Couldn't turn ${word} ${ip}: ${errorMessage(error)}`);
+        }
+      }
+    }
+  } finally {
+    await socket.close();
+  }
+  if (noReply) console.log(`
+${FIREWALL_HINT}`);
   return failed ? 1 : 0;
 }
 

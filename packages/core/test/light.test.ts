@@ -39,6 +39,17 @@ describe("WizLight", () => {
     assert.equal(socket.sent[0]?.message, '{"method":"setPilot","params":{"temp":4000,"dimming":60}}');
   });
 
+  it("turns the light on and off with a bare state", async () => {
+    const socket = new FakeSocket();
+    const light = new WizLight("192.168.1.50", socket);
+    await light.turnOff();
+    await light.turnOn();
+    assert.deepEqual(
+      socket.sent.map((s) => s.message),
+      ['{"method":"setPilot","params":{"state":false}}', '{"method":"setPilot","params":{"state":true}}'],
+    );
+  });
+
   it("reads state with getPilot, ignoring replies from other bulbs", async () => {
     const socket = new FakeSocket();
     socket.responder = () => [

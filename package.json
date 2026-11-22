@@ -21,6 +21,8 @@
     "discover": "npm run dev -w @ambientlight/pc-cli -- discover",
     "check-bulb": "npm run dev -w @ambientlight/pc-cli -- check",
     "state": "npm run dev -w @ambientlight/pc-cli -- state",
+    "on": "npm run dev -w @ambientlight/pc-cli -- on",
+    "off": "npm run dev -w @ambientlight/pc-cli -- off",
     "displays": "npm run dev -w @ambientlight/pc-cli -- displays",
     "color": "npm run dev -w @ambientlight/pc-cli -- color",
     "once": "npm run dev -w @ambientlight/pc-cli -- once",
