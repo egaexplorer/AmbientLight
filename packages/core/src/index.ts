@@ -21,6 +21,16 @@ export {
   WHITE_HYSTERESIS,
 } from "./color/calibration.js";
 export { colorDistance, EmaSmoother } from "./color/smoothing.js";
+export {
+  applyLook,
+  FILM_LOOKS,
+  type FilmLook,
+  LOOK_NAMES,
+  type LookName,
+  lookForGenres,
+  MAX_HUE_TURN,
+  turnHue,
+} from "./color/looks.js";
 
 // WiZ local UDP protocol
 export {

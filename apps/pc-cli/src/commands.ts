@@ -1,5 +1,6 @@
 import { setTimeout as delay } from "node:timers/promises";
 import {
+  applyLook,
   discoverBulbs,
   type PixelFrame,
   pilotToRestoreParams,
@@ -13,6 +14,7 @@ import {
 } from "@ambientlight/core";
 import { CliError, type CliFlags } from "./cli.js";
 import type { AppConfig } from "./config.js";
+import { type ChosenLook, describeLook } from "./film.js";
 import { saveFramePng } from "./frame-file.js";
 import { GdiCapturer } from "./gdi-capture.js";
 import { colorSwatch, errorMessage, formatColor, formatPilot, StatusLine, swatch } from "./log.js";
@@ -31,7 +33,7 @@ export function requireBulbs(config: AppConfig): void {
   }
 }
 
-function syncOptions(config: AppConfig): Partial<SyncOptions> {
+function syncOptions(config: AppConfig, look?: ChosenLook): Partial<SyncOptions> {
   return {
     fps: config.fps,
     smoothing: config.smoothing,
@@ -40,7 +42,8 @@ function syncOptions(config: AppConfig): Partial<SyncOptions> {
     minChange: config.minChange,
     sceneCut: config.sceneCut,
     keepAliveMs: config.keepAliveMs,
-    calibration: config.calibration,
+    calibration: look ? applyLook(config.calibration, look.look) : config.calibration,
+    hueTarget: look?.look.hue,
   };
 }
 
@@ -161,9 +164,10 @@ export async function runColor(config: AppConfig, flags: CliFlags): Promise<numb
 
 export async function runSync(
   config: AppConfig,
-  options: { once: boolean; verbose: boolean; saveFrame?: string | undefined },
+  options: { once: boolean; verbose: boolean; saveFrame?: string | undefined; look?: ChosenLook | undefined },
 ): Promise<number> {
   requireBulbs(config);
+  if (options.look) console.log(describeLook(options.look));
   const capturer = await createCapturer(config);
   const socket = await createNodeUdpSocket();
   const lights = config.bulbs.map((ip) => new WizLight(ip, socket));
@@ -174,7 +178,7 @@ export async function runSync(
       let frame: PixelFrame | undefined;
       // Keeps the frame the engine analyzed for --save-frame, without skewing the capture time it reports.
       const recorder: ScreenCapturer = { capture: async () => (frame = await capturer.capture()) };
-      const engine = new SyncEngine(recorder, lights, { ...syncOptions(config), smoothing: 1 });
+      const engine = new SyncEngine(recorder, lights, { ...syncOptions(config, options.look), smoothing: 1 });
       const report = await engine.tick();
       if (options.saveFrame !== undefined && frame) {
         console.log(`Saved the analyzed frame to ${await saveFramePng(frame, options.saveFrame)}`);
@@ -217,7 +221,7 @@ export async function runSync(
     }
 
     const status = new StatusLine(options.verbose, config.calibration.paleWhite);
-    const engine = new SyncEngine(capturer, lights, syncOptions(config), {
+    const engine = new SyncEngine(capturer, lights, syncOptions(config, options.look), {
       onFrame: (report) => status.update(report),
       onError: (error) => status.error(error),
     });

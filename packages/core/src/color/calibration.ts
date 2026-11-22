@@ -81,7 +81,7 @@ const MUTED_GREEN_SATURATION_OUT = [0.35, 0.5] as const;
 const MUTED_GREEN_BRIGHTNESS_OUT = [0.5, 0.7] as const;
 
 /** 0–1: how much a screen color counts as a muted green scene. */
-function mutedGreenAmount(hue: number, saturation: number, brightness: number): number {
+export function mutedGreenAmount(hue: number, saturation: number, brightness: number): number {
   const fadeIn = ([from, to]: readonly [number, number], x: number): number => clamp01((x - from) / (to - from));
   const fadeOut = ([from, to]: readonly [number, number], x: number): number => clamp01((to - x) / (to - from));
   return (

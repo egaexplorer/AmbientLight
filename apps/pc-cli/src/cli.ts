@@ -1,4 +1,5 @@
 import { parseArgs } from "node:util";
+import { LOOK_NAMES, type LookName } from "@ambientlight/core";
 
 export const COMMANDS = ["discover", "check", "state", "displays", "color", "once", "sync", "rain", "help"] as const;
 export type Command = (typeof COMMANDS)[number];
@@ -34,6 +35,9 @@ export interface CliFlags {
   noRestore: boolean;
   timeoutMs?: number;
   saveFrame?: string;
+  film?: string;
+  series?: string;
+  look?: LookName;
   plan?: string;
   simulate?: SimulatedWeather;
   rgb?: { r: number; g: number; b: number };
@@ -87,6 +91,10 @@ Options:
       --muted-green <0-1> Cool white for muted green scenes instead of yellow; 0 = off (default 1)
       --no-restore        Don't restore the bulbs' previous state (sync, check)
       --timeout <ms>      How long "discover" (and "check" without a bulb) listens for replies (default 2000)
+      --film <title>      Film look from the genre on Wikipedia (sync, once), e.g. --film "Pengabdi Setan"
+      --series <title>    Film look from a TV series' genre on TVmaze
+      --look <name>       Pick the film look yourself: ${LOOK_NAMES.slice(0, 4).join(", ")},
+                          ${LOOK_NAMES.slice(4).join(", ")}
       --save-frame <file> Save the frame "once" analyzed as a PNG, to study a scene
       --plan <text>       Your plan for "rain", for the AI (e.g. "naik motor, bisa tunggu sampai 19:00")
       --simulate <name>   Made-up weather for "rain": go, prepare, wait, danger or unknown
@@ -100,7 +108,8 @@ Examples:
   npm run check-bulb -- --bulb 192.168.1.50
   npm run state
   npm run color -- --bulb 192.168.1.50 --rgb 255,0,0
-  npm run sync -- --bulb 192.168.1.50 --fps 10`;
+  npm run sync -- --bulb 192.168.1.50 --fps 10
+  npm run sync -- --film "Pengabdi Setan"`;
 
 function toNumber(flag: string, raw: string | undefined): number | undefined {
   if (raw === undefined) return undefined;
@@ -119,6 +128,14 @@ function parseRgb(raw: string | undefined): CliFlags["rgb"] {
   }
   const [r, g, b] = parts as [number, number, number];
   return { r, g, b };
+}
+
+function parseLook(raw: string | undefined): LookName | undefined {
+  if (raw === undefined) return undefined;
+  if (!(LOOK_NAMES as readonly string[]).includes(raw)) {
+    throw new CliError(`--look expects one of ${LOOK_NAMES.join(", ")}, got "${raw}"`);
+  }
+  return raw as LookName;
 }
 
 function parseSimulation(raw: string | undefined): SimulatedWeather | undefined {
@@ -164,6 +181,9 @@ export function parseCommandLine(argv: readonly string[]): ParsedCommandLine {
         "no-restore": { type: "boolean", default: false },
         timeout: { type: "string" },
         "save-frame": { type: "string" },
+        film: { type: "string" },
+        series: { type: "string" },
+        look: { type: "string" },
         plan: { type: "string" },
         simulate: { type: "string" },
         rgb: { type: "string" },
@@ -220,6 +240,14 @@ export function parseCommandLine(argv: readonly string[]): ParsedCommandLine {
   set("timeoutMs", toNumber("timeout", values.timeout));
   set("saveFrame", values["save-frame"]);
   if (flags.saveFrame !== undefined && name !== "once") throw new CliError('--save-frame only works with "once"');
+  set("film", values.film);
+  set("series", values.series);
+  set("look", parseLook(values.look));
+  const lookFlags = [flags.film, flags.series, flags.look].filter((value) => value !== undefined).length;
+  if (lookFlags > 1) throw new CliError("Use only one of --film, --series and --look");
+  if (lookFlags === 1 && name !== "sync" && name !== "once") {
+    throw new CliError('--film, --series and --look only work with "sync" and "once"');
+  }
   set("plan", values.plan);
   if (flags.plan !== undefined && name !== "rain") throw new CliError('--plan only works with "rain"');
   set("simulate", parseSimulation(values.simulate));

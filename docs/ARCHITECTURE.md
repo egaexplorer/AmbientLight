@@ -58,6 +58,7 @@ the capture itself. `minChange` keeps the bulb from being flooded: in that ~23-m
 | `wiz/discovery.ts` | `discoverBulbs`: broadcast `getPilot`, collect replies |
 | `color/average.ts` | `analyzeFrame`: plain mean of a `PixelFrame` in linear light (brightness) plus a vivid-weighted mean of the dominant hue family (hue); `averageColor` returns the plain mean. RGB/RGBA/BGR(A), optional sampling step. `frameChange`: mean absolute channel difference of two frames (scene-cut detection) |
 | `color/calibration.ts` | `calibrate`: turns a screen color into WiZ `{r,g,b,c,w,dimming}` (pale colors as hue + white LEDs), or `{temp,dimming}` for near-gray colors; `previewRgb` shows the color a `WizColor` makes |
+| `color/looks.ts` | `FILM_LOOKS`, `lookForGenres` (genre words → look), `applyLook` (look on top of the user's calibration), `turnHue` (small, bounded hue lean) |
 | `color/smoothing.ts` | `EmaSmoother`, `colorDistance` |
 | `sync/engine.ts` | `SyncEngine`: the capture → process → transmit loop on fixed frame times; resets the smoothers on scene cuts |
 | `sync/types.ts` | `ScreenCapturer` and `ColorSink` interfaces |
@@ -80,6 +81,7 @@ sets `"types": []` so the compiler enforces this. That's what lets the React Nat
 | `commands.ts` | `discover`, `state`, `displays`, `color`, `once` (reads the bulb back after sending, optionally saves the frame), `sync` |
 | `check.ts` | `check` (`npm run check-bulb`): runs `checkBulb` on each bulb and prints the report |
 | `frame-file.ts` | `saveFramePng`: writes the analyzed frame as a PNG for `once --save-frame` |
+| `film.ts` | `--film`, `--series`, `--look`: one Wikipedia or TVmaze request, exact-title picker, title cache |
 | `weather.ts` | `WeatherClient`: fetches and validates BMKG forecast, BMKG CAP alerts (cached per file) and METAR |
 | `advisor.ts` | Optional AI advice through Gemini's or Groq's chat-completions endpoint, checked against what the rules allow |
 | `rain.ts` | The `rain` command: 2-minute loop, signal colors, simulations, keep-alive, restore on exit |
@@ -178,6 +180,17 @@ sets `"types": []` so the compiler enforces this. That's what lets the React Nat
    ([ROADMAP.md](ROADMAP.md#later-ideas)).
    The helper's byte order was checked on 2026-11-22: a full-screen pure blue window arrived as `[255,0,0,0]`
    (BGRX) and was analyzed as hue 240.
+13. **Film looks change the calibration, plus a bounded hue turn.** Settings alone never change the hue, and blending
+   in a genre color broke colors (sky → white, hues off by up to 179°). So `applyLook` derives a calibration, and
+   `turnHue` runs between smoothing and `calibrate` (scene-cut detection keeps seeing the screen's own hue). The turn
+   peaks at 20° for colors 60° from the look's hue and is gone from 120°; with a wider reach a warm look turned teal
+   green and the scifi look turned warm scenes red. It fades out on muted greens (decision 7). The color base shrinks
+   with a lowered `maxDimming`, or all scenes would get the same brightness.
+14. **One request per title, never a guess.** Wikimedia allows 10 requests a minute to clients without contact details,
+   and a Wikidata lookup (several requests) hit that limit within seconds. One Wikipedia search returns the first
+   sentences of 10 candidates, which name the main genre ("is a 2017 Indonesian supernatural horror film") and other
+   names of the film. Only an exact match is accepted, because the top search result for "Wednesday" was "Big
+   Wednesday". The lookup happens before the bulb is touched and is cached.
 
 ## Rain signal
 

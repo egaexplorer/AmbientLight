@@ -66,6 +66,16 @@ To run the compiled CLI instead: `npm run build`, then `node apps/pc-cli/dist/ma
 - The GDI capture helper needs a real screen, so tests cover only its byte-stream handling (`FrameAssembler`).
   After changing `native/gdi-capture.cs` or `gdi-capture.ts`, check capture time and colors by hand with `sync -v`.
 
+## Testing film looks
+
+- Tests inject `fetch` and a temporary cache, so they need no network.
+- Try a look without the real bulb: `npm run sync -- --look horror --bulb 127.0.0.1` with the fake bulb below.
+- When tuning `FILM_LOOKS`, measure on real frames, not only flat test colors: those hid that scifi looked like
+  romance. Open films work (Sintel, Big Buck Bunny, Tears of Steel: CC BY 3.0, thumbnails every 30 s on
+  archive.org). Internet Archive lists Sintel's frames twice (stereo and surround), so count distinct seconds.
+- Keep live probes under 10 Wikipedia requests a minute, and stop on a 429. Delete
+  `%LOCALAPPDATA%\AmbientLight\titles` to repeat a lookup.
+
 ## Testing the rain signal
 
 - `npm run rain -- --simulate <level>` runs made-up data through the real rules and AI. With the fake bulb below, add
@@ -132,5 +142,7 @@ s.bind(38899, "127.0.0.1");
 | First `once`/`sync` on Windows takes ~0.3 s longer | The `"gdi"` capture compiles its helper (`apps/pc-cli/native/gdi-capture.cs`) into `%LOCALAPPDATA%\AmbientLight\gdi-capture-<hash>.exe` on first use. Later runs reuse it; changing the source builds a new one. Delete the folder to force a rebuild. |
 | `Couldn't compile the screen capture helper` / `Can't find the C# compiler` | The `"gdi"` capture needs `%WINDIR%\Microsoft.NET\Framework64\v4.0.30319\csc.exe` (part of Windows 10/11). Use `--capture screenshot-desktop` meanwhile. |
 | `Screen capture is unavailable` | Only the `screenshot-desktop` fallback uses `sharp`. Re-run `npm install` so it fetches its native binary for your platform. |
+| `No film called ... found` | Use the full title, add the year, use `--series` for a TV series, or `--look <name>`. |
+| `Wikipedia is limiting requests` | Wait as long as it says, or use `--look`. Titles that worked before come from the cache. |
 | Low FPS in `sync -v` | Capture time is the limit. With `"capture": "gdi"` it is ~20–35 ms; `screenshot-desktop` takes ~370 ms per frame on Windows (it compiles its helper on every frame). |
 | `'screenCapture_1.3.3.bat' is not recognized` (screenshot-desktop) | The environment variable `NoDefaultCurrentDirectoryInExePath` is set (some agent and CI shells set it), so `cmd.exe` won't run the `.bat` that screenshot-desktop starts by bare name from its folder. Unset it for that command, or use the `"gdi"` capture, which starts its helper by full path. |

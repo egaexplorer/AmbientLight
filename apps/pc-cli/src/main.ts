@@ -5,6 +5,7 @@ import { runCheck } from "./check.js";
 import { CliError, parseCommandLine, USAGE } from "./cli.js";
 import { runColor, runDiscover, runDisplays, runState, runSync } from "./commands.js";
 import { type ConfigFile, findConfigFile, loadConfigFile, resolveConfig } from "./config.js";
+import { chooseLook } from "./film.js";
 import { errorMessage } from "./log.js";
 import { runRain } from "./rain.js";
 
@@ -21,6 +22,9 @@ async function main(argv: readonly string[]): Promise<number> {
   if (configPath && flags.verbose) console.log(`Using config ${configPath}`);
   const config = resolveConfig(file, flags);
 
+  // Resolved before anything touches the bulb, so a wrong title doesn't change the light.
+  const look = await chooseLook(flags);
+
   switch (command) {
     case "discover":
       return runDiscover(flags);
@@ -33,12 +37,12 @@ async function main(argv: readonly string[]): Promise<number> {
     case "color":
       return runColor(config, flags);
     case "once":
-      return runSync(config, { once: true, verbose: flags.verbose, saveFrame: flags.saveFrame });
+      return runSync(config, { once: true, verbose: flags.verbose, saveFrame: flags.saveFrame, look });
     case "rain":
       // .env sits next to the config file.
       return runRain(config, flags, configPath ? path.dirname(configPath) : (process.env.INIT_CWD ?? process.cwd()));
     case "sync":
-      return runSync(config, { once: false, verbose: flags.verbose });
+      return runSync(config, { once: false, verbose: flags.verbose, look });
   }
 }
 

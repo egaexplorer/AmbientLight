@@ -3,6 +3,7 @@
 Turn a Philips WiZ smart bulb into an ambient backlight for your PC (and later Android) screen.
 AmbientLight captures the screen, works out its average color, and sends it straight to the bulb
 over your local network (UDP port 38899). Screen sync doesn't need a cloud service or extra hardware.
+With a title, [film looks](#film-looks) give the light the mood of the film's genre (one internet lookup at the start).
 An optional prototype, [`rain`](#rain-signal) (not chosen as a product feature yet), turns the bulb into a "is it a good time to head out?" light. It reads public
 weather data and can ask a free AI model for advice, so that mode needs internet.
 
@@ -13,7 +14,8 @@ Capture screen  ->  Downscale + average color  ->  Calibrate + smooth  ->  UDP s
 
 **Status:** Phases 1–2 work end to end in the PC command-line app (capture, average, calibrate,
 smooth, throttle, send, restore on exit). Phase 3 (calibrating on real hardware) is in progress, and Phase 4
-(Electron desktop app, Android app) is next. The rain signal is a parked option: tested on live weather data and a fake bulb, not
+(Electron desktop app, Android app) is next. Film looks are built and tested on live APIs, real film frames and a fake bulb, not yet judged on a real bulb.
+The rain signal is a parked option: tested on live weather data and a fake bulb, not
 yet on a real bulb or with a real AI answer. See [docs/ROADMAP.md](docs/ROADMAP.md).
 
 ## Repository layout
@@ -79,6 +81,7 @@ You can pass any setting on the command line instead of the config file, e.g.
 | `npm run color -- --rgb r,g,b [--dimming n]` | Sets a fixed color to test connectivity |
 | `npm run once` | Captures one frame and sends its color (Phase 1). Add `-- --save-frame <file.png>` to also save the frame it analyzed |
 | `npm run sync` | Continuous screen sync (Phase 2). Add `-v` to print every frame |
+| `npm run sync -- --film "<title>"` | Sync with the look of that film's genre ([Film looks](#film-looks)). Also `--series` and `--look`, and the same for `once` |
 | `npm run rain` | Weather signal on the bulb ([Rain signal](#rain-signal)). Don't run it at the same time as `sync` |
 | `npm run help` | All options |
 
@@ -153,9 +156,42 @@ Command-line flags override it.
 - **A scene gets a color or brightness you didn't expect:** save what the analysis saw with `once --save-frame`
   ([how](docs/DEVELOPMENT.md#debugging-a-scene)). A phone photo of the screen doesn't show those colors.
 
+## Film looks
+
+The light still follows the screen; the genre of what you watch decides how.
+
+```powershell
+npm run sync -- --film "Pengabdi Setan"     # genre from Wikipedia
+npm run sync -- --film "Dune (1984)"        # add the year to choose a version
+npm run sync -- --series "Wednesday"        # genre from TVmaze
+npm run sync -- --look horror               # pick it yourself, no internet
+```
+
+| Look | Brightness up to | White | Colors |
+| --- | --- | --- | --- |
+| `horror` | 45 % | 6500 K | Pale, dim |
+| `thriller` | 55 % | 5700 K | Deep, dim |
+| `romance` | 75 % | 2700 K | Nearby colors lean pink |
+| `animation` | 100 % | 4500 K | Vivid, dark scenes lifted |
+| `comedy` | 100 % | 3500 K | Cheerful, warm |
+| `scifi` | 85 % | 6500 K | Vivid, nearby colors lean cyan |
+| `action` | 100 % | 5500 K | Strong, nearby colors lean red-orange |
+| `drama` | 80 % | 3800 K | Soft, natural |
+
+- A look works on top of your calibration: it scales saturation and gamma, can only lower your `maxDimming`, and turns
+  hues by at most 20° before gamma. Colors far from the look's hue and muted greens aren't turned.
+- The title must match exactly (case and punctuation don't matter), including other names in the article's first
+  sentence, so Indonesian titles work. A similar title is suggested, never guessed. Comedy horror counts as comedy.
+- Only the title is sent, once: to English Wikipedia for a film, to TVmaze for a series. Results are cached in
+  `%LOCALAPPDATA%\AmbientLight\titles`, so a title that was used before also starts offline. Screen content never
+  leaves the PC.
+- Protected streaming video often captures as black; then the light stays dark in any look.
+
+Film data: [Wikipedia](https://en.wikipedia.org/). Series data: [TVmaze](https://www.tvmaze.com/). Both CC BY-SA 4.0.
+
 ## Rain signal
 
-> An option on hold while other features are compared ([roadmap](docs/ROADMAP.md#option-rain-signal-on-hold)).
+> An option on hold: film looks were picked as the core feature ([roadmap](docs/ROADMAP.md#option-rain-signal-on-hold)).
 
 `npm run rain` checks the weather every 2 minutes and shows the result on the bulb until Ctrl+C. Its output is in
 Indonesian, like the data.

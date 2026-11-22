@@ -151,9 +151,27 @@ Lessons from the reference study ([REFERENCE_NOTES.md](REFERENCE_NOTES.md)):
   creep toward the target for long
 - Per-bulb calibration (gamma and white balance) once several bulbs are supported (wiz-pc)
 
+## Film looks ⏳
+
+Picked on 2026-11-22 as the core feature. Priority: the core working, with a write-up and a demo video, by
+2026-11-26; everything else can follow until the live demo on 2026-12-12.
+
+- [x] `--film` (Wikipedia), `--series` (TVmaze), `--look`, cache, 8 looks, tests
+- [x] Lookup: 21 of 21 test films right, including 7 Indonesian ones; mistyped titles and series are refused
+- [x] Looks measured through `SyncEngine` on 99 distinct frames of Sintel, Big Buck Bunny and Tears of Steel: each
+      differs from plain sync on 59–92 % of frames and from each other look on at least 63 %, no vivid color turned
+      white, hue moved at most 30° after gamma
+- [x] End to end on a fake bulb: 20 FPS kept, previous state restored
+- [ ] Judge the looks on the real bulb, above all horror (too dark?), romance and animation, then tune
+- [ ] Record the demo video
+- [ ] Later, if there is time: night watching (cap by sunset; see the options below)
+- [ ] Later: optional AI look per title from the Wikipedia summary
+- [ ] Later: read the title from the player, switch looks without restarting
+- [ ] Ask before adding contact details to the Wikimedia User-Agent (200 instead of 10 requests a minute)
+
 ## Option: rain signal (on hold)
 
-Put on hold on 2026-11-22: the user prefers a feature closer to ambient light and is comparing ideas (next section).
+Put on hold on 2026-11-22: the user preferred a feature closer to ambient light and picked [film looks](#film-looks-).
 The prototype works and stays available as an option; the open boxes below wait until it is picked.
 
 `npm run rain` (2026-11-22): the bulb shows whether it's a good time to go outside. Sources were first tried
@@ -181,19 +199,20 @@ on 2026-11-22 at 20:18–20:19 WIB, for central Jakarta (-6.2, 106.8; BMKG forec
 - [ ] Judge the rules against real weather for a few days; the thresholds are a first guess
 - [ ] Later: phone notification for when the bulb is out of sight
 
-## Options: ambient features with a public API (nothing picked)
+## Options: ambient features with a public API (1 picked, 2 next if time allows)
 
 Brainstorm of 2026-11-22. Each must build on screen sync, use a public API and work without AI (AI is optional).
 
 | # | Idea | Public API | Without AI | Optional AI | Found when probed |
 | --- | --- | --- | --- | --- | --- |
-| 1 | Film director: a look per film or series on top of screen sync | Wikidata (CC0), TVmaze (CC BY-SA) | Genre → small hue turn, saturation, brightness, white temperature | A look per title from its description | Genre for 6 of 7 test films. The seventh (Petualangan Sherina) has it in its Indonesian Wikipedia summary ("komedi musikal", CC BY-SA), readable by keywords or AI; keep a manual genre for the rest |
+| 1 | Film director: a look per film or series on top of screen sync | Wikipedia, TVmaze (both CC BY-SA); Wikidata dropped, it needs several requests | Genre → small hue turn, saturation, brightness, white temperature | A look per title from its description | Genre for 6 of 7 test films. The seventh (Petualangan Sherina) has it in its Indonesian Wikipedia summary ("komedi musikal", CC BY-SA), readable by keywords or AI; keep a manual genre for the rest |
 | 2 | Night watching: screen colors stay, brightness and white follow the sun | Sunrise-Sunset (attribution link) | Minutes after sunset → `maxDimming`, `whiteTemp` (only gray and white scenes get warmer) | Plain-language preferences | No key, answered in 0.5 s |
 | 3 | Hearing through light: pulses for sound captions, for deaf viewers | OpenSubtitles (5 downloads a day, 20 with an account) | Keywords in captions such as [explosion] | Classify captions and emotion | The API refused a generic client: needs a registered app. Not tested further |
 | 4 | Lyric stage: choruses and quiet parts shape the screen's color | LRCLIB (no key, no stated license for lyrics) | Repeated lines = chorus | Emotion per line | Timed lyrics for 5 of 5 test songs, 3 of them Indonesian |
 | 5 | Space window: full-screen space photos light the room | NASA Image Library (no key) | Screen sync as it is, plus a slideshow | Narrate each photo | Search and 3 test images worked |
 
-Suggested: 1 and 2 together. Both act on the calibration step and need no key.
+Picked: 1 first ([Film looks](#film-looks-)), then 2. Both act on the calibration step and need no key.
+The measurements below led to the design; the built version narrows the hue turn further (ARCHITECTURE, decision 13).
 
 **How to make a film look.** Simulated with `calibrate` and `previewRgb` on 540 test colors (36 hues, 5 saturations,
 3 brightnesses) and 3 looks (horror, romance, animation). This replaces a first test that was wrong: its "romance"

@@ -1,6 +1,7 @@
 import { analyzeFrame, type ColorMode, frameChange } from "../color/average.js";
 import { type CalibrationOptions, calibrate } from "../color/calibration.js";
 import { clamp } from "../color/convert.js";
+import { turnHue } from "../color/looks.js";
 import { colorDistance, EmaSmoother } from "../color/smoothing.js";
 import type { PixelFrame, Rgb, WizColor } from "../color/types.js";
 import { type Clock, clearTimer, setTimer, systemClock, type TimerHandle } from "../platform/timers.js";
@@ -44,6 +45,8 @@ export interface SyncOptions {
   /** `"dominant"`: hue from the strongest hue family on screen; `"average"`: hue from all pixels mixed. */
   colorMode: ColorMode;
   calibration: Partial<CalibrationOptions>;
+  /** Film look: hue (degrees) that colors lean toward (see `turnHue`). Scene cuts still use the screen's own hue. */
+  hueTarget?: number | undefined;
 }
 
 export const DEFAULT_SYNC_OPTIONS: Readonly<SyncOptions> = Object.freeze({
@@ -153,8 +156,12 @@ export class SyncEngine {
     this.previous = { ...frame, data: new Uint8Array(frame.data) };
     const dt = startedAt - this.lastFrameAt;
     this.lastFrameAt = startedAt;
-    const output = calibrate(this.colorSmoother.next(color, dt), this.options.calibration, {
-      brightness: this.brightnessSmoother.next(average, dt),
+    const smoothed = this.colorSmoother.next(color, dt);
+    const brightness = this.brightnessSmoother.next(average, dt);
+    const { hueTarget } = this.options;
+    const shown = hueTarget === undefined ? smoothed : turnHue(smoothed, hueTarget, brightness);
+    const output = calibrate(shown, this.options.calibration, {
+      brightness,
       wasWhite: this.white,
     });
     this.white = output.temp !== undefined;
