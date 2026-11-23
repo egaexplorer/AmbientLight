@@ -29,7 +29,8 @@ npm run check        # build + typecheck + 211 tests, must be green
 npm run desktop      # the app; first start copies ambientlight.config.json from the repo root
 ```
 
-The first time it searches the network, allow Electron on **Private networks** in the Windows firewall prompt.
+The first start opens a Windows firewall prompt for Electron. Allow it on **Private networks**; the app worked with the
+prompt unanswered too (2026-11-23, see WIZ_PROTOCOL "Discovery").
 
 ## What to read first (in the repo)
 
@@ -117,9 +118,11 @@ Still to do:
 1. The user clicks through once by hand: Find bulbs, Blink (watch it flash twice), type `Pengabdi Setan`, Find,
    Start with a video playing, Stop, Start again, close with the window's ✕, then `npm run state`. Untick "Minimize
    while syncing" to film the UI.
-2. A "Windows Security" window (`PickerHost`) was open and unanswered during the test, probably the firewall asking
-   about Electron. Everything worked meanwhile. Find out what it was before the video.
-3. **Thu 11-26:** record the video. The CLI (`npm run sync -- --film "..."`) is the fallback.
+2. The user answers the firewall prompt Electron opened at its first start (`PickerHost.exe
+   FirewallNotificationDialogServer`, titled "Windows Security"). It blocked nothing while unanswered.
+3. Wireframe differences left (UI_DESIGN "Built so far"): no MAC column in Find bulbs, no "Ready" badge on the bulb
+   chip. The "nothing answered" hint leads with the firewall; "Search again" is the likelier fix.
+4. **Thu 11-26:** record the video. The CLI (`npm run sync -- --film "..."`) is the fallback.
 
 ### B. 11-27 → 12-10: MVP (wireframe screens; see the UI_DESIGN screen spec)
 

@@ -67,6 +67,14 @@ The Home screen and the Find bulbs dialog (`apps/desktop/src/renderer`), as in t
   couldn't be brought back. It becomes "hide" with the tray.
 - **Sidebar:** only Home, until the other screens exist.
 - **Find bulbs** also lists configured bulbs that didn't answer ("Not answering"), so they can be kept or dropped.
+- **Find bulbs** has no MAC column yet (discovery already returns `mac`), and its "nothing answered" box says
+  "No bulbs answered" without "within 2 seconds".
+- **Bulbs strip:** the chip shows the IP without the "Ready" badge; that needs `checkBulb`, which comes with the
+  Bulbs page.
+
+Checked against the wireframe on 2026-11-23 with screenshots of the running app (`drive.mjs shot`): apart from the
+points above, Home and Find bulbs are as drawn. The "nothing answered" box leads with the firewall, which didn't
+block anything on the user's PC ([WIZ_PROTOCOL.md](WIZ_PROTOCOL.md)); "Search again" is the likelier fix.
 
 ## Screen spec
 

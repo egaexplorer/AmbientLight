@@ -68,8 +68,9 @@ npm run sync
 ```
 
 > **Windows Firewall:** the first time you run `discover` or `sync`, Windows may ask whether Node.js can
-> use the network. Allow it on **Private networks**. If you don't, sending colors still works, but discovery
-> and "restore previous state" can't receive the bulb's replies.
+> use the network. Allowing it on **Private networks** is the safe answer, but on the test PC the answer didn't
+> matter: Windows lets the bulb's replies to AmbientLight's own requests through, even with the prompt cancelled.
+> If no bulb answers, search again first; a bulb can miss searches for about a minute.
 
 You can pass any setting on the command line instead of the config file, e.g.
 `npm run sync -- --bulb 192.168.1.50 --fps 12 --saturation 1.5`.
@@ -112,8 +113,8 @@ npm run desktop    # the first start downloads Electron (~100 MB) if npm install
 - Settings live in `%APPDATA%\AmbientLight\ambientlight.config.json`. On the first start the app copies the CLI's
   `ambientlight.config.json` (searched from where you ran `npm run desktop`), so bulbs and calibration carry over.
   Only values that differ from the defaults are saved. Set `AMBIENTLIGHT_CONFIG` to use another file.
-- Windows may ask whether Electron can use the network, as it does for Node.js. Allow it on **Private networks**,
-  or the bulbs' replies can't reach the app.
+- The first start makes Windows ask whether Electron can use the network, as it does for Node.js. Allow it on
+  **Private networks**; on the test PC the app also worked with the question left unanswered.
 
 Not yet in the app: the setup wizard, Bulbs and Tuning pages, display choice, tray icon and an installer
 ([roadmap](docs/ROADMAP.md#phase-4-desktop-app-electron-and-android-port-react-native-)). Use the config file or the

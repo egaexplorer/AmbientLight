@@ -4,6 +4,7 @@
 // Then:
 //   node apps/desktop/scripts/drive.mjs eval "window.ambient.discover()"   any expression; promises are awaited
 //   node apps/desktop/scripts/drive.mjs measure 60 [none|horror|...]       sync N seconds, stop, print stats
+//   node apps/desktop/scripts/drive.mjs shot home.png                       screenshot of the window's page
 // The stats come from the frame views (about 8 a second). For every frame, start the app with AMBIENTLIGHT_VERBOSE=1.
 // Needs Node.js 22 or later (built-in WebSocket). DRIVE_PORT picks another port.
 const port = process.env.DRIVE_PORT ?? "9222";
@@ -26,12 +27,16 @@ socket.addEventListener("message", (event) => {
   pending.delete(message.id);
 });
 
-async function evaluate(expression) {
+function call(method, params) {
   const id = ++lastId;
-  const message = await new Promise((resolve) => {
+  return new Promise((resolve) => {
     pending.set(id, resolve);
-    socket.send(JSON.stringify({ id, method: "Runtime.evaluate", params: { expression, awaitPromise: true, returnByValue: true } }));
+    socket.send(JSON.stringify({ id, method, params }));
   });
+}
+
+async function evaluate(expression) {
+  const message = await call("Runtime.evaluate", { expression, awaitPromise: true, returnByValue: true });
   if (message.error) throw new Error(message.error.message);
   const { result, exceptionDetails } = message.result;
   if (exceptionDetails) throw new Error(exceptionDetails.exception?.description ?? exceptionDetails.text);
@@ -76,7 +81,13 @@ async function measure(seconds, look) {
 try {
   if (command === "eval") console.log(JSON.stringify(await evaluate(args.join(" ")), null, 2));
   else if (command === "measure") console.log(JSON.stringify(await measure(Number(args[0] ?? 30), args[1]), null, 2));
-  else throw new Error('Commands: eval "<expression>", measure <seconds> [look]');
+  else if (command === "shot") {
+    const { result, error } = await call("Page.captureScreenshot", { format: "png" });
+    if (error) throw new Error(error.message);
+    const { writeFileSync } = await import("node:fs");
+    writeFileSync(args[0] ?? "shot.png", Buffer.from(result.data, "base64"));
+    console.log(`Saved ${args[0] ?? "shot.png"}`);
+  } else throw new Error('Commands: eval "<expression>", measure <seconds> [look], shot [file.png]');
 } finally {
   socket.close();
 }

@@ -78,7 +78,8 @@ npm run state                                          # did Stop restore the bu
 ```
 
 - `drive.mjs` evaluates in the renderer over the DevTools protocol, so it calls the same `window.ambient` API as the
-  buttons. `eval "window.close()"` closes the window as its close button does (quit, restore).
+  buttons. `eval "window.close()"` closes the window as its close button does (quit, restore). `shot home.png`
+  saves a screenshot of the page, to compare with the wireframe.
 - Frame views are throttled, so take capture times from the verbose log (`capture 31.6 ms`), not from views.
   Its color fields are those of `npm run state`, so a line compares directly with `npm run once`'s "reports" line.
 - **Color check:** show a still picture full screen (anything on top of it is captured too), sync a few seconds,
@@ -190,8 +191,8 @@ s.bind(38899, "127.0.0.1");
 
 | Symptom | Fix |
 | --- | --- |
-| `discover` finds nothing | Allow Node.js through Windows Defender Firewall (Private). Make sure the PC and bulb share a subnet (guest Wi‑Fi and mesh "IoT" networks often isolate devices). Turn on "Allow local communication" in the WiZ app. |
-| `color` works but `sync` says the state can't be read | Same firewall issue (inbound replies are blocked). Sync still works; only restore-on-exit is skipped. |
+| `discover` finds nothing | Search again: a bulb can miss searches for about a minute (seen with `ping` losing half its packets). Make sure the PC and bulb share a subnet (guest Wi‑Fi and mesh "IoT" networks often isolate devices). Turn on "Allow local communication" in the WiZ app. Check the firewall last: on the user's PC Windows let replies through even with Block rules for Node.js ([WIZ_PROTOCOL.md](WIZ_PROTOCOL.md)). |
+| `color` works but `sync` says the state can't be read | The bulb's reply didn't arrive (a Wi-Fi drop, or a firewall stricter than Windows' default). Sync still works; only restore-on-exit is skipped. |
 | First `once`/`sync` on Windows takes ~0.3 s longer | The `"gdi"` capture compiles its helper (`packages/node/native/gdi-capture.cs`) into `%LOCALAPPDATA%\AmbientLight\gdi-capture-<hash>.exe` on first use. Later runs reuse it; changing the source builds a new one. Delete the folder to force a rebuild. |
 | `Couldn't compile the screen capture helper` / `Can't find the C# compiler` | The `"gdi"` capture needs `%WINDIR%\Microsoft.NET\Framework64\v4.0.30319\csc.exe` (part of Windows 10/11). Use `--capture screenshot-desktop` meanwhile. |
 | `Screen capture is unavailable` | Only the `screenshot-desktop` fallback uses `sharp`. Re-run `npm install` so it fetches its native binary for your platform. |
