@@ -9,10 +9,16 @@ A cloud session planned and started the Windows desktop app (Electron) for Ambie
 on the user's PC: the real bulb, GDI capture and the Windows firewall exist only there. This document is
 everything a new session needs to continue. All of it is also committed in the repo's docs.
 
-- **Branch:** `ccr-89d32679-dhyf40`. Three commits on top of `7de875d`, plus this handoff:
+- **Branch:** `ccr-89d32679-dhyf40`, merged into `main` on 2026-11-23 after the user approved it. **Work continues
+  on `main`.** The branch's commits on top of `7de875d`:
   1. `38fba7f` docs: plan, wireframes and UI design
   2. `dd9ffb8` feat: shared Node package, `SyncSession` and `identifyBulb`
   3. `96980ee` feat: desktop app demo flow (Electron, Windows)
+  4. `dd24590` docs: this handoff
+  5. `85e376e` fix(desktop): real-bulb results, unbiased capture time, verbose log, `drive.mjs` (on the PC)
+  6. `6064a2f` docs: wireframe check, firewall and bulb-dropout findings
+  7. `fcc90a5` feat(desktop): MAC column and "search again first" hint in Find bulbs
+  8. `e7e2b12` feat: brightness setting, slider on the desktop Home screen
 - **Deadlines:**
   - **Thu 2026-11-26:** demo video of one flow.
   - **Sat 2026-12-12:** MVP for the live demo. Freeze on 12-11.
@@ -22,10 +28,9 @@ everything a new session needs to continue. All of it is also committed in the r
 
 ```powershell
 cd C:\AI_Sandbox\Project\AmbientLight
-git fetch origin ccr-89d32679-dhyf40
-git checkout ccr-89d32679-dhyf40
+git checkout main
 npm install          # with npm 12 this didn't fetch Electron's binary; the first start does (~100 MB)
-npm run check        # build + typecheck + 211 tests, must be green
+npm run check        # build + typecheck + 222 tests, must be green
 npm run desktop      # the app; first start copies ambientlight.config.json from the repo root
 ```
 
@@ -157,10 +162,9 @@ Presets (gaming / movie / ambient), letterbox detection, multi-zone, then Androi
 
 ## Paste-ready opening message for the new session
 
-> Continue the AmbientLight Windows desktop app on branch `ccr-89d32679-dhyf40`. Read `CLAUDE.md` and
-> `docs/HANDOFF_DESKTOP.md` first, then `docs/UI_DESIGN.md`, `docs/ROADMAP.md` (Phase 4, Electron), `docs/ARCHITECTURE.md` (apps/desktop, decision 15) and
-> `docs/DEVELOPMENT.md` ("The desktop app"). The demo flow (Home + Find bulbs) is built and tested with fakes but not
-> yet on the real bulb. First, help me run `npm run desktop` on this PC with my bulb and check: FPS about 20, capture
-> 20–35 ms, the color matches `npm run once`, the bulb is restored on Stop and on closing the window. Fix what fails,
-> update the docs, and commit to the same branch. Deadlines: demo video Thu 2026-11-26, MVP for the live demo Sat
-> 2026-12-12. Targets are Windows and Android only.
+> Continue the AmbientLight Windows desktop app on `main`. Read `CLAUDE.md` and `docs/HANDOFF_DESKTOP.md` first, then
+> `docs/UI_DESIGN.md`, `docs/ROADMAP.md` (Phase 4, Electron), `docs/ARCHITECTURE.md` (apps/desktop, decision 15) and
+> `docs/DEVELOPMENT.md` ("The desktop app"). The demo flow (Home + Find bulbs + the Brightness slider) works on the
+> real bulb; see "Still to do" under next steps A. Then start the MVP (B). Before driving the bulb or showing test
+> scenes, check that I'm not using the app. Update the docs with each change. Deadlines: demo video Thu 2026-11-26,
+> MVP for the live demo Sat 2026-12-12. Targets are Windows and Android only.
