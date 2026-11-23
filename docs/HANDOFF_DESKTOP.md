@@ -164,7 +164,7 @@ Presets (gaming / movie / ambient), letterbox detection, multi-zone, then Androi
 
 > Continue the AmbientLight Windows desktop app on `main`. Read `CLAUDE.md` and `docs/HANDOFF_DESKTOP.md` first, then
 > `docs/UI_DESIGN.md`, `docs/ROADMAP.md` (Phase 4, Electron), `docs/ARCHITECTURE.md` (apps/desktop, decision 15) and
-> `docs/DEVELOPMENT.md` ("The desktop app"). The demo flow (Home + Find bulbs + the Brightness slider) works on the
-> real bulb; see "Still to do" under next steps A. Then start the MVP (B). Before driving the bulb or showing test
+> `docs/DEVELOPMENT.md` ("The desktop app"). The demo flow (Home + Find bulbs) works on the real bulb; the Brightness
+> slider is checked with fakes and the CLI. Finish "Still to do" under next steps A, then start the MVP (B). Before driving the bulb or showing test
 > scenes, check that I'm not using the app. Update the docs with each change. Deadlines: demo video Thu 2026-11-26,
 > MVP for the live demo Sat 2026-12-12. Targets are Windows and Android only.
