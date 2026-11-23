@@ -2,7 +2,7 @@
   "name": "@ambientlight/pc-cli",
   "version": "0.1.0",
   "private": true,
-  "description": "Command-line PC screen sync for Philips WiZ bulbs (Phases 1–3): screenshot-desktop + sharp capture, node:dgram UDP.",
+  "description": "Command-line PC screen sync for Philips WiZ bulbs (Phases 1–3): GDI capture helper (screenshot-desktop + sharp as fallback), node:dgram UDP.",
   "type": "module",
   "bin": {
     "ambientlight": "./dist/main.js"
@@ -14,6 +14,7 @@
   },
   "dependencies": {
     "@ambientlight/core": "*",
+    "@ambientlight/node": "*",
     "screenshot-desktop": "^1.15.1",
     "sharp": "^0.35.4"
   }

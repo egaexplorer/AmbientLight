@@ -1,5 +1,6 @@
 import { parseArgs } from "node:util";
 import { LOOK_NAMES, type LookName } from "@ambientlight/core";
+import { UserError as CliError } from "@ambientlight/node";
 
 export const COMMANDS = ["discover", "check", "state", "on", "off", "displays", "color", "once", "sync", "rain", "help"] as const;
 export type Command = (typeof COMMANDS)[number];
@@ -7,10 +8,8 @@ export type Command = (typeof COMMANDS)[number];
 export const SIMULATIONS = ["go", "prepare", "wait", "danger", "unknown"] as const;
 export type SimulatedWeather = (typeof SIMULATIONS)[number];
 
-/** A user-facing error: printed without a stack trace. */
-export class CliError extends Error {
-  override name = "CliError";
-}
+/** A user-facing error: printed without a stack trace. The same class as the shared packages throw. */
+export { UserError as CliError } from "@ambientlight/node";
 
 export interface CliFlags {
   bulbs?: string[];

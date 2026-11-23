@@ -13,14 +13,12 @@ import {
   WizLight,
   WizTimeoutError,
 } from "@ambientlight/core";
+import { broadcastAddresses, createNodeUdpSocket, GdiCapturer } from "@ambientlight/node";
 import { CliError, type CliFlags } from "./cli.js";
 import type { AppConfig } from "./config.js";
 import { type ChosenLook, describeLook } from "./film.js";
 import { saveFramePng } from "./frame-file.js";
-import { GdiCapturer } from "./gdi-capture.js";
 import { colorSwatch, errorMessage, formatColor, formatPilot, StatusLine, swatch } from "./log.js";
-import { broadcastAddresses } from "./network.js";
-import { createNodeUdpSocket } from "./udp.js";
 
 export const FIREWALL_HINT =
   "If you're on Windows, make sure Node.js is allowed through Windows Defender Firewall on Private networks,\n" +

@@ -52,7 +52,7 @@ Several design decisions in [ARCHITECTURE.md](ARCHITECTURE.md) match what the mo
 - **Newest frame wins, no queue** (`SyncEngine`). wiz-pc's scheduler is built around the same rule;
   wiz-led-nodejs shows the failure mode (a FIFO queue with a 300 ms gap that builds a backlog of stale colors).
 - **Keep-alive re-send** (`keepAliveMs`). MihirGupta07/wiz-sync re-sends every 1 s for the same reason.
-- **Subnet broadcast on every adapter** (`apps/pc-cli/src/network.ts`). HyperHDR's WiZ discovery does the same.
+- **Subnet broadcast on every adapter** (`packages/node/src/network.ts`). HyperHDR's WiZ discovery does the same.
 
 ## Top lessons, ranked
 
@@ -67,7 +67,7 @@ Several design decisions in [ARCHITECTURE.md](ARCHITECTURE.md) match what the mo
 | 7 | Letterbox detection with a 3-line probe plus a stability counter. | new `color/letterbox.ts`, `average.ts` | HyperHDR, hyperion.ng, ambient-setup |
 | 8 | Discovery: also broadcast `registration`; save bulbs by MAC and re-resolve the IP. | `wiz/discovery.ts`, `pc-cli` config | MihirGupta07, wiz-pc, SignalRGB, ambient-setup, HyperHDR |
 | 9 | Retransmit `getPilot` once after ~400 ms; clamp dimming to the bulb's `minDimLevel`. | `wiz/light.ts` | homebridge-wiz-lan, pywizlight |
-| 10 | Faster PC capture. Done with a GDI helper that stays running (`"capture": "gdi"`, 367 → 32 ms per frame); later DXGI with a GPU downscale, and reusing the last frame when the screen didn't change. | `apps/pc-cli/src/gdi-capture.ts` | node-screenshots, Prismatik, HyperHDR |
+| 10 | Faster PC capture. Done with a GDI helper that stays running (`"capture": "gdi"`, 367 → 32 ms per frame); later DXGI with a GPU downscale, and reusing the last frame when the screen didn't change. | `packages/node/src/gdi-capture.ts` | node-screenshots, Prismatik, HyperHDR |
 | 11 | An `identify` command that flashes one bulb. | `pc-cli` `commands.ts` | ambient-setup, HyperHDR, namanb-lab |
 | 12 | Presets (ambient / movie / gaming / relax) as bundles of existing options. | `pc-cli` config | ambient-setup |
 | 13 | Android capture: tiny `VirtualDisplay`, `acquireLatestImage`, rotation and Android 14 rules. | `apps/android` (Phase 4) | namanb-lab, hyperion-android-reborn |
@@ -440,7 +440,7 @@ Details checked on 2026-11-21 (version 0.2.8, `xcap` 0.4.1):
 - The `LICENSE` file is MIT (napi-rs template), but `package.json` says Apache-2.0.
 
 Applies to AmbientLight: lesson 10, but it wasn't used. The same GDI copy in our own helper that stays running
-(`apps/pc-cli/native/gdi-capture.cs`) declares DPI awareness, shrinks the frame before it reaches Node, keeps
+(`packages/node/native/gdi-capture.cs`) declares DPI awareness, shrinks the frame before it reaches Node, keeps
 screenshot-desktop's display ids, and adds no dependency (ARCHITECTURE.md, design decision 12). Don't pass a GDI
 capture with alpha 0 to `sharp().resize()`: sharp premultiplies alpha before resizing and only removes it
 afterwards, so the frame turns black.

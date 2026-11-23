@@ -54,6 +54,7 @@ the capture itself. `minChange` keeps the bulb from being flooded: in that ~23-m
 | `wiz/socket.ts` | `UdpSocket` interface implemented by each platform |
 | `wiz/light.ts` | `WizLight`: one bulb. `setColor`/`setPilot` (fire-and-forget), `request` (reply matched by IP + method, one retransmit after 400 ms), `getPilot`, `getSystemConfig`, `getModelConfig`, `setPilotConfirmed`, `turnOn`, `turnOff` |
 | `wiz/device.ts` | `SystemConfig`/`ModelConfig` types, `bulbKindFromModule` (color, tunable white, dimmable white, plug) |
+| `wiz/identify.ts` | `identifyBulb`: flashes one bulb (white LEDs, then off, twice) and restores its previous state |
 | `wiz/check.ts` | `checkBulb`: reachability, model, firmware, signed-firmware detection, test color and restore; shared by the CLI and future apps |
 | `wiz/discovery.ts` | `discoverBulbs`: broadcast `getPilot`, collect replies |
 | `color/average.ts` | `analyzeFrame`: plain mean of a `PixelFrame` in linear light (brightness) plus a vivid-weighted mean of the dominant hue family (hue); `averageColor` returns the plain mean. RGB/RGBA/BGR(A), optional sampling step. `frameChange`: mean absolute channel difference of two frames (scene-cut detection) |
@@ -61,6 +62,7 @@ the capture itself. `minChange` keeps the bulb from being flooded: in that ~23-m
 | `color/looks.ts` | `FILM_LOOKS`, `lookForGenres` (genre words → look), `applyLook` (look on top of the user's calibration), `turnHue` (small, bounded hue lean) |
 | `color/smoothing.ts` | `EmaSmoother`, `colorDistance` |
 | `sync/engine.ts` | `SyncEngine`: the capture → process → transmit loop on fixed frame times; resets the smoothers on scene cuts |
+| `sync/session.ts` | `SyncSession`: one sync run for an app. Reads the bulbs' states, runs a `SyncEngine`, restarts it with new options or another capturer while running (`update`), restores the bulbs on `stop`. Calls are queued, so a double click can't interleave them |
 | `sync/types.ts` | `ScreenCapturer` and `ColorSink` interfaces |
 | `weather/rain.ts` | `assessRain`: turns a `WeatherSnapshot` (alerts, forecast, airport report) into a `RainLevel` and the facts behind it. No I/O |
 | `platform/timers.ts` | `setTimeout` and the clock without Node.js or DOM typings |
@@ -68,20 +70,33 @@ the capture itself. `minChange` keeps the bulb from being flooded: in that ~23-m
 **Rule:** the core must not import `node:*` modules or use Node.js/DOM-only globals. Its `tsconfig.json`
 sets `"types": []` so the compiler enforces this. That's what lets the React Native app reuse it.
 
-### `apps/pc-cli` (`@ambientlight/pc-cli`)
+### `packages/node` (`@ambientlight/node`)
+
+The Node.js adapters that the CLI and the desktop app share (moved out of `apps/pc-cli` on 2026-11-23). Nothing here
+prints to the terminal or reads command-line flags. Errors meant for the user are `UserError`s (the CLI's
+`CliError` is the same class).
 
 | File | Responsibility |
 | --- | --- |
 | `udp.ts` | `UdpSocket` over `node:dgram` (ephemeral port, optional broadcast) |
-| `gdi-capture.ts` | `GdiCapturer` (`"capture": "gdi"`, the Windows default): compiles `native/gdi-capture.cs` once into `%LOCALAPPDATA%\AmbientLight\gdi-capture-<hash>.exe`, keeps it running, and reads one 64×36 BGRA frame per request over stdin/stdout. `FrameAssembler` splits the byte stream into frames |
+| `gdi-capture.ts` | `GdiCapturer` (`"capture": "gdi"`, the Windows default): compiles `native/gdi-capture.cs` once into `%LOCALAPPDATA%\AmbientLight\gdi-capture-<hash>.exe`, keeps it running, and reads one 64×36 BGRA frame per request over stdin/stdout. `FrameAssembler` splits the byte stream into frames. A bundled app passes the `.cs` path as `helperSource` |
 | `native/gdi-capture.cs` | The helper (C# 5, compiled by the `csc.exe` that ships with Windows): per-monitor DPI-aware, `BitBlt` of the display into a bitmap allocated once, `StretchBlt` with `HALFTONE` (area average, measured within 0.5 of the true mean) down to the frame size. Resends the last frame while the secure desktop (UAC, lock screen) blocks capture |
-| `capture.ts` | `DesktopCapturer` (`"capture": "screenshot-desktop"`, fallback and macOS/Linux): `screenshot-desktop` JPEG → `sharp` resize to 64×36 raw RGB; `listDisplays` for the `displays` command (its ids work for both backends) |
 | `network.ts` | Subnet broadcast addresses for every LAN adapter (reliable discovery on Windows) |
-| `cli.ts` / `config.ts` | Argument parsing, `ambientlight.config.json` loading and validation, defaults ← file ← flags |
+| `config.ts` | `ambientlight.config.json`: `AppConfig`, defaults, ranges, validation, `applyConfigFile` (defaults ← file), `checkConfigLimits`, `saveConfigFile` (validates, then writes through a temporary file) |
+| `film.ts` | `findTitle` / `lookForTitle`: one Wikipedia or TVmaze request, exact-title picker, title cache. Failures are `TitleError`s with a `code` (`offline`, `rate-limited`, `not-found` with `similar` titles, `no-genre`, …) so each app words its own advice |
+| `displays.ts` | `listDisplays` through screenshot-desktop, without sharp |
+| `errors.ts` | `UserError`, `errorMessage` |
+
+### `apps/pc-cli` (`@ambientlight/pc-cli`)
+
+| File | Responsibility |
+| --- | --- |
+| `capture.ts` | `DesktopCapturer` (`"capture": "screenshot-desktop"`, the fallback): `screenshot-desktop` JPEG → `sharp` resize to 64×36 raw RGB; `listDisplays` for the `displays` command (its ids work for both backends) |
+| `cli.ts` / `config.ts` | Argument parsing; `resolveConfig`: defaults ← file ← flags (the file handling is in `@ambientlight/node`) |
 | `commands.ts` | `discover`, `state`, `displays`, `color`, `once` (reads the bulb back after sending, optionally saves the frame), `sync` |
 | `check.ts` | `check` (`npm run check-bulb`): runs `checkBulb` on each bulb and prints the report |
 | `frame-file.ts` | `saveFramePng`: writes the analyzed frame as a PNG for `once --save-frame` |
-| `film.ts` | `--film`, `--series`, `--look`: one Wikipedia or TVmaze request, exact-title picker, title cache |
+| `film.ts` | `--film`, `--series`, `--look` → a look (`chooseLook`), and the text that describes it |
 | `weather.ts` | `WeatherClient`: fetches and validates BMKG forecast, BMKG CAP alerts (cached per file) and METAR |
 | `advisor.ts` | Optional AI advice through Gemini's or Groq's chat-completions endpoint, checked against what the rules allow |
 | `rain.ts` | The `rain` command: 2-minute loop, signal colors, simulations, keep-alive, restore on exit |

@@ -80,7 +80,7 @@ Broadcast `getPilot` and collect the replies: each bulb answers from its own IP.
 
 - Prefer the **subnet broadcast** (e.g. `192.168.1.255`) over `255.255.255.255`. On Windows the limited
   broadcast only leaves through one adapter, and VPN, Hyper-V, or WSL adapters often win. The CLI sends to
-  every adapter's subnet broadcast plus `255.255.255.255` (`apps/pc-cli/src/network.ts`).
+  every adapter's subnet broadcast plus `255.255.255.255` (`packages/node/src/network.ts`).
 - Repeat the broadcast a few times. UDP is lossy.
 - Receiving replies needs inbound UDP. On Windows, allow Node.js through Windows Defender Firewall on
   **Private** networks.

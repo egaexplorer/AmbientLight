@@ -6,6 +6,7 @@
   "type": "module",
   "workspaces": [
     "packages/core",
+    "packages/node",
     "apps/pc-cli"
   ],
   "engines": {

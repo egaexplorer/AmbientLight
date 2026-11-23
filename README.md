@@ -23,7 +23,9 @@ yet on a real bulb or with a real AI answer. See [docs/ROADMAP.md](docs/ROADMAP.
 ```text
 packages/core     Shared TypeScript: WiZ UDP protocol, color pipeline, sync engine.
                   No Node.js APIs, so the React Native app can reuse it unchanged.
-apps/pc-cli       Node.js CLI: GDI capture helper (screenshot-desktop + sharp as fallback), node:dgram UDP.
+packages/node     Node.js adapters shared by the CLI and the desktop app: GDI capture helper, node:dgram UDP,
+                  config files, film title lookup.
+apps/pc-cli       Node.js CLI (screenshot-desktop + sharp as a capture fallback).
 apps/desktop      Phase 4: Electron app for Windows (planned; screens in docs/UI_DESIGN.md)
 apps/android      Phase 4: React Native + Kotlin MediaProjection (planned)
 docs/             Architecture, WiZ protocol notes, roadmap, development guide, UI design

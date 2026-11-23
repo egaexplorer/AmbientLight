@@ -1,0 +1,26 @@
+{
+  "name": "@ambientlight/node",
+  "version": "0.1.0",
+  "private": true,
+  "description": "Node.js adapters shared by the CLI and the desktop app (Windows): UDP, GDI screen capture, config files, film title lookup.",
+  "type": "module",
+  "exports": {
+    ".": {
+      "development": "./src/index.ts",
+      "types": "./dist/index.d.ts",
+      "default": "./dist/index.js"
+    }
+  },
+  "files": [
+    "dist",
+    "src",
+    "native"
+  ],
+  "scripts": {
+    "build": "tsc -b"
+  },
+  "dependencies": {
+    "@ambientlight/core": "*",
+    "screenshot-desktop": "^1.15.1"
+  }
+}

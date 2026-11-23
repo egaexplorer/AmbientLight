@@ -8,12 +8,11 @@ import {
   WIZ_PORT,
   WizLight,
 } from "@ambientlight/core";
+import { broadcastAddresses, createNodeUdpSocket } from "@ambientlight/node";
 import type { CliFlags } from "./cli.js";
 import { FIREWALL_HINT } from "./commands.js";
 import type { AppConfig } from "./config.js";
 import { swatch } from "./log.js";
-import { broadcastAddresses } from "./network.js";
-import { createNodeUdpSocket } from "./udp.js";
 
 type Mark = "ok" | "FAIL" | "warn" | "info";
 

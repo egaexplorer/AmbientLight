@@ -26,7 +26,7 @@ dependency change.
 
 | Script | Description |
 | --- | --- |
-| `npm run build` | `tsc -b`: builds `packages/core` then `apps/pc-cli` into their `dist/` folders |
+| `npm run build` | `tsc -b`: builds `packages/core`, `packages/node`, then `apps/pc-cli` into their `dist/` folders |
 | `npm run clean` | Removes build output |
 | `npm test` | Runs all `*.test.ts` with Node's built-in test runner (via `tsx`) |
 | `npm run typecheck` | Type-checks source and tests together (`tsconfig.tests.json`) |
@@ -38,12 +38,13 @@ To run the compiled CLI instead: `npm run build`, then `node apps/pc-cli/dist/ma
 
 ## How the workspace is wired
 
-- **npm workspaces:** `packages/core` and `apps/pc-cli`. The CLI depends on `@ambientlight/core`, which npm
-  links locally.
-- **TypeScript project references:** the root `tsconfig.json` references both packages, and `apps/pc-cli`
-  references `packages/core`. Shared compiler options live in `tsconfig.base.json` (strict, `NodeNext`, ES2023).
-- **`development` export condition:** `@ambientlight/core` exports `./src/index.ts` under the `development`
-  condition and `./dist/index.js` otherwise. Dev scripts and tests run `tsx --conditions=development`, so
+- **npm workspaces:** `packages/core`, `packages/node` and `apps/pc-cli`. `@ambientlight/node` (the Node.js adapters
+  the CLI and the desktop app share) depends on `@ambientlight/core`; the CLI depends on both. npm links them locally.
+- **TypeScript project references:** the root `tsconfig.json` references all three, `packages/node` references
+  `packages/core`, and `apps/pc-cli` references both. Shared compiler options live in `tsconfig.base.json` (strict,
+  `NodeNext`, ES2023).
+- **`development` export condition:** `@ambientlight/core` and `@ambientlight/node` export `./src/index.ts` under the
+  `development` condition and `./dist/index.js` otherwise. Dev scripts and tests run `tsx --conditions=development`, so
   edits to the core apply immediately without a build. The compiler (`customConditions`) resolves it the
   same way.
 
@@ -59,12 +60,14 @@ To run the compiled CLI instead: `npm run build`, then `node apps/pc-cli/dist/ma
 ## Tests
 
 - Framework: `node:test` + `node:assert/strict`, run through `tsx` (no extra test dependency).
-- Tests live in `<package>/test/*.test.ts`. Core fakes are in `packages/core/test/helpers.ts`: `FakeSocket`
+- Tests live in `<package>/test/*.test.ts` (`packages/core`, `packages/node`, `apps/pc-cli`). Core fakes are in
+  `packages/core/test/helpers.ts`: `FakeSocket`
   (in-memory UDP with scripted replies), `FakeCapturer`, `FakeClock`, `RecordingSink`, `solidFrame`.
 - Tests need no bulb, screen, or network.
 - Run a single file: `npx tsx --conditions=development --test packages/core/test/color.test.ts`.
 - The GDI capture helper needs a real screen, so tests cover only its byte-stream handling (`FrameAssembler`).
-  After changing `native/gdi-capture.cs` or `gdi-capture.ts`, check capture time and colors by hand with `sync -v`.
+  After changing `packages/node/native/gdi-capture.cs` or `gdi-capture.ts`, check capture time and colors by hand with
+  `sync -v`.
 
 ## Testing film looks
 
@@ -139,7 +142,7 @@ s.bind(38899, "127.0.0.1");
 | --- | --- |
 | `discover` finds nothing | Allow Node.js through Windows Defender Firewall (Private). Make sure the PC and bulb share a subnet (guest Wi‑Fi and mesh "IoT" networks often isolate devices). Turn on "Allow local communication" in the WiZ app. |
 | `color` works but `sync` says the state can't be read | Same firewall issue (inbound replies are blocked). Sync still works; only restore-on-exit is skipped. |
-| First `once`/`sync` on Windows takes ~0.3 s longer | The `"gdi"` capture compiles its helper (`apps/pc-cli/native/gdi-capture.cs`) into `%LOCALAPPDATA%\AmbientLight\gdi-capture-<hash>.exe` on first use. Later runs reuse it; changing the source builds a new one. Delete the folder to force a rebuild. |
+| First `once`/`sync` on Windows takes ~0.3 s longer | The `"gdi"` capture compiles its helper (`packages/node/native/gdi-capture.cs`) into `%LOCALAPPDATA%\AmbientLight\gdi-capture-<hash>.exe` on first use. Later runs reuse it; changing the source builds a new one. Delete the folder to force a rebuild. |
 | `Couldn't compile the screen capture helper` / `Can't find the C# compiler` | The `"gdi"` capture needs `%WINDIR%\Microsoft.NET\Framework64\v4.0.30319\csc.exe` (part of Windows 10/11). Use `--capture screenshot-desktop` meanwhile. |
 | `Screen capture is unavailable` | Only the `screenshot-desktop` fallback uses `sharp`. Re-run `npm install` so it fetches its native binary for your platform. |
 | `No film called ... found` | Use the full title, add the year, use `--series` for a TV series, or `--look <name>`. |
