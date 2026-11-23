@@ -108,6 +108,38 @@ Where the references lose or save time between a change on screen and the bulb, 
 - **Timers.** hyperion.ng and HyperHDR use precise timers; no reference uses `timeBeginPeriod`. Node's timers on
   Windows fire late by up to ~16 ms, which is why `SyncEngine` now sleeps to fixed frame times.
 
+## UI study (2026-11-23)
+
+How the references and three commercial apps lay out their GUI, read from their READMEs and help pages (no
+screenshots were described in enough detail to copy a layout). It shaped the desktop app's screens
+([UI_DESIGN.md](UI_DESIGN.md)).
+
+| GUI | Apps |
+| --- | --- |
+| Native desktop window | ambient-setup (Tk), MihirGupta07/wiz-sync (Tkinter), Prismatik (Qt, with a tray icon) |
+| Local web dashboard | wiz-pc (Next.js + shadcn/ui over a WebSocket), LedFx (React, port 8888), screenBloom (Flask), HyperHDR (Bootstrap) |
+| Phone or TV app | namanb-lab/wiz-sync (Android and Android TV) |
+| Commercial desktop | Philips Hue Sync, Govee Desktop (DreamView), Nanoleaf desktop app (Screen Mirror) |
+
+| Pattern | Seen in | Used in AmbientLight |
+| --- | --- | --- |
+| First-run wizard | ambient-setup (bulbs → preset → start), MihirGupta07 (discover → select → save), Hue Sync (choose area → start) | Setup wizard |
+| Discovery list with details, plus manual add | namanb-lab (IP, MAC, model, firmware, power, signal), LedFx (scan + add) | Find bulbs dialog, Bulbs page |
+| Identify button per bulb | ambient-setup (flashes green), namanb-lab (Blink), HyperHDR (`pulse`) | Blink |
+| Card or dot per bulb with its live color and a power switch | wiz-pc, ambient-setup | Bulbs strip on Home, Bulbs page |
+| One prominent start/stop control | Hue Sync, MihirGupta07's "power jewel", namanb-lab | Start sync button |
+| Modes or presets with a short description | Hue Sync (video, game, music; intensity subtle to intense), Govee (movie, gaming), Nanoleaf (match, palette, melt, fade), ambient-setup | Film-look chips; presets later |
+| Fine-tuning kept behind a section | ambient-setup, screenBloom, MihirGupta07's knobs | Tuning page, Advanced collapsed |
+| Display picker | Govee ("Color-Picking Screen"), screenBloom, Nanoleaf | Setup wizard, `screen` |
+| Global brightness cap | screenBloom, ambient-setup's relax preset (50 %) | Max brightness slider |
+| Lights off or dimmed on the lock screen | Govee | The capture helper already resends the last frame; an option later |
+| Tray quick toggle | Prismatik | Tray menu |
+| Light delay for slow outputs | MihirGupta07 (Bluetooth speakers) | `delayMs` idea in ROADMAP "Later ideas" |
+
+Also noted: Govee offers a GDI capture mode as a fallback when sync fails, and Hue Sync can dim the lights when the
+app starts so the screen stays the focus. Hue Sync, Govee and Nanoleaf all state that DRM-protected streams
+(Netflix and similar) can't be captured.
+
 ---
 
 ## Screen-sync apps for WiZ

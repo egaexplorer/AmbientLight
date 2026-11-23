@@ -14,7 +14,7 @@ Capture screen  ->  Downscale + average color  ->  Calibrate + smooth  ->  UDP s
 
 **Status:** Phases 1–2 work end to end in the PC command-line app (capture, average, calibrate,
 smooth, throttle, send, restore on exit). Phase 3 (calibrating on real hardware) is in progress, and Phase 4
-(Electron desktop app, Android app) is next. Film looks are built and tested on live APIs, real film frames and a fake bulb, not yet judged on a real bulb.
+(Windows desktop app, then Android app) is next: the desktop app's screens are designed ([docs/UI_DESIGN.md](docs/UI_DESIGN.md)). Film looks are built and tested on live APIs, real film frames and a fake bulb, not yet judged on a real bulb.
 The rain signal is a parked option: tested on live weather data and a fake bulb, not
 yet on a real bulb or with a real AI answer. See [docs/ROADMAP.md](docs/ROADMAP.md).
 
@@ -24,15 +24,16 @@ yet on a real bulb or with a real AI answer. See [docs/ROADMAP.md](docs/ROADMAP.
 packages/core     Shared TypeScript: WiZ UDP protocol, color pipeline, sync engine.
                   No Node.js APIs, so the React Native app can reuse it unchanged.
 apps/pc-cli       Node.js CLI: GDI capture helper (screenshot-desktop + sharp as fallback), node:dgram UDP.
-apps/desktop      Phase 4: Electron app (planned)
+apps/desktop      Phase 4: Electron app for Windows (planned; screens in docs/UI_DESIGN.md)
 apps/android      Phase 4: React Native + Kotlin MediaProjection (planned)
-docs/             Architecture, WiZ protocol notes, roadmap, development guide
+docs/             Architecture, WiZ protocol notes, roadmap, development guide, UI design
 ```
 
 ## Requirements
 
-- **Windows 10/11** (macOS and Linux work too with `"capture": "screenshot-desktop"`; Linux needs ImageMagick).
-  On Windows, the first `once`/`sync` builds a small capture helper with the C# compiler that ships with Windows
+- **Windows 10/11.** AmbientLight targets Windows PCs and, later, Android; macOS, Linux and iOS aren't supported
+  (the CLI's `"capture": "screenshot-desktop"` fallback may run there, but that isn't tested or maintained).
+  The first `once`/`sync` builds a small capture helper with the C# compiler that ships with Windows
   (.NET Framework 4); later runs reuse it.
 - **Node.js 22.12 or newer.** Node 24 LTS is recommended.
 - **A Philips WiZ bulb** set up in the official WiZ app, on the **same Wi‑Fi/subnet** as the PC.

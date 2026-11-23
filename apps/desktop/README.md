@@ -1,10 +1,12 @@
 # apps/desktop (Phase 4, planned)
 
-An Electron desktop app wrapping `@ambientlight/core`:
+An Electron desktop app for Windows wrapping `@ambientlight/core`:
 
-- Screen capture with Electron's `desktopCapturer`, implementing the core's `ScreenCapturer`
-- UDP from the main process with `node:dgram` (reuse `apps/pc-cli/src/udp.ts`)
-- Automatic bulb discovery (`discoverBulbs`), a settings UI, tray icon, and start with Windows
+- Screen capture with the same GDI helper as the CLI (decision 15 in
+  [ARCHITECTURE.md](../../docs/ARCHITECTURE.md)), in the main process behind the core's `ScreenCapturer`
+- UDP from the main process with `node:dgram`, reusing the CLI's adapter
+- Bulb discovery, Blink, film looks, live color preview, tuning, a tray icon and start with Windows
 
-See [docs/ROADMAP.md](../../docs/ROADMAP.md) and [docs/ARCHITECTURE.md](../../docs/ARCHITECTURE.md#adding-a-platform-phase-4).
+Screens and what backs each control: [docs/UI_DESIGN.md](../../docs/UI_DESIGN.md). Milestones:
+[docs/ROADMAP.md](../../docs/ROADMAP.md#phase-4-desktop-app-electron-and-android-port-react-native-).
 When you scaffold this app, add `apps/desktop` to the root `package.json` workspaces and `tsconfig.json` references.

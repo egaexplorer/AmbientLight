@@ -191,6 +191,23 @@ sets `"types": []` so the compiler enforces this. That's what lets the React Nat
    sentences of 10 candidates, which name the main genre ("is a 2017 Indonesian supernatural horror film") and other
    names of the film. Only an exact match is accepted, because the top search result for "Wednesday" was "Big
    Wednesday". The lookup happens before the bulb is touched and is cached.
+15. **The desktop app captures with the GDI helper, not `desktopCapturer` (2026-11-23).** The targets are Windows
+   and Android only. Neither backend works on Android, which needs the planned Kotlin `MediaProjection` module;
+   what Android shares is everything behind `ScreenCapturer`. Compared for Windows:
+
+   | | GDI helper (decision 12) | `desktopCapturer` stream | `desktopCapturer.getSources` thumbnails |
+   | --- | --- | --- | --- |
+   | How | `BitBlt` + `StretchBlt HALFTONE` to 64×36 in a helper that stays running, 9 KB over a pipe | Chromium's screen capturer → `MediaStream` → `<video>`/`VideoFrame` → `drawImage` at 64×36 on the GPU → `getImageData`, in a hidden renderer, then IPC to the main process | One `getSources` call per frame |
+   | Capture | **32 ms p50, 35 ms p95 (measured)** | Frames are pushed, so a capture returns the newest one; a few ms of own work (estimate) | Electron's docs call thumbnails expensive: each call enumerates and renders the sources (estimate: too slow for 20 FPS) |
+   | Frame rate | **20.0 held for 23 min (measured)** | The bulb's 20 FPS stays the limit, so the possible gain is up to ~30 ms less latency, not more FPS | Likely under 10 |
+   | Color | Area average **within 0.5 of the true mean (measured)** | Risk: a 30× downscale in `drawImage` may sample instead of average (depends on Chromium's filter), giving noisy colors | Unknown |
+   | Lock screen, UAC | Resends the last frame | The stream can end and must be restarted | Unknown |
+   | Packaging | The `.cs` source ships with the app; compiled once by Windows' own `csc.exe` (~260 ms) | Nothing to compile; needs a hidden window with `backgroundThrottling: false` and a display-media permission handler | Same as the stream |
+
+   Only the GDI column is measured, so the desktop app starts with it. A benchmark on the user's PC decides whether
+   `desktopCapturer` replaces it ([ROADMAP.md](ROADMAP.md#phase-4-desktop-app-electron-and-android-port-react-native-)).
+   The desktop app doesn't load `sharp`: it only serves the CLI's `screenshot-desktop` fallback (~2.7 FPS) and PNG
+   saving, which Electron's `nativeImage` covers, and a native module would need unpacking in the installer.
 
 ## Rain signal
 
@@ -224,7 +241,7 @@ flowchart LR
    if the native buffer is BGRA.
 3. Create `WizLight`s and a `SyncEngine` from `@ambientlight/core`, then call `start()` / `stop()`.
 
-- **Electron:** capture with `desktopCapturer` + a hidden `<video>`/canvas in a renderer, or a
-  native module. Do UDP in the main process with `node:dgram`, reusing `apps/pc-cli/src/udp.ts`.
+- **Electron (Windows):** capture with the GDI helper in the main process (decision 15), and do UDP there with
+  `node:dgram`, reusing the CLI's adapters. The renderer shows the UI only ([UI_DESIGN.md](UI_DESIGN.md)).
 - **Android:** a Kotlin foreground service runs `MediaProjection` → `ImageReader`, downscales, and streams
   RGB (or a pre-averaged color) to TypeScript. UDP goes through `react-native-udp`.

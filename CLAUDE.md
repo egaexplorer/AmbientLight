@@ -1,9 +1,10 @@
 # Notes for AI coding assistants
 
 AmbientLight syncs Philips WiZ bulbs to the PC/Android screen color. It's a TypeScript monorepo using npm workspaces.
+Targets: Windows PCs and Android only. Don't build, test or package for macOS, Linux or iOS.
 
 - Overview and setup: `README.md`. Design: `docs/ARCHITECTURE.md`. Protocol: `docs/WIZ_PROTOCOL.md`.
-  Plan: `docs/ROADMAP.md`. Conventions and scripts: `docs/DEVELOPMENT.md`.
+  Plan: `docs/ROADMAP.md`. Conventions and scripts: `docs/DEVELOPMENT.md`. Desktop screens: `docs/UI_DESIGN.md`.
 - `packages/core` is platform-agnostic and shared with the future React Native app. Never import `node:*`
   there or use Node/DOM globals (`"types": []` enforces this). Put platform code in `apps/*` behind
   `UdpSocket` / `ScreenCapturer` / `ColorSink`.

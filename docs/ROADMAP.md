@@ -116,11 +116,22 @@ Lessons from the reference study ([REFERENCE_NOTES.md](REFERENCE_NOTES.md)):
 
 ## Phase 4: desktop app (Electron) and Android port (React Native) 🗓️
 
-**Electron (`apps/desktop`)**
+Targets: Windows (PC) and Android only; macOS, Linux and iOS are not planned.
 
-- [ ] Capture with `desktopCapturer`, using the same `ScreenCapturer` interface
-- [ ] Automatic bulb discovery (`getPilot` broadcast) and a settings UI that writes the same config
-- [ ] Tray icon, start with Windows, per-display selection, live color preview
+**Electron (`apps/desktop`)**, Windows. Screens and their spec: [UI_DESIGN.md](UI_DESIGN.md). Planned on 2026-11-23.
+
+- [x] Wireframes of every screen and a Google Stitch brief (2026-11-23, [UI_DESIGN.md](UI_DESIGN.md))
+- [ ] Capture with the GDI helper the CLI already uses (decided 2026-11-23: measured at 32 ms and 20 FPS, while
+      `desktopCapturer` is unmeasured; see [ARCHITECTURE.md](ARCHITECTURE.md), decision 15)
+- [ ] Shared foundation: the CLI's Node adapters move to `packages/node`; `SyncSession` (start, stop with restore,
+      live option updates) and `identifyBulb` in the core
+- [ ] **Demo flow by 2026-11-25, for the video on 2026-11-26:** find a bulb, Blink, film title or look chip, Start
+      with live colors, Stop or quit restores the bulb
+- [ ] **MVP by 2026-12-10, for the live demo on 2026-12-12:** setup wizard, Bulbs page with check report and power,
+      Tuning page that applies live, display picker, tray (close to tray, start with Windows), Diagnostics, About
+      with data credits, film errors as codes, CLI `sync` on `SyncSession`, NSIS installer
+- [ ] `desktopCapturer` spike: a hidden-window capturer and a benchmark against GDI (capture ms, FPS, CPU, memory,
+      color difference on the same screens), run on the user's PC. Switch only if it wins
 
 **Android (`apps/android`)**
 
