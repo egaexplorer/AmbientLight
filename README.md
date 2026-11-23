@@ -186,7 +186,6 @@ npm run sync -- --look horror               # pick it yourself, no internet
 - Only the title is sent, once: to English Wikipedia for a film, to TVmaze for a series. Results are cached in
   `%LOCALAPPDATA%\AmbientLight\titles`, so a title that was used before also starts offline. Screen content never
   leaves the PC.
-- Protected streaming video often captures as black; then the light stays dark in any look.
 
 Film data: [Wikipedia](https://en.wikipedia.org/). Series data: [TVmaze](https://www.tvmaze.com/). Both CC BY-SA 4.0.
 
