@@ -42,6 +42,7 @@ export function resolveConfig(file: ConfigFile | undefined, flags: CliFlags): Ap
   if (flags.minChange !== undefined) config.minChange = checkNumber("--min-change", flags.minChange, RANGES.minChange, source);
   if (flags.sceneCut !== undefined) config.sceneCut = checkNumber("--scene-cut", flags.sceneCut, RANGES.sceneCut, source);
   if (flags.noRestore) config.restoreOnExit = false;
+  if (flags.brightness !== undefined) config.brightness = checkNumber("--brightness", flags.brightness, RANGES.brightness, source);
 
   const cal = config.calibration;
   if (flags.saturation !== undefined) {

@@ -1,11 +1,26 @@
+import { DESIGN_BRIGHTNESS, FILM_LOOKS } from "@ambientlight/core";
 import type { AmbientApi, AppState, FrameView, LookChoice } from "../../shared/api";
+
+/** The top brightness the main process would report (default calibration: 10–100 %). */
+function capFor(brightness: number, look: LookChoice | null): number {
+  const design = look ? FILM_LOOKS[look.name].maxDimming : 100;
+  return Math.round(Math.min(100, Math.max(10, (design * brightness) / DESIGN_BRIGHTNESS)));
+}
 
 /**
  * A stand-in for the main process, so the renderer can be developed and screenshotted in a browser without Windows
  * or a bulb. Its colors are made up; nothing here talks to a network.
  */
 export function createMockApi(): AmbientApi {
-  let state: AppState = { bulbs: ["192.168.1.50"], sync: "idle", look: null, error: null, notRestored: [] };
+  let state: AppState = {
+    bulbs: ["192.168.1.50"],
+    sync: "idle",
+    look: null,
+    error: null,
+    notRestored: [],
+    brightness: DESIGN_BRIGHTNESS,
+    brightnessCap: 100,
+  };
   const stateListeners = new Set<(s: AppState) => void>();
   const frameListeners = new Set<(f: FrameView) => void>();
   let timer: ReturnType<typeof setInterval> | undefined;
@@ -45,12 +60,13 @@ export function createMockApi(): AmbientApi {
           source: "Wikipedia (CC BY-SA 4.0)",
           url: "https://en.wikipedia.org/",
         };
-        set({ look });
+        set({ look, brightnessCap: capFor(state.brightness, look) });
         return { ok: true, look };
       }
       return { ok: false, code: "not-found", message: `No ${kind} called "${title}" found.`, similar: [] };
     },
-    setLook: async (look) => set({ look }),
+    setLook: async (look) => set({ look, brightnessCap: capFor(state.brightness, look) }),
+    setBrightness: async (brightness) => set({ brightness, brightnessCap: capFor(brightness, state.look) }),
     startSync: async () => {
       if (state.bulbs.length === 0) throw new Error("Add a bulb first: press Find bulbs.");
       set({ sync: "starting" });

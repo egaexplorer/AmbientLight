@@ -31,6 +31,10 @@ export interface AppState {
   error: string | null;
   /** Bulbs that couldn't be read at start, so they won't be restored. */
   notRestored: string[];
+  /** The brightness setting, 10–100: 70 shows the look (or plain sync) as designed. */
+  brightness: number;
+  /** The bulb's top brightness in % that the setting gives with the current look, rounded. */
+  brightnessCap: number;
 }
 
 /** One live update for the Home screen (about 10 a second while syncing). */
@@ -76,6 +80,8 @@ export interface AmbientApi {
   setBulbs(ips: string[]): Promise<AppState>;
   findTitle(kind: TitleKind, title: string): Promise<TitleResult>;
   setLook(look: LookChoice | null): Promise<AppState>;
+  /** Saves the brightness setting (10–100); applies at once while syncing. */
+  setBrightness(value: number): Promise<AppState>;
   startSync(): Promise<AppState>;
   stopSync(): Promise<AppState>;
   minimizeWindow(): Promise<void>;
@@ -90,6 +96,7 @@ export const CHANNELS = {
   setBulbs: "ambient:set-bulbs",
   findTitle: "ambient:find-title",
   setLook: "ambient:set-look",
+  setBrightness: "ambient:set-brightness",
   startSync: "ambient:start-sync",
   stopSync: "ambient:stop-sync",
   minimizeWindow: "ambient:minimize-window",

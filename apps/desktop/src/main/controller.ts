@@ -81,6 +81,8 @@ export class AppController {
       look: this.look,
       error: this.error,
       notRestored: [...this.notRestored],
+      brightness: this.config.brightness,
+      brightnessCap: Math.round(this.syncOptions().calibration?.maxDimming ?? this.config.calibration.maxDimming),
     };
   }
 
@@ -156,6 +158,13 @@ export class AppController {
   /** Sets the film look; while syncing it applies at once. */
   async setLook(look: LookChoice | null): Promise<AppState> {
     this.look = look;
+    if (this.session) await this.session.update({ sync: this.syncOptions() });
+    return this.publish();
+  }
+
+  /** Saves the brightness setting; while syncing it applies at once. */
+  async setBrightness(value: number): Promise<AppState> {
+    this.config = this.platform.saveConfig({ ...this.config, brightness: value });
     if (this.session) await this.session.update({ sync: this.syncOptions() });
     return this.publish();
   }

@@ -107,6 +107,21 @@ describe("AppController", () => {
     await controller.stopSync();
   });
 
+  it("saves the brightness and applies it at once while syncing, 70 meaning the look as designed", async () => {
+    const { controller, frames, saved } = setup();
+    assert.equal(controller.getState().brightness, 70);
+    await controller.setLook({ name: "horror" });
+    assert.equal(controller.getState().brightnessCap, 45);
+    await controller.startSync();
+    const state = await controller.setBrightness(100);
+    assert.equal(saved.at(-1)?.brightness, 100);
+    assert.equal(state.brightness, 100);
+    assert.equal(state.brightnessCap, 64);
+    const seen = frames.length;
+    await until(() => frames.length > seen && frames.at(-1)!.bulbText.includes("dim 64 %"));
+    await controller.stopSync();
+  });
+
   it("returns lookup failures with their code", async () => {
     const { controller } = setup();
     const result = await controller.findTitle("film", "Dune");

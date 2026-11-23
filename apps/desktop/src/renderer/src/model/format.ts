@@ -19,6 +19,11 @@ export function statsText(frame: FrameView | null): string {
   return `${fps} · capture ${frame.captureMs} ms · ${Math.round(frame.sentShare * 100)} % of frames sent`;
 }
 
+/** "70 % · bulb up to 45 %": the brightness setting, then the top brightness it gives with the current look. */
+export function brightnessText(value: number, cap: number): string {
+  return `${value} % · bulb up to ${cap} %`;
+}
+
 /** A MAC as discovery reports it (`9877d56c94fe`), written in the usual pairs; a dash when unknown. */
 export function macText(mac: string | undefined): string {
   if (!mac) return "—";

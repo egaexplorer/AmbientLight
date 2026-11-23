@@ -27,6 +27,7 @@ export interface CliFlags {
   minDimming?: number;
   maxDimming?: number;
   colorBase?: number;
+  brightness?: number;
   whiteSaturation?: number;
   whiteTemp?: number;
   paleWhite?: number;
@@ -85,6 +86,7 @@ Options:
       --min-dimming <n>   Dimming for dark scenes, 10-100 (default 10)
       --max-dimming <n>   Dimming for bright scenes, 10-100 (default 100)
       --color-base <n>    Dimming that dark colored scenes start from, 10-100 (default 10)
+      --brightness <n>    10-100: 70 shows the look as designed, higher is brighter (default 70)
       --white-saturation <0-1>  Below this saturation use the white LEDs; 0 = never (default 0.15)
       --white-temp <K>    Color temperature for white, 2200-6500 (default 5000)
       --pale-white <n>    White LED level for pale colors, 0-255; 0 = RGB only (default 140)
@@ -175,6 +177,7 @@ export function parseCommandLine(argv: readonly string[]): ParsedCommandLine {
         "min-dimming": { type: "string" },
         "max-dimming": { type: "string" },
         "color-base": { type: "string" },
+        brightness: { type: "string" },
         "white-saturation": { type: "string" },
         "white-temp": { type: "string" },
         "pale-white": { type: "string" },
@@ -234,6 +237,7 @@ export function parseCommandLine(argv: readonly string[]): ParsedCommandLine {
   set("minDimming", toNumber("min-dimming", values["min-dimming"]));
   set("maxDimming", toNumber("max-dimming", values["max-dimming"]));
   set("colorBase", toNumber("color-base", values["color-base"]));
+  set("brightness", toNumber("brightness", values.brightness));
   set("whiteSaturation", toNumber("white-saturation", values["white-saturation"]));
   set("whiteTemp", toNumber("white-temp", values["white-temp"]));
   set("paleWhite", toNumber("pale-white", values["pale-white"]));

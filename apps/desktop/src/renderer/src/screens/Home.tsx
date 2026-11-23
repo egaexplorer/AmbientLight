@@ -1,9 +1,9 @@
 import type { LookName } from "@ambientlight/core";
-import { type FormEvent, useEffect, useState } from "react";
+import { type FormEvent, useEffect, useRef, useState } from "react";
 import type { AppState, FrameView, TitleKind } from "../../../shared/api";
 import { api } from "../api";
 import { Button, Card, Swatch } from "../components/ui";
-import { statsText, statusText, titleErrorText } from "../model/format";
+import { brightnessText, statsText, statusText, titleErrorText } from "../model/format";
 import { lookChips, lookLabel } from "../model/looks";
 
 type LookMode = TitleKind | "pick";
@@ -106,6 +106,7 @@ export function Home({ state, frame, onFindBulbs }: { state: AppState | null; fr
               Couldn't read {state.notRestored.join(", ")} at the start, so it won't be restored when you stop.
             </p>
           )}
+          <BrightnessControl state={state} />
         </div>
       </Card>
 
@@ -132,6 +133,78 @@ export function Home({ state, frame, onFindBulbs }: { state: AppState | null; fr
         </label>
       </Card>
     </>
+  );
+}
+
+/** Sends at most one change per this many ms while the slider moves; each restarts the sync engine. */
+const BRIGHTNESS_SEND_MS = 150;
+
+function BrightnessControl({ state }: { state: AppState | null }) {
+  // The value under the thumb while it moves; null shows the saved one.
+  const [dragged, setDragged] = useState<number | null>(null);
+  const [error, setError] = useState<string | null>(null);
+  const pending = useRef<number | null>(null);
+  const timer = useRef<ReturnType<typeof setTimeout> | null>(null);
+
+  useEffect(
+    () => () => {
+      if (timer.current) clearTimeout(timer.current);
+    },
+    [],
+  );
+
+  // The first change goes out at once, later ones at most every BRIGHTNESS_SEND_MS, and the last one always.
+  function flush() {
+    const value = pending.current;
+    if (value === null) {
+      timer.current = null;
+      setDragged(null);
+      return;
+    }
+    pending.current = null;
+    api.setBrightness(value).then(
+      () => setError(null),
+      (e: unknown) => setError(e instanceof Error ? e.message : String(e)),
+    );
+    timer.current = setTimeout(flush, BRIGHTNESS_SEND_MS);
+  }
+
+  function change(value: number) {
+    setDragged(value);
+    pending.current = value;
+    if (!timer.current) flush();
+  }
+
+  const value = dragged ?? state?.brightness ?? 70;
+  return (
+    <div className="flex flex-col gap-1 border-t border-line pt-3.5">
+      <div className="flex flex-wrap items-baseline justify-between gap-2">
+        <label htmlFor="brightness" className="text-[13px] font-semibold">
+          Brightness
+        </label>
+        <span className="text-[13px] tabular-nums text-ink-strong">{brightnessText(value, state?.brightnessCap ?? 100)}</span>
+      </div>
+      <input
+        id="brightness"
+        type="range"
+        min={10}
+        max={100}
+        step={1}
+        value={value}
+        disabled={!state}
+        onChange={(e) => change(Number(e.target.value))}
+        aria-describedby="brightness-hint"
+        className="h-11 w-full cursor-pointer accent-soft"
+      />
+      <span id="brightness-hint" className="text-xs text-muted">
+        70 % is the look as designed. Higher brightens it.
+      </span>
+      {error && (
+        <p role="alert" className="m-0 text-[13px] text-warn">
+          {error}
+        </p>
+      )}
+    </div>
   );
 }
 

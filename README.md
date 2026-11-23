@@ -109,6 +109,10 @@ npm run desktop    # the first start downloads Electron (~100 MB) if npm install
   **Stop sync**, closing the window or quitting all put the bulbs back the way they were.
 - **Film look**: type a film or series title (Wikipedia or TVmaze, as `--film` / `--series`) or pick a look. A look
   applies at once, also while syncing.
+- **Brightness** (Home, under the live colors): 70 % shows the look as designed, and the bulb's top brightness
+  scales with it, so with Horror (capped at 45 %) 100 % gives 64 % and 35 % gives 22.5 %. It applies at once, also
+  while syncing, and is saved as `brightness`. The label shows what the bulb reaches ("bulb up to 45 %"); with no
+  look or a look capped at 100 %, settings above 70 change nothing.
 - **Minimize while syncing** (on by default) keeps the app's own window out of the captured picture.
 - Settings live in `%APPDATA%\AmbientLight\ambientlight.config.json`. On the first start the app copies the CLI's
   `ambientlight.config.json` (searched from where you ran `npm run desktop`), so bulbs and calibration carry over.
@@ -138,6 +142,7 @@ Command-line flags override it.
 | `colorMode` | `"dominant"` | `"dominant"`: the bulb shows the strongest color on screen (by area and vividness), so red and green never mix into an orange that isn't there. `"average"`: all colors are mixed. |
 | `minChange` | `4` | Changes smaller than this (0–255 scale) aren't sent, which avoids flooding the bulb. |
 | `keepAliveMs` | `2000` | Re-sends the current color this often in case a UDP packet was lost. |
+| `brightness` | `70` | 10–100. 70 shows a film look (or plain sync) as designed; the top brightness scales linearly with it, up to the bulb's 100 % (Horror's 45 % becomes 64 % at 100). The desktop app's Brightness slider. CLI: `--brightness`. |
 | `restoreOnExit` | `true` | Restores the bulb's previous color, white, or scene when `sync` or `rain` stops. |
 | `weatherArea` | `null` | BMKG village code (adm4) for `rain`, e.g. `"31.71.03.1001"` (Kemayoran). |
 | `calibration.saturationBoost` | `1.3` | Makes washed-out average colors more vivid. |
@@ -213,7 +218,8 @@ npm run sync -- --look horror               # pick it yourself, no internet
 | `action` | 100 % | 5500 K | Strong, nearby colors lean red-orange |
 | `drama` | 80 % | 3800 K | Soft, natural |
 
-- A look works on top of your calibration: it scales saturation and gamma, can only lower your `maxDimming`, and turns
+- A look works on top of your calibration: it scales saturation and gamma, can only lower your `maxDimming` (`brightness` above
+  70 then brightens it again), and turns
   hues by at most 20° before gamma. Colors far from the look's hue and muted greens aren't turned.
 - The title must match exactly (case and punctuation don't matter), including other names in the article's first
   sentence, so Indonesian titles work. A similar title is suggested, never guessed. Comedy horror counts as comedy.

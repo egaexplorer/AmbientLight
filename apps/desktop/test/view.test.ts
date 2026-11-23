@@ -3,8 +3,8 @@ import { describe, it } from "node:test";
 import type { FrameReport } from "@ambientlight/core";
 import { UserError } from "@ambientlight/node";
 import { bulbPreview, frameLogLine, FrameViews, kelvinToRgb, toHex } from "../src/main/frame-view.js";
-import { checkBulbList, checkIp, checkLook, checkTitleKind } from "../src/main/validate.js";
-import { macText, statsText, titleErrorText } from "../src/renderer/src/model/format.js";
+import { checkBrightness, checkBulbList, checkIp, checkLook, checkTitleKind } from "../src/main/validate.js";
+import { brightnessText, macText, statsText, titleErrorText } from "../src/renderer/src/model/format.js";
 import { lookChips } from "../src/renderer/src/model/looks.js";
 
 function report(sent: boolean, captureMs = 31.6): FrameReport {
@@ -76,6 +76,12 @@ describe("IPC input checks", () => {
     assert.throws(() => checkBulbList(Array.from({ length: 17 }, (_, i) => `10.0.0.${i}`)), /16/);
   });
 
+  it("accepts a whole brightness from 10 to 100 only", () => {
+    assert.equal(checkBrightness(10), 10);
+    assert.equal(checkBrightness(100), 100);
+    for (const bad of [9, 101, 50.5, "70", null]) assert.throws(() => checkBrightness(bad), UserError);
+  });
+
   it("accepts known looks and title kinds only", () => {
     assert.deepEqual(checkLook({ name: "horror", title: "X", extra: 1 }), { name: "horror", title: "X" });
     assert.equal(checkLook(null), null);
@@ -85,6 +91,10 @@ describe("IPC input checks", () => {
 });
 
 describe("renderer text", () => {
+  it("shows the brightness setting with the top brightness it gives", () => {
+    assert.equal(brightnessText(100, 64), "100 % · bulb up to 64 %");
+  });
+
   it("writes a bulb's MAC in pairs", () => {
     assert.equal(macText("9877D56C94FE"), "98:77:d5:6c:94:fe");
     assert.equal(macText(undefined), "—");

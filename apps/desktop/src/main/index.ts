@@ -19,7 +19,7 @@ import { app, BrowserWindow, ipcMain, type IpcMainInvokeEvent, shell } from "ele
 import { CHANNELS } from "../shared/api";
 import { AppController, type Platform } from "./controller";
 import { frameLogLine } from "./frame-view";
-import { checkBulbList, checkIp, checkLook, checkTitle, checkTitleKind } from "./validate";
+import { checkBrightness, checkBulbList, checkIp, checkLook, checkTitle, checkTitleKind } from "./validate";
 
 const here = path.dirname(fileURLToPath(import.meta.url));
 
@@ -120,6 +120,7 @@ function registerIpc(controller: AppController): void {
   handle(CHANNELS.setBulbs, (ips: unknown) => controller.setBulbs(checkBulbList(ips)));
   handle(CHANNELS.findTitle, (kind: unknown, title: unknown) => controller.findTitle(checkTitleKind(kind), checkTitle(title)));
   handle(CHANNELS.setLook, (look: unknown) => controller.setLook(checkLook(look)));
+  handle(CHANNELS.setBrightness, (value: unknown) => controller.setBrightness(checkBrightness(value)));
   handle(CHANNELS.startSync, () => controller.startSync());
   handle(CHANNELS.stopSync, () => controller.stopSync());
   handle(CHANNELS.minimizeWindow, () => window?.minimize());

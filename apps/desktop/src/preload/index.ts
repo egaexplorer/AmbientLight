@@ -24,6 +24,7 @@ const api: AmbientApi = {
   setBulbs: (ips) => invoke(CHANNELS.setBulbs, ips),
   findTitle: (kind, title) => invoke(CHANNELS.findTitle, kind, title),
   setLook: (look) => invoke(CHANNELS.setLook, look),
+  setBrightness: (value) => invoke(CHANNELS.setBrightness, value),
   startSync: () => invoke(CHANNELS.startSync),
   stopSync: () => invoke(CHANNELS.stopSync),
   minimizeWindow: () => invoke(CHANNELS.minimizeWindow),

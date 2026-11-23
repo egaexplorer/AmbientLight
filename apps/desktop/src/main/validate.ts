@@ -1,5 +1,5 @@
 import { LOOK_NAMES, type LookName } from "@ambientlight/core";
-import { UserError } from "@ambientlight/node";
+import { RANGES, UserError } from "@ambientlight/node";
 import type { LookChoice, TitleKind } from "../shared/api";
 
 // The renderer is our own code, but everything that crosses IPC is checked before it reaches the network, a bulb
@@ -37,6 +37,14 @@ function optionalText(value: unknown, name: string): string | undefined {
   if (value === undefined) return undefined;
   if (typeof value !== "string") throw new UserError(`"${name}" must be text`);
   return value.slice(0, MAX_TEXT);
+}
+
+export function checkBrightness(value: unknown): number {
+  const [min, max] = RANGES.brightness;
+  if (typeof value !== "number" || !Number.isInteger(value) || value < min || value > max) {
+    throw new UserError(`Brightness must be a whole number from ${min} to ${max}`);
+  }
+  return value;
 }
 
 export function checkLook(value: unknown): LookChoice | null {

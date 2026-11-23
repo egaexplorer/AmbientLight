@@ -67,6 +67,8 @@ The Home screen and the Find bulbs dialog (`apps/desktop/src/renderer`), as in t
   couldn't be brought back. It becomes "hide" with the tray.
 - **Sidebar:** only Home, until the other screens exist.
 - **Find bulbs** also lists configured bulbs that didn't answer ("Not answering"), so they can be kept or dropped.
+- **Brightness slider** on Home, under the live colors (added 2026-11-23, also in the wireframe): the user asked for a
+  brightness control before the Tuning page exists. It sends at most one change per 150 ms while dragging.
 - **Bulbs strip:** the chip shows the IP without the "Ready" badge; that needs `checkBulb`, which comes with the
   Bulbs page.
 
@@ -85,6 +87,7 @@ What backs each control. "IPC" names the `window.ambient` call (see ARCHITECTURE
 | Home | Live colors: screen average, hue source, bulb | `sync:frame` events (`FrameReport.average`, `.color`, `previewRgb(output)`), 10 per second |
 | Home | Status pill and stats | `sync:state`, fps and capture ms from `sync:frame` |
 | Home | Film / Series / Pick a look | IPC `film.find` (`findTitle`, Wikipedia or TVmaze, cached) → `lookForGenres`; or a look chip (`LOOK_NAMES`, `FILM_LOOKS`) |
+| Home | Brightness slider (10–100, 70 = the look as designed) | IPC `setBrightness` → `brightness` in the config → `syncOptionsFor` (`scaleBrightness`); `AppState.brightnessCap` is the bulb's resulting top % |
 | Home | Bulbs strip | `bulbs` in the config; Find bulbs opens the dialog |
 | Find bulbs | Search again | IPC `bulbs.discover` (`discoverBulbs` on every adapter's broadcast address) |
 | Find bulbs | Blink | IPC `bulbs.identify` (`identifyBulb`: flash and restore) |

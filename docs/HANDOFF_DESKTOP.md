@@ -120,9 +120,10 @@ Still to do:
    while syncing" to film the UI.
 2. The user answers the firewall prompt Electron opened at its first start (`PickerHost.exe
    FirewallNotificationDialogServer`, titled "Windows Security"). It blocked nothing while unanswered.
-3. Wireframe differences left (UI_DESIGN "Built so far"): no "Ready" badge on the bulb chip, which needs
+3. Brightness slider on Home (built 2026-11-23): check it on the real bulb with Horror (70 → 45 %, 100 → 64 %).
+4. Wireframe differences left (UI_DESIGN "Built so far"): no "Ready" badge on the bulb chip, which needs
    `checkBulb` (MVP). The MAC column and the "Search again first" hint are done, in the app and the wireframe.
-4. **Thu 11-26:** record the video. The CLI (`npm run sync -- --film "..."`) is the fallback.
+5. **Thu 11-26:** record the video. The CLI (`npm run sync -- --film "..."`) is the fallback.
 
 ### B. 11-27 → 12-10: MVP (wireframe screens; see the UI_DESIGN screen spec)
 

@@ -23,12 +23,14 @@ export {
 export { colorDistance, EmaSmoother } from "./color/smoothing.js";
 export {
   applyLook,
+  DESIGN_BRIGHTNESS,
   FILM_LOOKS,
   type FilmLook,
   LOOK_NAMES,
   type LookName,
   lookForGenres,
   MAX_HUE_TURN,
+  scaleBrightness,
   turnHue,
 } from "./color/looks.js";
 

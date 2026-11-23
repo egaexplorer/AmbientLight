@@ -59,7 +59,7 @@ the capture itself. `minChange` keeps the bulb from being flooded: in that ~23-m
 | `wiz/discovery.ts` | `discoverBulbs`: broadcast `getPilot`, collect replies |
 | `color/average.ts` | `analyzeFrame`: plain mean of a `PixelFrame` in linear light (brightness) plus a vivid-weighted mean of the dominant hue family (hue); `averageColor` returns the plain mean. RGB/RGBA/BGR(A), optional sampling step. `frameChange`: mean absolute channel difference of two frames (scene-cut detection) |
 | `color/calibration.ts` | `calibrate`: turns a screen color into WiZ `{r,g,b,c,w,dimming}` (pale colors as hue + white LEDs), or `{temp,dimming}` for near-gray colors; `previewRgb` shows the color a `WizColor` makes |
-| `color/looks.ts` | `FILM_LOOKS`, `lookForGenres` (genre words → look), `applyLook` (look on top of the user's calibration), `turnHue` (small, bounded hue lean) |
+| `color/looks.ts` | `FILM_LOOKS`, `lookForGenres` (genre words → look), `applyLook` (look on top of the user's calibration), `scaleBrightness` (the brightness setting: 70 = `DESIGN_BRIGHTNESS` = as designed), `turnHue` (small, bounded hue lean) |
 | `color/smoothing.ts` | `EmaSmoother`, `colorDistance` |
 | `sync/engine.ts` | `SyncEngine`: the capture → process → transmit loop on fixed frame times; resets the smoothers on scene cuts |
 | `sync/session.ts` | `SyncSession`: one sync run for an app. Reads the bulbs' states, runs a `SyncEngine`, restarts it with new options or another capturer while running (`update`), restores the bulbs on `stop`. Calls are queued, so a double click can't interleave them |
@@ -245,6 +245,11 @@ Decisions:
    peaks at 20° for colors 60° from the look's hue and is gone from 120°; with a wider reach a warm look turned teal
    green and the scifi look turned warm scenes red. It fades out on muted greens (decision 7). The color base shrinks
    with a lowered `maxDimming`, or all scenes would get the same brightness.
+   **Brightness setting (2026-11-23).** `syncOptionsFor` scales the result with `scaleBrightness(…, brightness / 70)`.
+   The user picked the rule: 70 is the look as designed and the scale is linear on both sides, so the setting
+   always does something under a dim look and can brighten it past its design (Horror 45 % → 64 % at 100). A cap
+   that only lowers (the lower of the two wins) would leave the slider dead above 45 under Horror. The color base
+   moves with the cap, as in `applyLook`.
 14. **One request per title, never a guess.** Wikimedia allows 10 requests a minute to clients without contact details,
    and a Wikidata lookup (several requests) hit that limit within seconds. One Wikipedia search returns the first
    sentences of 10 candidates, which name the main genre ("is a 2017 Indonesian supernatural horror film") and other

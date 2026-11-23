@@ -6,9 +6,11 @@ import {
   type ColorMode,
   DEFAULT_CALIBRATION,
   DEFAULT_SYNC_OPTIONS,
+  DESIGN_BRIGHTNESS,
   type FilmLook,
   MAX_FPS,
   MIN_FPS,
+  scaleBrightness,
   type SyncOptions,
 } from "@ambientlight/core";
 import { UserError } from "./errors.js";
@@ -43,6 +45,11 @@ export interface AppConfig {
   keepAliveMs: number;
   /** Put the bulbs back the way they were when sync stops. */
   restoreOnExit: boolean;
+  /**
+   * Brightness setting, 10-100: 70 shows the look (or plain sync) as designed, and the top brightness scales
+   * linearly with it, up to the bulb's 100 % (`scaleBrightness`).
+   */
+  brightness: number;
   /** BMKG village code (adm4) for `rain`. */
   weatherArea: string | undefined;
   calibration: CalibrationOptions;
@@ -69,6 +76,7 @@ export const DEFAULT_CONFIG: Readonly<AppConfig> = Object.freeze({
   sceneCut: DEFAULT_SYNC_OPTIONS.sceneCut,
   keepAliveMs: DEFAULT_SYNC_OPTIONS.keepAliveMs,
   restoreOnExit: true,
+  brightness: DESIGN_BRIGHTNESS,
   weatherArea: undefined,
   calibration: { ...DEFAULT_CALIBRATION },
 });
@@ -93,6 +101,7 @@ export const RANGES = {
   minChange: [0, 255],
   sceneCut: [0, 255],
   keepAliveMs: [100, 60_000, true],
+  brightness: [10, 100, true],
 } as const satisfies Partial<Record<keyof AppConfig, Range>>;
 
 export const CALIBRATION_RANGES = {
@@ -274,7 +283,7 @@ export function saveConfigFile(filePath: string, config: AppConfig): AppConfig {
   return checked;
 }
 
-/** The `SyncEngine` options for a config, with a film look on top of its calibration. */
+/** The `SyncEngine` options for a config: a film look on top of its calibration, then the brightness setting. */
 export function syncOptionsFor(config: AppConfig, look?: FilmLook): Partial<SyncOptions> {
   return {
     fps: config.fps,
@@ -284,7 +293,7 @@ export function syncOptionsFor(config: AppConfig, look?: FilmLook): Partial<Sync
     minChange: config.minChange,
     sceneCut: config.sceneCut,
     keepAliveMs: config.keepAliveMs,
-    calibration: look ? applyLook(config.calibration, look) : config.calibration,
+    calibration: scaleBrightness(look ? applyLook(config.calibration, look) : config.calibration, config.brightness / DESIGN_BRIGHTNESS),
     hueTarget: look?.hue,
   };
 }

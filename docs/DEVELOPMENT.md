@@ -84,7 +84,11 @@ npm run state                                          # did Stop restore the bu
   Its color fields are those of `npm run state`, so a line compares directly with `npm run once`'s "reports" line.
 - **Color check:** show a still picture full screen (anything on top of it is captured too), sync a few seconds,
   stop, then run `npm run once` on the same picture. After the smoothing settles, the last logged frame should equal
-  what the bulb reports. Add `--look horror` to `once` after `setLook({ name: "horror" })` in the app.
+  what the bulb reports. Add `--look horror` to `once` after `setLook({ name: "horror" })` in the app, and
+  `--brightness` with the app's setting if it isn't 70 (the app keeps its own config in `%APPDATA%`).
+- **Before driving the bulb or showing test scenes, check that the user isn't using the app or the bulb.** Only one
+  copy of the app runs, so a second start quits at once; on 2026-11-23 a test run ran into the user's own test, turned
+  their bulb off and covered their screen.
 - The debugging port listens on 127.0.0.1 only; leave it off for normal use.
 
 ## How the workspace is wired

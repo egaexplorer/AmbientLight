@@ -1,3 +1,4 @@
+import { WIZ_MAX_DIMMING } from "../wiz/constants.js";
 import { type CalibrationOptions, mutedGreenAmount } from "./calibration.js";
 import { clamp, hsvToRgb, rgbToHsv } from "./convert.js";
 import type { Rgb } from "./types.js";
@@ -74,6 +75,22 @@ export function applyLook(calibration: CalibrationOptions, look: FilmLook): Cali
     colorBaseBrightness: Math.round(clamp(minDimming + (wantedBase - minDimming) * scale, minDimming, maxDimming)),
     whiteTemp: look.whiteTemp,
   };
+}
+
+/** The brightness setting that shows a look (or plain sync) as designed. Above it the light gets brighter. */
+export const DESIGN_BRIGHTNESS = 70;
+
+/**
+ * Scales the top brightness by `factor` (the brightness setting divided by `DESIGN_BRIGHTNESS`), between
+ * `minDimming` and the bulb's 100 %: Horror's 45 % becomes 64.3 % at a setting of 100 and 22.5 % at 35. The color base
+ * moves with the cap, as in `applyLook`, so dark colored scenes keep their place between the two limits.
+ */
+export function scaleBrightness(calibration: CalibrationOptions, factor: number): CalibrationOptions {
+  const { minDimming, maxDimming, colorBaseBrightness } = calibration;
+  const scaledMax = clamp(maxDimming * factor, minDimming, WIZ_MAX_DIMMING);
+  const range = maxDimming - minDimming;
+  const base = range > 0 ? minDimming + ((colorBaseBrightness - minDimming) * (scaledMax - minDimming)) / range : minDimming;
+  return { ...calibration, maxDimming: scaledMax, colorBaseBrightness: clamp(base, minDimming, scaledMax) };
 }
 
 /**

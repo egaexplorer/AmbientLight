@@ -4,12 +4,14 @@ import {
   applyLook,
   calibrate,
   DEFAULT_CALIBRATION,
+  DESIGN_BRIGHTNESS,
   FILM_LOOKS,
   hsvToRgb,
   LOOK_NAMES,
   lookForGenres,
   MAX_HUE_TURN,
   rgbToHsv,
+  scaleBrightness,
   SyncEngine,
   turnHue,
   type WizColor,
@@ -105,6 +107,37 @@ describe("applyLook", () => {
     const dark = calibrate({ r: 60, g: 15, b: 15 }, c).dimming;
     const bright = calibrate({ r: 240, g: 40, b: 40 }, c).dimming;
     assert.ok(bright - dark >= 10);
+  });
+});
+
+describe("scaleBrightness", () => {
+  const horror = applyLook(DEFAULT_CALIBRATION, FILM_LOOKS.horror);
+  const top = (setting: number, calibration = horror): number =>
+    scaleBrightness(calibration, setting / DESIGN_BRIGHTNESS).maxDimming;
+  const near = (actual: number, expected: number): void => assert.ok(Math.abs(actual - expected) < 1e-9, `${actual} ≠ ${expected}`);
+
+  it("shows a look as designed at 70 and scales it linearly around that", () => {
+    assert.deepEqual(scaleBrightness(horror, 1), horror);
+    near(top(100), 64.28571428571429);
+    near(top(35), 22.5);
+    assert.equal(calibrate({ r: 255, g: 255, b: 255 }, scaleBrightness(horror, 100 / DESIGN_BRIGHTNESS)).dimming, 64);
+  });
+
+  it("without a look, 70 is full brightness and lower settings dim", () => {
+    assert.equal(top(70, DEFAULT_CALIBRATION), 100);
+    assert.equal(top(100, DEFAULT_CALIBRATION), 100);
+    near(top(35, DEFAULT_CALIBRATION), 50);
+  });
+
+  it("stays between minDimming and the bulb's 100 %", () => {
+    assert.equal(top(10), 10);
+    assert.equal(top(100, applyLook(DEFAULT_CALIBRATION, FILM_LOOKS.romance)), 100);
+  });
+
+  it("moves the color base with the cap", () => {
+    const scaled = scaleBrightness({ ...DEFAULT_CALIBRATION, colorBaseBrightness: 50 }, 0.5);
+    assert.equal(scaled.maxDimming, 50);
+    near(scaled.colorBaseBrightness, 10 + (40 * 40) / 90);
   });
 });
 

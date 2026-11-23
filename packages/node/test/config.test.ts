@@ -3,7 +3,8 @@ import fs from "node:fs";
 import os from "node:os";
 import path from "node:path";
 import { after, describe, it } from "node:test";
-import { applyConfigFile, DEFAULT_CONFIG, loadConfigFile, saveConfigFile, UserError } from "../src/index.js";
+import { FILM_LOOKS, type FilmLook } from "@ambientlight/core";
+import { applyConfigFile, DEFAULT_CONFIG, loadConfigFile, saveConfigFile, syncOptionsFor, UserError } from "../src/index.js";
 
 describe("saveConfigFile", () => {
   const dir = fs.mkdtempSync(path.join(os.tmpdir(), "ambientlight-config-"));
@@ -46,5 +47,30 @@ describe("saveConfigFile", () => {
     config.calibration.gamma = 2;
     assert.deepEqual(DEFAULT_CONFIG.bulbs, []);
     assert.equal(DEFAULT_CONFIG.calibration.gamma, 1.6);
+  });
+});
+
+describe("syncOptionsFor", () => {
+  it("scales the look's top brightness with the brightness setting, 70 meaning as designed", () => {
+    const top = (brightness: number, look?: FilmLook) =>
+      syncOptionsFor({ ...DEFAULT_CONFIG, brightness }, look).calibration?.maxDimming;
+    assert.equal(top(70, FILM_LOOKS.horror), 45);
+    assert.ok(Math.abs((top(100, FILM_LOOKS.horror) ?? 0) - 64.2857) < 0.001);
+    assert.equal(top(70), 100);
+    assert.equal(top(35), 50);
+  });
+
+  it("saves a brightness only when it differs from 70", () => {
+    const dir = fs.mkdtempSync(path.join(os.tmpdir(), "ambientlight-brightness-"));
+    try {
+      const file = path.join(dir, "ambientlight.config.json");
+      saveConfigFile(file, applyConfigFile({ brightness: 70 }));
+      assert.equal("brightness" in JSON.parse(fs.readFileSync(file, "utf8")), false);
+      assert.equal(saveConfigFile(file, applyConfigFile({ brightness: 90 })).brightness, 90);
+      assert.equal(JSON.parse(fs.readFileSync(file, "utf8")).brightness, 90);
+      assert.throws(() => saveConfigFile(file, { ...DEFAULT_CONFIG, brightness: 5 }), /between 10 and 100/);
+    } finally {
+      fs.rmSync(dir, { recursive: true, force: true });
+    }
   });
 });

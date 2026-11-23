@@ -139,6 +139,10 @@ Targets: Windows (PC) and Android only; macOS, Linux and iOS are not planned.
             with no look and with Horror (8 of 8 exact); the bulb restored on Stop (off → off, blue 30 % → blue 30 %)
             and on closing the window; no error text. "Pengabdi Setan" finds the Horror look. Fixed: the shown
             capture time read about 9 ms high (now the mean of the frames since the last view)
+      - [x] Brightness slider on Home (2026-11-23): 70 % = the look as designed, linear around it, up to the bulb's
+            100 %; config `brightness`, CLI `--brightness`, live while syncing. On the real bulb, `once --look horror
+            --brightness 100` on a white screen gave 6500 K at 64 %, as predicted; the app's slider is tested with
+            fakes (dim 64 %) and still needs a look on the real bulb
       - [ ] Click through it once by hand before filming (the buttons, the window's close button), and answer the
             firewall prompt Electron opens at its first start (it blocked nothing while unanswered)
 - [ ] **MVP by 2026-12-10, for the live demo on 2026-12-12:** setup wizard, Bulbs page with check report and power,
