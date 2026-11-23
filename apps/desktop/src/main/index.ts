@@ -18,6 +18,7 @@ import {
 import { app, BrowserWindow, ipcMain, type IpcMainInvokeEvent, shell } from "electron";
 import { CHANNELS } from "../shared/api";
 import { AppController, type Platform } from "./controller";
+import { frameLogLine } from "./frame-view";
 import { checkBulbList, checkIp, checkLook, checkTitle, checkTitleKind } from "./validate";
 
 const here = path.dirname(fileURLToPath(import.meta.url));
@@ -138,6 +139,8 @@ if (!app.requestSingleInstanceLock()) {
     const controller = new AppController(createPlatform(configPath()), {
       state: (state) => window?.webContents.send(CHANNELS.state, state),
       frame: (frame) => window?.webContents.send(CHANNELS.frame, frame),
+      // Like `sync -v`: every frame in the terminal that started the app.
+      ...(process.env.AMBIENTLIGHT_VERBOSE === "1" ? { report: (report) => console.log(frameLogLine(report)) } : {}),
     });
     registerIpc(controller);
     window = createWindow();

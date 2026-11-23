@@ -1,6 +1,7 @@
 import {
   discoverBulbs,
   FILM_LOOKS,
+  type FrameReport,
   identifyBulb,
   type ScreenCapturer,
   SyncSession,
@@ -43,6 +44,8 @@ export interface Platform {
 export interface ControllerEvents {
   state(state: AppState): void;
   frame(frame: FrameView): void;
+  /** Every frame, unthrottled (for the verbose log). */
+  report?(report: FrameReport): void;
 }
 
 /** A problem from the sync loop stays on screen this long after the last time it happened. */
@@ -175,6 +178,7 @@ export class AppController {
         },
         {
           onFrame: (report) => {
+            this.events.report?.(report);
             if (this.error !== null && this.platform.now() - this.errorAt > ERROR_HOLD_MS) {
               this.error = null;
               this.publish();

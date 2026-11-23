@@ -24,8 +24,8 @@ everything a new session needs to continue. All of it is also committed in the r
 cd C:\AI_Sandbox\Project\AmbientLight
 git fetch origin ccr-89d32679-dhyf40
 git checkout ccr-89d32679-dhyf40
-npm install          # downloads Electron 45.2.3 (~100 MB) the first time
-npm run check        # build + typecheck + 209 tests, must be green
+npm install          # with npm 12 this didn't fetch Electron's binary; the first start does (~100 MB)
+npm run check        # build + typecheck + 211 tests, must be green
 npm run desktop      # the app; first start copies ambientlight.config.json from the repo root
 ```
 
@@ -100,18 +100,26 @@ Bulbs, Tuning, Setup wizard, Diagnostics, About and the tray menu. The wireframe
 
 ## Next steps
 
-### A. Today or tomorrow: test the demo flow on the real bulb (must pass before Wed night)
+### A. Test the demo flow on the real bulb (done 2026-11-23, except the click-through)
 
-1. `npm run desktop`. Find bulbs, Blink: the bulb flashes twice and goes back.
-2. Type `Pengabdi Setan`, press Find (expect the Horror look). Start sync with a video playing; untick "Minimize
+Done on the user's PC by an agent, through `window.ambient` over the DevTools protocol (the calls the buttons make;
+`apps/desktop/scripts/drive.mjs`, see DEVELOPMENT "Measuring the desktop app on the real bulb"):
+
+- Discovery found the bulb; Blink returned ok and the bulb went back to off. "Pengabdi Setan" → Satan's Slaves, Horror.
+- 20.0 FPS; capture 32 ms p50 / 36 ms p95 (exact, from the per-frame log); 27 / 37 with the window minimized.
+- The same color as `npm run once`: 4 still scenes × (no look, Horror), 8 of 8 exactly equal.
+- Restored on Stop (off → off, blue 30 % → blue 30 %) and on closing the window (blue 30 % → blue 30 %). No errors.
+- Fixed: the capture time on the Home screen read ~9 ms high (sampling bias of the 100 ms view gate). Added
+  `AMBIENTLIGHT_VERBOSE=1` (every frame in the terminal) and `drive.mjs`.
+
+Still to do:
+
+1. The user clicks through once by hand: Find bulbs, Blink (watch it flash twice), type `Pengabdi Setan`, Find,
+   Start with a video playing, Stop, Start again, close with the window's ✕, then `npm run state`. Untick "Minimize
    while syncing" to film the UI.
-3. Check and record:
-   - FPS about 20 and capture about 20–35 ms (compare with `npm run sync -- -v`)
-   - the same color as `npm run once` on the same paused shot
-   - the bulb restored on Stop **and** on closing the window
-   - any error text
-4. Fix what fails. Record the results in ROADMAP (tick the sub-item) and in ARCHITECTURE if anything was measured.
-5. **Thu 11-26:** record the video. The CLI (`npm run sync -- --film "..."`) is the fallback.
+2. A "Windows Security" window (`PickerHost`) was open and unanswered during the test, probably the firewall asking
+   about Electron. Everything worked meanwhile. Find out what it was before the video.
+3. **Thu 11-26:** record the video. The CLI (`npm run sync -- --film "..."`) is the fallback.
 
 ### B. 11-27 → 12-10: MVP (wireframe screens; see the UI_DESIGN screen spec)
 

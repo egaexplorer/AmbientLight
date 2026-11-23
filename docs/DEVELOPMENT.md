@@ -45,6 +45,9 @@ npm run build -w @ambientlight/desktop # bundles main, preload and renderer into
 npm run typecheck -w @ambientlight/desktop
 ```
 
+- **Electron's binary** (~100 MB) isn't always fetched by `npm install`: with npm 12 on the user's PC it wasn't.
+  Electron 45 then downloads it on the first start, or run `node node_modules/electron/install.js` beforehand.
+  npm 12 also blocks esbuild's `postinstall` (`npm install-scripts ls`); the build works without it.
 - Two tsconfigs: `tsconfig.node.json` (main, preload, shared, tests) and `tsconfig.web.json` (renderer: DOM, JSX).
   The root `tsconfig.tests.json` leaves `apps/desktop` out; the root `typecheck` and `build` scripts run the
   desktop's own.
@@ -57,6 +60,31 @@ npm run typecheck -w @ambientlight/desktop
   `xvfb-run` drives it. Screen capture needs Windows, so such a run can check everything but the GDI capture.
 - CI sets `ELECTRON_SKIP_BINARY_DOWNLOAD=1`: tests and the build don't start Electron.
 - Use the fake bulb below with `AMBIENTLIGHT_CONFIG` pointing at a scratch config whose `bulbs` is `["127.0.0.1"]`.
+
+### Measuring the desktop app on the real bulb
+
+The Home screen's numbers are fine for a glance; for exact ones, log every frame and drive the app without clicking.
+An agent's shell on the user's PC reaches the bulb (2026-11-23), so it can run all of this itself.
+
+```powershell
+$env:AMBIENTLIGHT_VERBOSE = "1"   # every frame in this terminal, like `sync -v`
+npm run dev -w @ambientlight/desktop -- --remoteDebuggingPort 9222
+```
+
+```powershell
+node apps/desktop/scripts/drive.mjs eval "window.ambient.discover()"
+node apps/desktop/scripts/drive.mjs measure 60 none   # Start, 60 s, Stop; fps, capture, errors
+npm run state                                          # did Stop restore the bulb?
+```
+
+- `drive.mjs` evaluates in the renderer over the DevTools protocol, so it calls the same `window.ambient` API as the
+  buttons. `eval "window.close()"` closes the window as its close button does (quit, restore).
+- Frame views are throttled, so take capture times from the verbose log (`capture 31.6 ms`), not from views.
+  Its color fields are those of `npm run state`, so a line compares directly with `npm run once`'s "reports" line.
+- **Color check:** show a still picture full screen (anything on top of it is captured too), sync a few seconds,
+  stop, then run `npm run once` on the same picture. After the smoothing settles, the last logged frame should equal
+  what the bulb reports. Add `--look horror` to `once` after `setLook({ name: "horror" })` in the app.
+- The debugging port listens on 127.0.0.1 only; leave it off for normal use.
 
 ## How the workspace is wired
 

@@ -129,7 +129,7 @@ flowchart LR
 | `src/shared/api.ts` | The IPC contract: `AmbientApi` (what `window.ambient` offers), `AppState`, `FrameView`, channel names |
 | `src/main/index.ts` | Electron: single-instance lock, the window (`contextIsolation`, `sandbox`, no Node.js in the renderer, links open in the browser), IPC handlers, config location, restore before quitting |
 | `src/main/controller.ts` | `AppController`: config, film look, discovery, Blink, one `SyncSession`; publishes state changes and frame views. Electron, the network and capture come in through a `Platform`, so tests use fakes |
-| `src/main/frame-view.ts` | `FrameReport` → `FrameView` (hex colors, the bulb's color with white LEDs drawn at their temperature, fps, share sent), at most one per 100 ms |
+| `src/main/frame-view.ts` | `FrameReport` → `FrameView` (hex colors, the bulb's color with white LEDs drawn at their temperature, fps, share sent), at most one per 100 ms. The capture time is the mean of every frame since the previous view: a frame passes the 100 ms gate more often when its own capture was slow, so its time alone read ~9 ms high. `frameLogLine`: one line per frame for `AMBIENTLIGHT_VERBOSE=1` |
 | `src/main/validate.ts` | Checks every IPC argument (IPv4 addresses, at most 16 bulbs, known looks, title length) |
 | `src/preload/index.ts` | `contextBridge` → `window.ambient`; built as CommonJS, which a sandboxed preload needs |
 | `src/renderer/src` | The React UI; `model/` holds DOM-free helpers (look chips, status and error text) that a React Native app could reuse; `mock-api.ts` stands in for the main process in a plain browser |
@@ -257,13 +257,16 @@ Decisions:
    | | GDI helper (decision 12) | `desktopCapturer` stream | `desktopCapturer.getSources` thumbnails |
    | --- | --- | --- | --- |
    | How | `BitBlt` + `StretchBlt HALFTONE` to 64×36 in a helper that stays running, 9 KB over a pipe | Chromium's screen capturer → `MediaStream` → `<video>`/`VideoFrame` → `drawImage` at 64×36 on the GPU → `getImageData`, in a hidden renderer, then IPC to the main process | One `getSources` call per frame |
-   | Capture | **32 ms p50, 35 ms p95 (measured)** | Frames are pushed, so a capture returns the newest one; a few ms of own work (estimate) | Electron's docs call thumbnails expensive: each call enumerates and renders the sources (estimate: too slow for 20 FPS) |
-   | Frame rate | **20.0 held for 23 min (measured)** | The bulb's 20 FPS stays the limit, so the possible gain is up to ~30 ms less latency, not more FPS | Likely under 10 |
+   | Capture | **32 ms p50, 35 ms p95 (measured)**; in the desktop app 32 / 36 ms (27 / 37 with its window minimized) | Frames are pushed, so a capture returns the newest one; a few ms of own work (estimate) | Electron's docs call thumbnails expensive: each call enumerates and renders the sources (estimate: too slow for 20 FPS) |
+   | Frame rate | **20.0 held for 23 min (measured)**; 20.0 in the desktop app | The bulb's 20 FPS stays the limit, so the possible gain is up to ~30 ms less latency, not more FPS | Likely under 10 |
    | Color | Area average **within 0.5 of the true mean (measured)** | Risk: a 30× downscale in `drawImage` may sample instead of average (depends on Chromium's filter), giving noisy colors | Unknown |
    | Lock screen, UAC | Resends the last frame | The stream can end and must be restarted | Unknown |
    | Packaging | The `.cs` source ships with the app; compiled once by Windows' own `csc.exe` (~260 ms) | Nothing to compile; needs a hidden window with `backgroundThrottling: false` and a display-media permission handler | Same as the stream |
 
-   Only the GDI column is measured, so the desktop app starts with it. A benchmark on the user's PC decides whether
+   Only the GDI column is measured, so the desktop app starts with it. On the user's PC on 2026-11-23 the app (Electron
+   main process) held 20.0 FPS (1,198 frames in 60 s), and its colors equaled `npm run once` exactly on 8 of 8
+   checks. In the same session plain Node timed the helper at 25 ms p50 / 36 ms p95, so the app may add a few
+   milliseconds to the median while its window redraws; the 95th percentile is the same. A benchmark on the user's PC decides whether
    `desktopCapturer` replaces it ([ROADMAP.md](ROADMAP.md#phase-4-desktop-app-electron-and-android-port-react-native-)).
    The desktop app doesn't load `sharp`: it only serves the CLI's `screenshot-desktop` fallback (~2.7 FPS) and PNG
    saving, which Electron's `nativeImage` covers, and a native module would need unpacking in the installer.

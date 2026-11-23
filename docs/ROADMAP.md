@@ -122,8 +122,9 @@ Targets: Windows (PC) and Android only; macOS, Linux and iOS are not planned.
 **Electron (`apps/desktop`)**, Windows. Screens and their spec: [UI_DESIGN.md](UI_DESIGN.md). Planned on 2026-11-23.
 
 - [x] Wireframes of every screen and a Google Stitch brief (2026-11-23, [UI_DESIGN.md](UI_DESIGN.md))
-- [ ] Capture with the GDI helper the CLI already uses (decided 2026-11-23: measured at 32 ms and 20 FPS, while
-      `desktopCapturer` is unmeasured; see [ARCHITECTURE.md](ARCHITECTURE.md), decision 15)
+- [x] Capture with the GDI helper the CLI already uses (decided 2026-11-23: measured at 32 ms and 20 FPS, while
+      `desktopCapturer` is unmeasured; see [ARCHITECTURE.md](ARCHITECTURE.md), decision 15). In the app on the user's
+      PC on 2026-11-23: 20.0 FPS, 32 ms p50 / 36 ms p95
 - [x] Shared foundation (2026-11-23): the CLI's Node adapters moved to `packages/node` (plus `saveConfigFile`,
       `listDisplays` without sharp, film errors with codes); `SyncSession` (start, stop with restore, live option
       updates) and `identifyBulb` in the core
@@ -132,8 +133,14 @@ Targets: Windows (PC) and Android only; macOS, Linux and iOS are not planned.
       - [x] Built (2026-11-23): Home screen and Find bulbs dialog, main-process controller on `SyncSession`, typed IPC,
             sandboxed preload. Tested with fakes, in a browser with the mock API, and as the real Electron app under
             Xvfb against a fake bulb (20 FPS, Horror look at dim 45 %, the bulb restored on quit)
-      - [ ] The user runs it on Windows with the real bulb: FPS and capture time like `sync -v`, the same color as the
-            CLI on a paused shot, restore on Stop and on closing the window
+      - [x] On Windows with the real bulb (2026-11-23, driven through `window.ambient`, the calls the buttons make;
+            see [DEVELOPMENT.md](DEVELOPMENT.md#the-desktop-app)): discovery and Blink work; 20.0 FPS with capture
+            32 ms p50 / 36 ms p95 over 60 s (plain Node: 25 / 36); the same color as `npm run once` on 4 still scenes
+            with no look and with Horror (8 of 8 exact); the bulb restored on Stop (off → off, blue 30 % → blue 30 %)
+            and on closing the window; no error text. "Pengabdi Setan" finds the Horror look. Fixed: the shown
+            capture time read about 9 ms high (now the mean of the frames since the last view)
+      - [ ] Click through it once by hand before filming (the buttons, the window's close button, the
+            unanswered Windows Security window that came up during the test)
 - [ ] **MVP by 2026-12-10, for the live demo on 2026-12-12:** setup wizard, Bulbs page with check report and power,
       Tuning page that applies live, display picker, tray (close to tray, start with Windows), Diagnostics, About
       with data credits, CLI `sync` on `SyncSession`, NSIS installer

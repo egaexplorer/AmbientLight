@@ -2,20 +2,20 @@ import assert from "node:assert/strict";
 import { describe, it } from "node:test";
 import type { FrameReport } from "@ambientlight/core";
 import { UserError } from "@ambientlight/node";
-import { bulbPreview, FrameViews, kelvinToRgb, toHex } from "../src/main/frame-view.js";
+import { bulbPreview, frameLogLine, FrameViews, kelvinToRgb, toHex } from "../src/main/frame-view.js";
 import { checkBulbList, checkIp, checkLook, checkTitleKind } from "../src/main/validate.js";
 import { statsText, titleErrorText } from "../src/renderer/src/model/format.js";
 import { lookChips } from "../src/renderer/src/model/looks.js";
 
-function report(sent: boolean): FrameReport {
+function report(sent: boolean, captureMs = 31.6): FrameReport {
   return {
     average: { r: 23, g: 18, b: 16 },
     color: { r: 176, g: 90, b: 42 },
     output: { r: 255, g: 122, b: 46, c: 0, w: 0, dimming: 15 },
     sent,
     cut: false,
-    captureMs: 31.6,
-    totalMs: 32,
+    captureMs,
+    totalMs: captureMs + 0.4,
   };
 }
 
@@ -46,6 +46,24 @@ describe("frame views", () => {
     assert.equal(last?.sentShare, 10 / 21);
     now = 1050;
     assert.equal(views.next(report(false)), undefined);
+  });
+
+  it("shows the mean capture time of the frames since the last view, not just the view's own frame", () => {
+    let now = 0;
+    const views = new FrameViews(() => now, 140, 100);
+    views.next(report(true, 30));
+    now = 50;
+    views.next(report(true, 20));
+    now = 100;
+    assert.equal(views.next(report(true, 40))?.captureMs, 30);
+    now = 200;
+    assert.equal(views.next(report(true, 24))?.captureMs, 24);
+  });
+
+  it("logs a frame with the fields npm run state prints", () => {
+    assert.equal(frameLogLine(report(true, 25.27)), "r 255  g 122  b 46  c 0  w 0  dim 15% | capture 25.3 ms | sent");
+    const white = { ...report(false), output: { r: 255, g: 255, b: 255, temp: 5000, dimming: 57 } };
+    assert.equal(frameLogLine(white), "temp 5000 K  dim 57% | capture 31.6 ms");
   });
 });
 

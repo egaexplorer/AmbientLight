@@ -97,13 +97,14 @@ The same sync without a terminal. The first milestone covers one flow: find a bu
 (by title or by picking one), start, watch the live colors, stop.
 
 ```powershell
-npm install        # the first time downloads Electron (~100 MB)
-npm run desktop
+npm install
+npm run desktop    # the first start downloads Electron (~100 MB) if npm install didn't
 ```
 
 - **Find bulbs** searches the network like `npm run discover`; **Blink** flashes a bulb twice and puts it back. You can
   also add a bulb by IP.
-- **Start sync** captures with the same GDI helper as the CLI, so frame rate and colors match `npm run sync`.
+- **Start sync** captures with the same GDI helper as the CLI, so frame rate and colors match `npm run sync`
+  (measured on the real bulb: 20 FPS, and exactly the color `npm run once` sends for the same picture).
   **Stop sync**, closing the window or quitting all put the bulbs back the way they were.
 - **Film look**: type a film or series title (Wikipedia or TVmaze, as `--film` / `--series`) or pick a look. A look
   applies at once, also while syncing.

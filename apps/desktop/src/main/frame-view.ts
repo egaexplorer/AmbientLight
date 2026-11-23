@@ -26,12 +26,27 @@ export function bulbPreview(output: WizColor, paleWhite: number): { color: strin
 }
 
 /**
+ * One line per frame for `AMBIENTLIGHT_VERBOSE=1`, with the fields `npm run state` prints, to compare the app with
+ * `sync -v` and the bulb.
+ */
+export function frameLogLine(report: FrameReport): string {
+  const out = report.output;
+  const color = out.temp !== undefined ? `temp ${out.temp} K` : `r ${out.r}  g ${out.g}  b ${out.b}  c ${out.c ?? 0}  w ${out.w ?? 0}`;
+  const flags = `${report.sent ? " | sent" : ""}${report.cut ? " | cut" : ""}`;
+  return `${color}  dim ${out.dimming}% | capture ${report.captureMs.toFixed(1)} ms${flags}`;
+}
+
+/**
  * Turns `FrameReport`s into `FrameView`s for the renderer: counts frames per second and the share sent, and lets
- * through at most one view per `intervalMs`, so the renderer isn't flooded at 20 FPS.
+ * through at most one view per `intervalMs`, so the renderer isn't flooded at 20 FPS. The capture time is the mean
+ * of every frame since the previous view: a view's own frame is more likely to pass the interval when its capture
+ * was slow, so showing only that frame's time read about 9 ms high on the user's PC.
  */
 export class FrameViews {
   private frames = 0;
   private sent = 0;
+  private captureSum = 0;
+  private captureCount = 0;
   private windowFrames = 0;
   private windowStart: number;
   private fps = 0;
@@ -59,8 +74,13 @@ export class FrameViews {
       this.windowStart = now;
     }
     this.windowFrames++;
+    this.captureSum += report.captureMs;
+    this.captureCount++;
     if (now - this.lastEmit < this.intervalMs) return undefined;
     this.lastEmit = now;
+    const captureMs = this.captureSum / this.captureCount;
+    this.captureSum = 0;
+    this.captureCount = 0;
 
     const bulb = bulbPreview(report.output, this.paleWhite);
     return {
@@ -69,7 +89,7 @@ export class FrameViews {
       bulb: bulb.color,
       bulbText: bulb.text,
       fps: Math.round(this.fps * 10) / 10,
-      captureMs: Math.round(report.captureMs),
+      captureMs: Math.round(captureMs),
       sentShare: this.sent / this.frames,
       cut: report.cut,
     };
