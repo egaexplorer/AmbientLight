@@ -170,6 +170,11 @@ Picked on 2026-11-22 as the core feature. Priority: the core working, with a wri
 - [ ] Later, if there is time: night watching (cap by sunset; see the options below)
 - [ ] Later: optional AI look per title from the Wikipedia summary
 - [ ] Later: read the title from the player, switch looks without restarting
+- [ ] Later: game looks, `--game "<title>"`. One Wikipedia search found the genre for 8 of 9 test games
+      (2026-11-23), including DreadOut (survival horror) and Coffee Talk (visual novel); "Elden Ring" first matched
+      the upcoming film, so accept only "... game" sentences. The genre also sets the response: racing and shooters
+      get `smoothing` near 1 and a lower `sceneCut`, horror and calm games stay smooth. Untested: capture of games in
+      exclusive full screen
 - [ ] Ask before adding contact details to the Wikimedia User-Agent (200 instead of 10 requests a minute)
 
 ## Option: rain signal (on hold)
