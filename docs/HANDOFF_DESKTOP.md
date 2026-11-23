@@ -117,6 +117,8 @@ Done on the user's PC by an agent, through `window.ambient` over the DevTools pr
 - Restored on Stop (off → off, blue 30 % → blue 30 %) and on closing the window (blue 30 % → blue 30 %). No errors.
 - Fixed: the capture time on the Home screen read ~9 ms high (sampling bias of the 100 ms view gate). Added
   `AMBIENTLIGHT_VERBOSE=1` (every frame in the terminal) and `drive.mjs`.
+- Added later that day: the Brightness slider on Home (70 % = the look as designed). The user checked it on the real
+  bulb, and it works.
 
 Still to do:
 
@@ -125,10 +127,9 @@ Still to do:
    while syncing" to film the UI.
 2. The user answers the firewall prompt Electron opened at its first start (`PickerHost.exe
    FirewallNotificationDialogServer`, titled "Windows Security"). It blocked nothing while unanswered.
-3. Brightness slider on Home (built 2026-11-23): check it on the real bulb with Horror (70 → 45 %, 100 → 64 %).
-4. Wireframe differences left (UI_DESIGN "Built so far"): no "Ready" badge on the bulb chip, which needs
+3. Wireframe differences left (UI_DESIGN "Built so far"): no "Ready" badge on the bulb chip, which needs
    `checkBulb` (MVP). The MAC column and the "Search again first" hint are done, in the app and the wireframe.
-5. **Thu 11-26:** record the video. The CLI (`npm run sync -- --film "..."`) is the fallback.
+4. **Thu 11-26:** record the video. The CLI (`npm run sync -- --film "..."`) is the fallback.
 
 ### B. 11-27 → 12-10: MVP (wireframe screens; see the UI_DESIGN screen spec)
 
@@ -164,7 +165,7 @@ Presets (gaming / movie / ambient), letterbox detection, multi-zone, then Androi
 
 > Continue the AmbientLight Windows desktop app on `main`. Read `CLAUDE.md` and `docs/HANDOFF_DESKTOP.md` first, then
 > `docs/UI_DESIGN.md`, `docs/ROADMAP.md` (Phase 4, Electron), `docs/ARCHITECTURE.md` (apps/desktop, decision 15) and
-> `docs/DEVELOPMENT.md` ("The desktop app"). The demo flow (Home + Find bulbs) works on the real bulb; the Brightness
-> slider is checked with fakes and the CLI. Finish "Still to do" under next steps A, then start the MVP (B). Before driving the bulb or showing test
-> scenes, check that I'm not using the app. Update the docs with each change. Deadlines: demo video Thu 2026-11-26,
+> `docs/DEVELOPMENT.md` ("The desktop app"). The demo flow (Home with the Brightness slider, Find bulbs) works on
+> the real bulb. Finish "Still to do" under next steps A, then start the MVP (B). Before driving the bulb or showing
+> test scenes, check that I'm not using the app. Update the docs with each change. Deadlines: demo video Thu 2026-11-26,
 > MVP for the live demo Sat 2026-12-12. Targets are Windows and Android only.
