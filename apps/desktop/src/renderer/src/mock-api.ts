@@ -28,7 +28,7 @@ export function createMockApi(): AmbientApi {
     getState: async () => state,
     discover: async () => {
       await wait(800);
-      return { via: ["192.168.1.255"], bulbs: [{ ip: "192.168.1.50", on: true }] };
+      return { via: ["192.168.1.255"], bulbs: [{ ip: "192.168.1.50", mac: "a8bb50c0ffee", rssi: -58, on: true }] };
     },
     identify: async () => {
       await wait(1400);

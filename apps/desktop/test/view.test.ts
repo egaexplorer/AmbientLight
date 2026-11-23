@@ -4,7 +4,7 @@ import type { FrameReport } from "@ambientlight/core";
 import { UserError } from "@ambientlight/node";
 import { bulbPreview, frameLogLine, FrameViews, kelvinToRgb, toHex } from "../src/main/frame-view.js";
 import { checkBulbList, checkIp, checkLook, checkTitleKind } from "../src/main/validate.js";
-import { statsText, titleErrorText } from "../src/renderer/src/model/format.js";
+import { macText, statsText, titleErrorText } from "../src/renderer/src/model/format.js";
 import { lookChips } from "../src/renderer/src/model/looks.js";
 
 function report(sent: boolean, captureMs = 31.6): FrameReport {
@@ -85,6 +85,12 @@ describe("IPC input checks", () => {
 });
 
 describe("renderer text", () => {
+  it("writes a bulb's MAC in pairs", () => {
+    assert.equal(macText("9877D56C94FE"), "98:77:d5:6c:94:fe");
+    assert.equal(macText(undefined), "—");
+    assert.equal(macText("not-a-mac"), "not-a-mac");
+  });
+
   it("words lookup failures for the app instead of the CLI", () => {
     const text = titleErrorText("film", "Dune ", { ok: false, code: "not-found", message: "", similar: ["Dune Part Two"] });
     assert.match(text, /No film called “Dune” found\. Close: “Dune Part Two”\./);

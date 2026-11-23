@@ -41,7 +41,7 @@ describe("formatCheckReport", () => {
     assert.match(text, /requires signed commands/);
   });
 
-  it("points to the firewall when the bulb is unreachable", () => {
+  it("says to try again first, and the firewall last, when the bulb is unreachable", () => {
     const lines = formatCheckReport({
       ...BASE,
       verdict: "unreachable",
@@ -50,6 +50,6 @@ describe("formatCheckReport", () => {
       restore: "skipped",
     });
     assert.match(lines[0] ?? "", /\[FAIL\]\s+Reachable\s+No getPilot reply/);
-    assert.match(lines.join("\n"), /Windows Defender Firewall/);
+    assert.match(lines.join("\n"), /Try again: .*\n.*\n.*firewall/);
   });
 });

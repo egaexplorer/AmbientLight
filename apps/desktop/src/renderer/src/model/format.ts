@@ -19,6 +19,13 @@ export function statsText(frame: FrameView | null): string {
   return `${fps} · capture ${frame.captureMs} ms · ${Math.round(frame.sentShare * 100)} % of frames sent`;
 }
 
+/** A MAC as discovery reports it (`9877d56c94fe`), written in the usual pairs; a dash when unknown. */
+export function macText(mac: string | undefined): string {
+  if (!mac) return "—";
+  const pairs = /^[0-9a-f]{12}$/i.test(mac) ? mac.toLowerCase().match(/../g) : null;
+  return pairs ? pairs.join(":") : mac;
+}
+
 const SERVICE: Record<TitleKind, string> = { film: "Wikipedia", series: "TVmaze" };
 
 /** The advice for a failed title lookup, worded for the app (the error codes come from @ambientlight/node). */

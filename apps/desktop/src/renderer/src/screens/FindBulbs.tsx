@@ -2,6 +2,7 @@ import { type FormEvent, useCallback, useEffect, useState } from "react";
 import type { BulbInfo } from "../../../shared/api";
 import { api } from "../api";
 import { Button, CloseIcon } from "../components/ui";
+import { macText } from "../model/format";
 
 const IPV4 = /^(25[0-5]|2[0-4]\d|1\d\d|[1-9]?\d)(\.(25[0-5]|2[0-4]\d|1\d\d|[1-9]?\d)){3}$/;
 
@@ -130,11 +131,12 @@ export function FindBulbsDialog({ configured, onClose }: { configured: string[];
 
         {rows.length > 0 && (
           <div className="overflow-x-auto rounded-xl border border-line">
-            <table className="w-full min-w-[520px] border-collapse text-[13px]">
+            <table className="w-full min-w-[560px] border-collapse text-[13px]">
               <thead>
                 <tr className="text-left text-muted">
                   <th scope="col" className="px-3 py-2.5 font-medium">Use</th>
                   <th scope="col" className="px-3 py-2.5 font-medium">IP address</th>
+                  <th scope="col" className="px-3 py-2.5 font-medium">MAC</th>
                   <th scope="col" className="px-3 py-2.5 font-medium">Power</th>
                   <th scope="col" className="px-3 py-2.5 font-medium">Signal</th>
                   <th scope="col" className="px-3 py-2.5 font-medium">
@@ -157,6 +159,7 @@ export function FindBulbsDialog({ configured, onClose }: { configured: string[];
                       </label>
                     </td>
                     <td className="px-3 py-1.5 font-semibold tabular-nums">{row.ip}</td>
+                    <td className="px-3 py-1.5 tabular-nums text-soft">{macText(row.mac)}</td>
                     <td className="px-3 py-1.5 text-soft">{row.silent ? "Not answering" : row.on ? "On" : "Off"}</td>
                     <td className="px-3 py-1.5 text-soft">{row.rssi !== undefined ? `${row.rssi} dBm` : "—"}</td>
                     <td className="px-3 py-1.5 text-right">
@@ -173,10 +176,11 @@ export function FindBulbsDialog({ configured, onClose }: { configured: string[];
 
         {noneFound && (
           <div className="flex flex-col gap-2 rounded-xl border border-warn-line bg-field p-4 text-[13px] leading-normal">
-            <strong className="text-sm">No bulbs answered</strong>
-            <span className="text-soft">Allow AmbientLight through Windows Defender Firewall on Private networks.</span>
+            <strong className="text-sm">No bulbs answered within 2 seconds</strong>
+            <span className="text-soft">Press Search again. A bulb can miss searches for about a minute, more so right after it's switched on.</span>
             <span className="text-soft">Check that the PC and the bulb are on the same Wi-Fi (guest and IoT networks often isolate devices).</span>
             <span className="text-soft">In the WiZ app, turn on Settings › Security › Allow local communication.</span>
+            <span className="text-soft">Still nothing? Check that your firewall allows AmbientLight on Private networks.</span>
           </div>
         )}
 

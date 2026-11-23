@@ -10,7 +10,7 @@ import {
 } from "@ambientlight/core";
 import { broadcastAddresses, createNodeUdpSocket } from "@ambientlight/node";
 import type { CliFlags } from "./cli.js";
-import { FIREWALL_HINT } from "./commands.js";
+import { NO_REPLY_HINT } from "./commands.js";
 import type { AppConfig } from "./config.js";
 import { swatch } from "./log.js";
 
@@ -47,7 +47,7 @@ const VERDICTS: Readonly<Record<BulbCheckReport["verdict"], string>> = Object.fr
   "no-ack":
     "The bulb answers reads but didn't acknowledge the test color; a packet was probably lost.\n" +
     "  Run the check again. If the bulb did change color, it works.",
-  unreachable: `No reply from the bulb.\n  ${FIREWALL_HINT.replace(/\n/g, "\n  ")}`,
+  unreachable: `No reply from the bulb.\n  ${NO_REPLY_HINT.replace(/\n/g, "\n  ")}`,
 });
 
 /** Turns a check report into the lines printed by `check`. Exported for tests. */
@@ -131,7 +131,7 @@ export async function runCheck(config: AppConfig, flags: CliFlags): Promise<numb
       console.log(`No bulb configured, so searching the network (UDP ${WIZ_PORT}) ...`);
       const found = await discoverBulbs(socket, { broadcastAddresses: broadcastAddresses(), timeoutMs });
       if (found.length === 0) {
-        console.log(`\nNo bulbs answered within ${timeoutMs} ms.\n${FIREWALL_HINT}`);
+        console.log(`\nNo bulbs answered within ${timeoutMs} ms.\n${NO_REPLY_HINT}`);
         return 1;
       }
       hosts = found.map((bulb) => bulb.address);

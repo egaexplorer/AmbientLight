@@ -14,7 +14,7 @@ a change): <https://claude.ai/artifact/9de8MxMAdW5DoCv6J7tHWN>
 | Artboard | Milestone | What it shows |
 | --- | --- | --- |
 | Home | Demo flow (2026-11-26) | Start/Stop, live colors, film look, bulbs strip |
-| Find bulbs dialog | Demo flow | Discovery results, Blink, add by IP, firewall hint when nothing answers |
+| Find bulbs dialog | Demo flow | Discovery results, Blink, add by IP, what to try when nothing answers (search again first, firewall last) |
 | Bulbs | MVP (2026-12-12) | One card per bulb: power, Blink, Check report, remove |
 | Tuning | MVP | Sliders for the calibration and sync options, reset per slider |
 | First-run setup wizard | MVP | WiZ app checklist, find bulbs, display, done |
@@ -67,14 +67,13 @@ The Home screen and the Find bulbs dialog (`apps/desktop/src/renderer`), as in t
   couldn't be brought back. It becomes "hide" with the tray.
 - **Sidebar:** only Home, until the other screens exist.
 - **Find bulbs** also lists configured bulbs that didn't answer ("Not answering"), so they can be kept or dropped.
-- **Find bulbs** has no MAC column yet (discovery already returns `mac`), and its "nothing answered" box says
-  "No bulbs answered" without "within 2 seconds".
 - **Bulbs strip:** the chip shows the IP without the "Ready" badge; that needs `checkBulb`, which comes with the
   Bulbs page.
 
 Checked against the wireframe on 2026-11-23 with screenshots of the running app (`drive.mjs shot`): apart from the
-points above, Home and Find bulbs are as drawn. The "nothing answered" box leads with the firewall, which didn't
-block anything on the user's PC ([WIZ_PROTOCOL.md](WIZ_PROTOCOL.md)); "Search again" is the likelier fix.
+points above, Home and Find bulbs are as drawn. The same day the "nothing answered" box changed in both: it now
+starts with "Search again" and ends with the firewall, which blocked nothing on the user's PC while a bulb that
+dropped off Wi-Fi for a minute did ([WIZ_PROTOCOL.md](WIZ_PROTOCOL.md)). The CLI's hint follows the same order.
 
 ## Screen spec
 
