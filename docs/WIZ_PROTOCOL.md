@@ -80,10 +80,16 @@ Broadcast `getPilot` and collect the replies: each bulb answers from its own IP.
 
 - Prefer the **subnet broadcast** (e.g. `192.168.1.255`) over `255.255.255.255`. On Windows the limited
   broadcast only leaves through one adapter, and VPN, Hyper-V, or WSL adapters often win. The CLI sends to
-  every adapter's subnet broadcast plus `255.255.255.255` (`apps/pc-cli/src/network.ts`).
+  every adapter's subnet broadcast plus `255.255.255.255` (`packages/node/src/network.ts`).
 - Repeat the broadcast a few times. UDP is lossy.
-- Receiving replies needs inbound UDP. On Windows, allow Node.js through Windows Defender Firewall on
-  **Private** networks.
+- Replies are inbound UDP, but they answer the program's own request, and Windows Defender Firewall lets those
+  through by default, unicast replies to a broadcast included (`AllowUnicastResponseToMulticast` not configured).
+  Measured on the user's PC on 2026-11-23, Wi-Fi set to Public: discovery, `getPilot` and sync worked for
+  `node.exe` with Block rules on Public, and for `electron.exe` with its firewall prompt still unanswered. An
+  inbound rule matters only for unsolicited packets (a push-update listener on 38900) or where a policy turns
+  those responses off.
+- A bulb can drop off for a minute. On 2026-11-23 the user's bulb, switched off by command, answered neither UDP
+  nor half the pings for about a minute, then came back by itself. One empty search proves little; search again.
 
 ## Practical limits
 

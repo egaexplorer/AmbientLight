@@ -112,15 +112,44 @@ Lessons from the reference study ([REFERENCE_NOTES.md](REFERENCE_NOTES.md)):
       `getSystemConfig` to tell color bulbs from white-only ones
 - [x] Requests (`getPilot` and others) retransmit once after 400 ms (homebridge-wiz-lan)
 - [ ] Clamp dimming to `getModelConfig.minDimLevel` (`check-bulb` already reports it) (pywizlight)
-- [ ] `identify` command that flashes one bulb (ambient-setup, HyperHDR)
+- [ ] `identify` command that flashes one bulb (ambient-setup, HyperHDR). The core's `identifyBulb` exists (desktop
+      Blink button); the CLI command doesn't yet
 
 ## Phase 4: desktop app (Electron) and Android port (React Native) 🗓️
 
-**Electron (`apps/desktop`)**
+Targets: Windows (PC) and Android only; macOS, Linux and iOS are not planned.
 
-- [ ] Capture with `desktopCapturer`, using the same `ScreenCapturer` interface
-- [ ] Automatic bulb discovery (`getPilot` broadcast) and a settings UI that writes the same config
-- [ ] Tray icon, start with Windows, per-display selection, live color preview
+**Electron (`apps/desktop`)**, Windows. Screens and their spec: [UI_DESIGN.md](UI_DESIGN.md). Planned on 2026-11-23.
+
+- [x] Wireframes of every screen and a Google Stitch brief (2026-11-23, [UI_DESIGN.md](UI_DESIGN.md))
+- [x] Capture with the GDI helper the CLI already uses (decided 2026-11-23: measured at 32 ms and 20 FPS, while
+      `desktopCapturer` is unmeasured; see [ARCHITECTURE.md](ARCHITECTURE.md), decision 15). In the app on the user's
+      PC on 2026-11-23: 20.0 FPS, 32 ms p50 / 36 ms p95
+- [x] Shared foundation (2026-11-23): the CLI's Node adapters moved to `packages/node` (plus `saveConfigFile`,
+      `listDisplays` without sharp, film errors with codes); `SyncSession` (start, stop with restore, live option
+      updates) and `identifyBulb` in the core
+- [ ] **Demo flow by 2026-11-25, for the video on 2026-11-26:** find a bulb, Blink, film title or look chip, Start
+      with live colors, Stop or quit restores the bulb
+      - [x] Built (2026-11-23): Home screen and Find bulbs dialog, main-process controller on `SyncSession`, typed IPC,
+            sandboxed preload. Tested with fakes, in a browser with the mock API, and as the real Electron app under
+            Xvfb against a fake bulb (20 FPS, Horror look at dim 45 %, the bulb restored on quit)
+      - [x] On Windows with the real bulb (2026-11-23, driven through `window.ambient`, the calls the buttons make;
+            see [DEVELOPMENT.md](DEVELOPMENT.md#the-desktop-app)): discovery and Blink work; 20.0 FPS with capture
+            32 ms p50 / 36 ms p95 over 60 s (plain Node: 25 / 36); the same color as `npm run once` on 4 still scenes
+            with no look and with Horror (8 of 8 exact); the bulb restored on Stop (off → off, blue 30 % → blue 30 %)
+            and on closing the window; no error text. "Pengabdi Setan" finds the Horror look. Fixed: the shown
+            capture time read about 9 ms high (now the mean of the frames since the last view)
+      - [x] Brightness slider on Home (2026-11-23): 70 % = the look as designed, linear around it, up to the bulb's
+            100 %; config `brightness`, CLI `--brightness`, live while syncing. On the real bulb, `once --look horror
+            --brightness 100` on a white screen gave 6500 K at 64 %, as predicted; the app's slider is tested with
+            fakes (dim 64 %) and still needs a look on the real bulb
+      - [ ] Click through it once by hand before filming (the buttons, the window's close button), and answer the
+            firewall prompt Electron opens at its first start (it blocked nothing while unanswered)
+- [ ] **MVP by 2026-12-10, for the live demo on 2026-12-12:** setup wizard, Bulbs page with check report and power,
+      Tuning page that applies live, display picker, tray (close to tray, start with Windows), Diagnostics, About
+      with data credits, CLI `sync` on `SyncSession`, NSIS installer
+- [ ] `desktopCapturer` spike: a hidden-window capturer and a benchmark against GDI (capture ms, FPS, CPU, memory,
+      color difference on the same screens), run on the user's PC. Switch only if it wins
 
 **Android (`apps/android`)**
 

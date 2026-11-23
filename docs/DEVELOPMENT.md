@@ -26,24 +26,80 @@ dependency change.
 
 | Script | Description |
 | --- | --- |
-| `npm run build` | `tsc -b`: builds `packages/core` then `apps/pc-cli` into their `dist/` folders |
+| `npm run build` | `tsc -b`: builds `packages/core`, `packages/node`, then `apps/pc-cli` into their `dist/` folders; then bundles the desktop app into `apps/desktop/out` |
 | `npm run clean` | Removes build output |
 | `npm test` | Runs all `*.test.ts` with Node's built-in test runner (via `tsx`) |
-| `npm run typecheck` | Type-checks source and tests together (`tsconfig.tests.json`) |
+| `npm run typecheck` | Type-checks source and tests together (`tsconfig.tests.json`, then the desktop app's two tsconfigs) |
 | `npm run check` | build + typecheck + test (what CI runs) |
+| `npm run desktop` | Starts the desktop app from source (see below) |
 | `npm run discover` / `check-bulb` / `state` / `on` / `off` / `displays` / `color` / `once` / `sync` / `rain` / `help` | Run the CLI from source (`check-bulb` runs the CLI's `check` command; `npm run check` is the build + test script) |
 
 Pass CLI flags after `--`: `npm run sync -- --bulb 192.168.1.50 -v`.
 To run the compiled CLI instead: `npm run build`, then `node apps/pc-cli/dist/main.js sync`.
 
+## The desktop app
+
+```powershell
+npm run desktop                        # electron-vite dev: the app with hot reload of the UI
+npm run build -w @ambientlight/desktop # bundles main, preload and renderer into apps/desktop/out
+npm run typecheck -w @ambientlight/desktop
+```
+
+- **Electron's binary** (~100 MB) isn't always fetched by `npm install`: with npm 12 on the user's PC it wasn't.
+  Electron 45 then downloads it on the first start, or run `node node_modules/electron/install.js` beforehand.
+  npm 12 also blocks esbuild's `postinstall` (`npm install-scripts ls`); the build works without it.
+- Two tsconfigs: `tsconfig.node.json` (main, preload, shared, tests) and `tsconfig.web.json` (renderer: DOM, JSX).
+  The root `tsconfig.tests.json` leaves `apps/desktop` out; the root `typecheck` and `build` scripts run the
+  desktop's own.
+- Imports in the desktop app have no `.js` suffix (Bundler resolution); electron-vite bundles them.
+- **UI work without Windows or a bulb:** the renderer uses `src/renderer/src/mock-api.ts` when `window.ambient` is
+  missing. Build, then serve `apps/desktop/out/renderer` with any static server (e.g. `python -m http.server`) and
+  open it in a browser.
+- **The real app on Linux** (an agent's container): `node node_modules/electron/install.js` fetches Electron if
+  `ELECTRON_SKIP_BINARY_DOWNLOAD` skipped it, and Playwright's `_electron.launch` with `--no-sandbox` under
+  `xvfb-run` drives it. Screen capture needs Windows, so such a run can check everything but the GDI capture.
+- CI sets `ELECTRON_SKIP_BINARY_DOWNLOAD=1`: tests and the build don't start Electron.
+- Use the fake bulb below with `AMBIENTLIGHT_CONFIG` pointing at a scratch config whose `bulbs` is `["127.0.0.1"]`.
+
+### Measuring the desktop app on the real bulb
+
+The Home screen's numbers are fine for a glance; for exact ones, log every frame and drive the app without clicking.
+An agent's shell on the user's PC reaches the bulb (2026-11-23), so it can run all of this itself.
+
+```powershell
+$env:AMBIENTLIGHT_VERBOSE = "1"   # every frame in this terminal, like `sync -v`
+npm run dev -w @ambientlight/desktop -- --remoteDebuggingPort 9222
+```
+
+```powershell
+node apps/desktop/scripts/drive.mjs eval "window.ambient.discover()"
+node apps/desktop/scripts/drive.mjs measure 60 none   # Start, 60 s, Stop; fps, capture, errors
+npm run state                                          # did Stop restore the bulb?
+```
+
+- `drive.mjs` evaluates in the renderer over the DevTools protocol, so it calls the same `window.ambient` API as the
+  buttons. `eval "window.close()"` closes the window as its close button does (quit, restore). `shot home.png`
+  saves a screenshot of the page, to compare with the wireframe.
+- Frame views are throttled, so take capture times from the verbose log (`capture 31.6 ms`), not from views.
+  Its color fields are those of `npm run state`, so a line compares directly with `npm run once`'s "reports" line.
+- **Color check:** show a still picture full screen (anything on top of it is captured too), sync a few seconds,
+  stop, then run `npm run once` on the same picture. After the smoothing settles, the last logged frame should equal
+  what the bulb reports. Add `--look horror` to `once` after `setLook({ name: "horror" })` in the app, and
+  `--brightness` with the app's setting if it isn't 70 (the app keeps its own config in `%APPDATA%`).
+- **Before driving the bulb or showing test scenes, check that the user isn't using the app or the bulb.** Only one
+  copy of the app runs, so a second start quits at once; on 2026-11-23 a test run ran into the user's own test, turned
+  their bulb off and covered their screen.
+- The debugging port listens on 127.0.0.1 only; leave it off for normal use.
+
 ## How the workspace is wired
 
-- **npm workspaces:** `packages/core` and `apps/pc-cli`. The CLI depends on `@ambientlight/core`, which npm
-  links locally.
-- **TypeScript project references:** the root `tsconfig.json` references both packages, and `apps/pc-cli`
-  references `packages/core`. Shared compiler options live in `tsconfig.base.json` (strict, `NodeNext`, ES2023).
-- **`development` export condition:** `@ambientlight/core` exports `./src/index.ts` under the `development`
-  condition and `./dist/index.js` otherwise. Dev scripts and tests run `tsx --conditions=development`, so
+- **npm workspaces:** `packages/core`, `packages/node`, `apps/pc-cli` and `apps/desktop`. `@ambientlight/node` (the Node.js adapters
+  the CLI and the desktop app share) depends on `@ambientlight/core`; the CLI depends on both. npm links them locally.
+- **TypeScript project references:** the root `tsconfig.json` references all three, `packages/node` references
+  `packages/core`, and `apps/pc-cli` references both. Shared compiler options live in `tsconfig.base.json` (strict,
+  `NodeNext`, ES2023).
+- **`development` export condition:** `@ambientlight/core` and `@ambientlight/node` export `./src/index.ts` under the
+  `development` condition and `./dist/index.js` otherwise. Dev scripts and tests run `tsx --conditions=development`, so
   edits to the core apply immediately without a build. The compiler (`customConditions`) resolves it the
   same way.
 
@@ -59,12 +115,14 @@ To run the compiled CLI instead: `npm run build`, then `node apps/pc-cli/dist/ma
 ## Tests
 
 - Framework: `node:test` + `node:assert/strict`, run through `tsx` (no extra test dependency).
-- Tests live in `<package>/test/*.test.ts`. Core fakes are in `packages/core/test/helpers.ts`: `FakeSocket`
+- Tests live in `<package>/test/*.test.ts` (`packages/core`, `packages/node`, `apps/pc-cli`). Core fakes are in
+  `packages/core/test/helpers.ts`: `FakeSocket`
   (in-memory UDP with scripted replies), `FakeCapturer`, `FakeClock`, `RecordingSink`, `solidFrame`.
 - Tests need no bulb, screen, or network.
 - Run a single file: `npx tsx --conditions=development --test packages/core/test/color.test.ts`.
 - The GDI capture helper needs a real screen, so tests cover only its byte-stream handling (`FrameAssembler`).
-  After changing `native/gdi-capture.cs` or `gdi-capture.ts`, check capture time and colors by hand with `sync -v`.
+  After changing `packages/node/native/gdi-capture.cs` or `gdi-capture.ts`, check capture time and colors by hand with
+  `sync -v`.
 
 ## Testing film looks
 
@@ -137,9 +195,9 @@ s.bind(38899, "127.0.0.1");
 
 | Symptom | Fix |
 | --- | --- |
-| `discover` finds nothing | Allow Node.js through Windows Defender Firewall (Private). Make sure the PC and bulb share a subnet (guest Wi‑Fi and mesh "IoT" networks often isolate devices). Turn on "Allow local communication" in the WiZ app. |
-| `color` works but `sync` says the state can't be read | Same firewall issue (inbound replies are blocked). Sync still works; only restore-on-exit is skipped. |
-| First `once`/`sync` on Windows takes ~0.3 s longer | The `"gdi"` capture compiles its helper (`apps/pc-cli/native/gdi-capture.cs`) into `%LOCALAPPDATA%\AmbientLight\gdi-capture-<hash>.exe` on first use. Later runs reuse it; changing the source builds a new one. Delete the folder to force a rebuild. |
+| `discover` finds nothing | Search again: a bulb can miss searches for about a minute (seen with `ping` losing half its packets). Make sure the PC and bulb share a subnet (guest Wi‑Fi and mesh "IoT" networks often isolate devices). Turn on "Allow local communication" in the WiZ app. Check the firewall last: on the user's PC Windows let replies through even with Block rules for Node.js ([WIZ_PROTOCOL.md](WIZ_PROTOCOL.md)). |
+| `color` works but `sync` says the state can't be read | The bulb's reply didn't arrive (a Wi-Fi drop, or a firewall stricter than Windows' default). Sync still works; only restore-on-exit is skipped. |
+| First `once`/`sync` on Windows takes ~0.3 s longer | The `"gdi"` capture compiles its helper (`packages/node/native/gdi-capture.cs`) into `%LOCALAPPDATA%\AmbientLight\gdi-capture-<hash>.exe` on first use. Later runs reuse it; changing the source builds a new one. Delete the folder to force a rebuild. |
 | `Couldn't compile the screen capture helper` / `Can't find the C# compiler` | The `"gdi"` capture needs `%WINDIR%\Microsoft.NET\Framework64\v4.0.30319\csc.exe` (part of Windows 10/11). Use `--capture screenshot-desktop` meanwhile. |
 | `Screen capture is unavailable` | Only the `screenshot-desktop` fallback uses `sharp`. Re-run `npm install` so it fetches its native binary for your platform. |
 | `No film called ... found` | Use the full title, add the year, use `--series` for a TV series, or `--look <name>`. |

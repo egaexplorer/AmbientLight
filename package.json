@@ -6,17 +6,20 @@
   "type": "module",
   "workspaces": [
     "packages/core",
-    "apps/pc-cli"
+    "packages/node",
+    "apps/pc-cli",
+    "apps/desktop"
   ],
   "engines": {
     "node": ">=22.12"
   },
   "scripts": {
-    "build": "tsc -b",
+    "build": "tsc -b && npm run build -w @ambientlight/desktop",
     "clean": "tsc -b --clean",
     "test": "tsx --conditions=development --test \"packages/*/test/**/*.test.ts\" \"apps/*/test/**/*.test.ts\"",
-    "typecheck": "tsc -p tsconfig.tests.json",
+    "typecheck": "tsc -p tsconfig.tests.json && npm run typecheck -w @ambientlight/desktop",
     "check": "npm run build && npm run typecheck && npm test",
+    "desktop": "npm run dev -w @ambientlight/desktop",
     "help": "npm run dev -w @ambientlight/pc-cli -- help",
     "discover": "npm run dev -w @ambientlight/pc-cli -- discover",
     "check-bulb": "npm run dev -w @ambientlight/pc-cli -- check",

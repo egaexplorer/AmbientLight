@@ -23,12 +23,14 @@ export {
 export { colorDistance, EmaSmoother } from "./color/smoothing.js";
 export {
   applyLook,
+  DESIGN_BRIGHTNESS,
   FILM_LOOKS,
   type FilmLook,
   LOOK_NAMES,
   type LookName,
   lookForGenres,
   MAX_HUE_TURN,
+  scaleBrightness,
   turnHue,
 } from "./color/looks.js";
 
@@ -73,6 +75,12 @@ export {
   type SystemConfig,
 } from "./wiz/device.js";
 export {
+  DEFAULT_IDENTIFY_FLASH,
+  type IdentifyOptions,
+  type IdentifyResult,
+  identifyBulb,
+} from "./wiz/identify.js";
+export {
   type BulbCheckOptions,
   type BulbCheckReport,
   type BulbVerdict,
@@ -108,6 +116,13 @@ export {
   type SyncEvents,
   type SyncOptions,
 } from "./sync/engine.js";
+export {
+  type SessionState,
+  type StopResult,
+  SyncSession,
+  type SyncSessionEvents,
+  type SyncSessionOptions,
+} from "./sync/session.js";
 
 // Platform helpers
 export { type Clock, clearTimer, setTimer, sleep, systemClock, type TimerHandle } from "./platform/timers.js";

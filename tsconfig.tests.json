@@ -9,5 +9,7 @@
     "sourceMap": false,
     "types": ["node"]
   },
-  "include": ["packages/*/src", "packages/*/test", "apps/*/src", "apps/*/test"]
+  "include": ["packages/*/src", "packages/*/test", "apps/*/src", "apps/*/test"],
+  // The desktop app has DOM and JSX code and its own tsconfigs (npm run typecheck -w @ambientlight/desktop).
+  "exclude": ["apps/desktop"]
 }

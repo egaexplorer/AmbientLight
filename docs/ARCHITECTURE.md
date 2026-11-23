@@ -54,13 +54,15 @@ the capture itself. `minChange` keeps the bulb from being flooded: in that ~23-m
 | `wiz/socket.ts` | `UdpSocket` interface implemented by each platform |
 | `wiz/light.ts` | `WizLight`: one bulb. `setColor`/`setPilot` (fire-and-forget), `request` (reply matched by IP + method, one retransmit after 400 ms), `getPilot`, `getSystemConfig`, `getModelConfig`, `setPilotConfirmed`, `turnOn`, `turnOff` |
 | `wiz/device.ts` | `SystemConfig`/`ModelConfig` types, `bulbKindFromModule` (color, tunable white, dimmable white, plug) |
+| `wiz/identify.ts` | `identifyBulb`: flashes one bulb (white LEDs, then off, twice) and restores its previous state |
 | `wiz/check.ts` | `checkBulb`: reachability, model, firmware, signed-firmware detection, test color and restore; shared by the CLI and future apps |
 | `wiz/discovery.ts` | `discoverBulbs`: broadcast `getPilot`, collect replies |
 | `color/average.ts` | `analyzeFrame`: plain mean of a `PixelFrame` in linear light (brightness) plus a vivid-weighted mean of the dominant hue family (hue); `averageColor` returns the plain mean. RGB/RGBA/BGR(A), optional sampling step. `frameChange`: mean absolute channel difference of two frames (scene-cut detection) |
 | `color/calibration.ts` | `calibrate`: turns a screen color into WiZ `{r,g,b,c,w,dimming}` (pale colors as hue + white LEDs), or `{temp,dimming}` for near-gray colors; `previewRgb` shows the color a `WizColor` makes |
-| `color/looks.ts` | `FILM_LOOKS`, `lookForGenres` (genre words → look), `applyLook` (look on top of the user's calibration), `turnHue` (small, bounded hue lean) |
+| `color/looks.ts` | `FILM_LOOKS`, `lookForGenres` (genre words → look), `applyLook` (look on top of the user's calibration), `scaleBrightness` (the brightness setting: 70 = `DESIGN_BRIGHTNESS` = as designed), `turnHue` (small, bounded hue lean) |
 | `color/smoothing.ts` | `EmaSmoother`, `colorDistance` |
 | `sync/engine.ts` | `SyncEngine`: the capture → process → transmit loop on fixed frame times; resets the smoothers on scene cuts |
+| `sync/session.ts` | `SyncSession`: one sync run for an app. Reads the bulbs' states, runs a `SyncEngine`, restarts it with new options or another capturer while running (`update`), restores the bulbs on `stop`. Calls are queued, so a double click can't interleave them |
 | `sync/types.ts` | `ScreenCapturer` and `ColorSink` interfaces |
 | `weather/rain.ts` | `assessRain`: turns a `WeatherSnapshot` (alerts, forecast, airport report) into a `RainLevel` and the facts behind it. No I/O |
 | `platform/timers.ts` | `setTimeout` and the clock without Node.js or DOM typings |
@@ -68,24 +70,81 @@ the capture itself. `minChange` keeps the bulb from being flooded: in that ~23-m
 **Rule:** the core must not import `node:*` modules or use Node.js/DOM-only globals. Its `tsconfig.json`
 sets `"types": []` so the compiler enforces this. That's what lets the React Native app reuse it.
 
-### `apps/pc-cli` (`@ambientlight/pc-cli`)
+### `packages/node` (`@ambientlight/node`)
+
+The Node.js adapters that the CLI and the desktop app share (moved out of `apps/pc-cli` on 2026-11-23). Nothing here
+prints to the terminal or reads command-line flags. Errors meant for the user are `UserError`s (the CLI's
+`CliError` is the same class).
 
 | File | Responsibility |
 | --- | --- |
 | `udp.ts` | `UdpSocket` over `node:dgram` (ephemeral port, optional broadcast) |
-| `gdi-capture.ts` | `GdiCapturer` (`"capture": "gdi"`, the Windows default): compiles `native/gdi-capture.cs` once into `%LOCALAPPDATA%\AmbientLight\gdi-capture-<hash>.exe`, keeps it running, and reads one 64×36 BGRA frame per request over stdin/stdout. `FrameAssembler` splits the byte stream into frames |
+| `gdi-capture.ts` | `GdiCapturer` (`"capture": "gdi"`, the Windows default): compiles `native/gdi-capture.cs` once into `%LOCALAPPDATA%\AmbientLight\gdi-capture-<hash>.exe`, keeps it running, and reads one 64×36 BGRA frame per request over stdin/stdout. `FrameAssembler` splits the byte stream into frames. A bundled app passes the `.cs` path as `helperSource` |
 | `native/gdi-capture.cs` | The helper (C# 5, compiled by the `csc.exe` that ships with Windows): per-monitor DPI-aware, `BitBlt` of the display into a bitmap allocated once, `StretchBlt` with `HALFTONE` (area average, measured within 0.5 of the true mean) down to the frame size. Resends the last frame while the secure desktop (UAC, lock screen) blocks capture |
-| `capture.ts` | `DesktopCapturer` (`"capture": "screenshot-desktop"`, fallback and macOS/Linux): `screenshot-desktop` JPEG → `sharp` resize to 64×36 raw RGB; `listDisplays` for the `displays` command (its ids work for both backends) |
 | `network.ts` | Subnet broadcast addresses for every LAN adapter (reliable discovery on Windows) |
-| `cli.ts` / `config.ts` | Argument parsing, `ambientlight.config.json` loading and validation, defaults ← file ← flags |
+| `config.ts` | `ambientlight.config.json`: `AppConfig`, defaults, ranges, validation, `applyConfigFile` (defaults ← file), `checkConfigLimits`, `saveConfigFile` (validates, then writes through a temporary file) |
+| `film.ts` | `findTitle` / `lookForTitle`: one Wikipedia or TVmaze request, exact-title picker, title cache. Failures are `TitleError`s with a `code` (`offline`, `rate-limited`, `not-found` with `similar` titles, `no-genre`, …) so each app words its own advice |
+| `displays.ts` | `listDisplays` through screenshot-desktop, without sharp |
+| `errors.ts` | `UserError`, `errorMessage` |
+
+### `apps/pc-cli` (`@ambientlight/pc-cli`)
+
+| File | Responsibility |
+| --- | --- |
+| `capture.ts` | `DesktopCapturer` (`"capture": "screenshot-desktop"`, the fallback): `screenshot-desktop` JPEG → `sharp` resize to 64×36 raw RGB; `listDisplays` for the `displays` command (its ids work for both backends) |
+| `cli.ts` / `config.ts` | Argument parsing; `resolveConfig`: defaults ← file ← flags (the file handling is in `@ambientlight/node`) |
 | `commands.ts` | `discover`, `state`, `displays`, `color`, `once` (reads the bulb back after sending, optionally saves the frame), `sync` |
 | `check.ts` | `check` (`npm run check-bulb`): runs `checkBulb` on each bulb and prints the report |
 | `frame-file.ts` | `saveFramePng`: writes the analyzed frame as a PNG for `once --save-frame` |
-| `film.ts` | `--film`, `--series`, `--look`: one Wikipedia or TVmaze request, exact-title picker, title cache |
+| `film.ts` | `--film`, `--series`, `--look` → a look (`chooseLook`), and the text that describes it |
 | `weather.ts` | `WeatherClient`: fetches and validates BMKG forecast, BMKG CAP alerts (cached per file) and METAR |
 | `advisor.ts` | Optional AI advice through Gemini's or Groq's chat-completions endpoint, checked against what the rules allow |
 | `rain.ts` | The `rain` command: 2-minute loop, signal colors, simulations, keep-alive, restore on exit |
 | `log.ts` | Live status line with a true-color swatch |
+
+### `apps/desktop` (`@ambientlight/desktop`, Windows)
+
+An Electron app built with electron-vite (React, Tailwind). The workspace packages are bundled from their TypeScript
+sources; `screenshot-desktop` stays external because it runs files from its own folder.
+
+```mermaid
+flowchart LR
+  subgraph Renderer["Renderer (React, sandboxed)"]
+    UI[Home, Find bulbs]
+  end
+  subgraph Main["Main process (Node.js)"]
+    CTRL[AppController]
+    SESS[SyncSession]
+    GDI[GdiCapturer]
+    UDP[UdpSocket]
+  end
+  UI -- "window.ambient (preload, invoke)" --> CTRL
+  CTRL -- "ambient:state, ambient:frame (≤ 10/s)" --> UI
+  CTRL --> SESS --> GDI
+  SESS --> UDP --> BULB((WiZ bulb))
+```
+
+| File | Responsibility |
+| --- | --- |
+| `src/shared/api.ts` | The IPC contract: `AmbientApi` (what `window.ambient` offers), `AppState`, `FrameView`, channel names |
+| `src/main/index.ts` | Electron: single-instance lock, the window (`contextIsolation`, `sandbox`, no Node.js in the renderer, links open in the browser), IPC handlers, config location, restore before quitting |
+| `src/main/controller.ts` | `AppController`: config, film look, discovery, Blink, one `SyncSession`; publishes state changes and frame views. Electron, the network and capture come in through a `Platform`, so tests use fakes |
+| `src/main/frame-view.ts` | `FrameReport` → `FrameView` (hex colors, the bulb's color with white LEDs drawn at their temperature, fps, share sent), at most one per 100 ms. The capture time is the mean of every frame since the previous view: a frame passes the 100 ms gate more often when its own capture was slow, so its time alone read ~9 ms high. `frameLogLine`: one line per frame for `AMBIENTLIGHT_VERBOSE=1` |
+| `src/main/validate.ts` | Checks every IPC argument (IPv4 addresses, at most 16 bulbs, known looks, title length) |
+| `src/preload/index.ts` | `contextBridge` → `window.ambient`; built as CommonJS, which a sandboxed preload needs |
+| `src/renderer/src` | The React UI; `model/` holds DOM-free helpers (look chips, status and error text) that a React Native app could reuse; `mock-api.ts` stands in for the main process in a plain browser |
+
+Decisions:
+
+- **The engine runs in the main process,** next to UDP and the capture helper. The renderer only draws: it gets at
+  most 10 frame views a second, so a busy UI can't slow the sync.
+- **Settings:** `%APPDATA%\AmbientLight\ambientlight.config.json` (or `AMBIENTLIGHT_CONFIG`), the same format as the
+  CLI's. The first start copies the CLI's config. `saveConfigFile` writes only values that differ from the defaults,
+  so tuned defaults still reach existing users.
+- **Quitting always restores:** `before-quit` waits for `AppController.shutdown()` (stop the session, send each bulb
+  its saved state) before the app exits, whether the user pressed Stop, closed the window or quit.
+- **Expected failures are values, not exceptions:** a film lookup returns its `TitleError` code and Blink returns
+  `ok: false`, so the renderer words them itself. Unexpected errors are logged in the main process.
 
 ## Design decisions
 
@@ -186,11 +245,36 @@ sets `"types": []` so the compiler enforces this. That's what lets the React Nat
    peaks at 20° for colors 60° from the look's hue and is gone from 120°; with a wider reach a warm look turned teal
    green and the scifi look turned warm scenes red. It fades out on muted greens (decision 7). The color base shrinks
    with a lowered `maxDimming`, or all scenes would get the same brightness.
+   **Brightness setting (2026-11-23).** `syncOptionsFor` scales the result with `scaleBrightness(…, brightness / 70)`.
+   The user picked the rule: 70 is the look as designed and the scale is linear on both sides, so the setting
+   always does something under a dim look and can brighten it past its design (Horror 45 % → 64 % at 100). A cap
+   that only lowers (the lower of the two wins) would leave the slider dead above 45 under Horror. The color base
+   moves with the cap, as in `applyLook`.
 14. **One request per title, never a guess.** Wikimedia allows 10 requests a minute to clients without contact details,
    and a Wikidata lookup (several requests) hit that limit within seconds. One Wikipedia search returns the first
    sentences of 10 candidates, which name the main genre ("is a 2017 Indonesian supernatural horror film") and other
    names of the film. Only an exact match is accepted, because the top search result for "Wednesday" was "Big
    Wednesday". The lookup happens before the bulb is touched and is cached.
+15. **The desktop app captures with the GDI helper, not `desktopCapturer` (2026-11-23).** The targets are Windows
+   and Android only. Neither backend works on Android, which needs the planned Kotlin `MediaProjection` module;
+   what Android shares is everything behind `ScreenCapturer`. Compared for Windows:
+
+   | | GDI helper (decision 12) | `desktopCapturer` stream | `desktopCapturer.getSources` thumbnails |
+   | --- | --- | --- | --- |
+   | How | `BitBlt` + `StretchBlt HALFTONE` to 64×36 in a helper that stays running, 9 KB over a pipe | Chromium's screen capturer → `MediaStream` → `<video>`/`VideoFrame` → `drawImage` at 64×36 on the GPU → `getImageData`, in a hidden renderer, then IPC to the main process | One `getSources` call per frame |
+   | Capture | **32 ms p50, 35 ms p95 (measured)**; in the desktop app 32 / 36 ms (27 / 37 with its window minimized) | Frames are pushed, so a capture returns the newest one; a few ms of own work (estimate) | Electron's docs call thumbnails expensive: each call enumerates and renders the sources (estimate: too slow for 20 FPS) |
+   | Frame rate | **20.0 held for 23 min (measured)**; 20.0 in the desktop app | The bulb's 20 FPS stays the limit, so the possible gain is up to ~30 ms less latency, not more FPS | Likely under 10 |
+   | Color | Area average **within 0.5 of the true mean (measured)** | Risk: a 30× downscale in `drawImage` may sample instead of average (depends on Chromium's filter), giving noisy colors | Unknown |
+   | Lock screen, UAC | Resends the last frame | The stream can end and must be restarted | Unknown |
+   | Packaging | The `.cs` source ships with the app; compiled once by Windows' own `csc.exe` (~260 ms) | Nothing to compile; needs a hidden window with `backgroundThrottling: false` and a display-media permission handler | Same as the stream |
+
+   Only the GDI column is measured, so the desktop app starts with it. On the user's PC on 2026-11-23 the app (Electron
+   main process) held 20.0 FPS (1,198 frames in 60 s), and its colors equaled `npm run once` exactly on 8 of 8
+   checks. In the same session plain Node timed the helper at 25 ms p50 / 36 ms p95, so the app may add a few
+   milliseconds to the median while its window redraws; the 95th percentile is the same. A benchmark on the user's PC decides whether
+   `desktopCapturer` replaces it ([ROADMAP.md](ROADMAP.md#phase-4-desktop-app-electron-and-android-port-react-native-)).
+   The desktop app doesn't load `sharp`: it only serves the CLI's `screenshot-desktop` fallback (~2.7 FPS) and PNG
+   saving, which Electron's `nativeImage` covers, and a native module would need unpacking in the installer.
 
 ## Rain signal
 
@@ -224,7 +308,7 @@ flowchart LR
    if the native buffer is BGRA.
 3. Create `WizLight`s and a `SyncEngine` from `@ambientlight/core`, then call `start()` / `stop()`.
 
-- **Electron:** capture with `desktopCapturer` + a hidden `<video>`/canvas in a renderer, or a
-  native module. Do UDP in the main process with `node:dgram`, reusing `apps/pc-cli/src/udp.ts`.
+- **Electron (Windows):** capture with the GDI helper in the main process (decision 15), and do UDP there with
+  `node:dgram`, reusing the CLI's adapters. The renderer shows the UI only ([UI_DESIGN.md](UI_DESIGN.md)).
 - **Android:** a Kotlin foreground service runs `MediaProjection` → `ImageReader`, downscales, and streams
   RGB (or a pre-averaged color) to TypeScript. UDP goes through `react-native-udp`.

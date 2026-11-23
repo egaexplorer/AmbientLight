@@ -1,0 +1,15 @@
+{
+  // Type-checks the main process, preload, shared types and tests. electron-vite builds them.
+  "extends": "../../tsconfig.base.json",
+  "compilerOptions": {
+    "module": "ESNext",
+    "moduleResolution": "Bundler",
+    "composite": false,
+    "declaration": false,
+    "declarationMap": false,
+    "sourceMap": false,
+    "noEmit": true,
+    "types": ["node"]
+  },
+  "include": ["src/main", "src/preload", "src/shared", "src/renderer/src/model", "test", "electron.vite.config.ts"]
+}

@@ -1,6 +1,5 @@
 import { setTimeout as delay } from "node:timers/promises";
 import {
-  applyLook,
   discoverBulbs,
   type PixelFrame,
   pilotToRestoreParams,
@@ -13,18 +12,18 @@ import {
   WizLight,
   WizTimeoutError,
 } from "@ambientlight/core";
+import { broadcastAddresses, createNodeUdpSocket, GdiCapturer, syncOptionsFor } from "@ambientlight/node";
 import { CliError, type CliFlags } from "./cli.js";
 import type { AppConfig } from "./config.js";
 import { type ChosenLook, describeLook } from "./film.js";
 import { saveFramePng } from "./frame-file.js";
-import { GdiCapturer } from "./gdi-capture.js";
 import { colorSwatch, errorMessage, formatColor, formatPilot, StatusLine, swatch } from "./log.js";
-import { broadcastAddresses } from "./network.js";
-import { createNodeUdpSocket } from "./udp.js";
 
-export const FIREWALL_HINT =
-  "If you're on Windows, make sure Node.js is allowed through Windows Defender Firewall on Private networks,\n" +
-  'that the PC and bulb are on the same Wi-Fi/subnet, and that "Allow local communication" is on in the WiZ app.';
+/** What to try when a bulb doesn't answer, likeliest first (WIZ_PROTOCOL.md, "Discovery"). */
+export const NO_REPLY_HINT =
+  "Try again: a bulb can miss requests for about a minute, more so right after it's switched on.\n" +
+  'Check that the PC and bulb are on the same Wi-Fi/subnet and that "Allow local communication" is on in the WiZ app.\n' +
+  "Still nothing? Check that your firewall allows Node.js on Private networks.";
 
 export function requireBulbs(config: AppConfig): void {
   if (config.bulbs.length === 0) {
@@ -35,17 +34,7 @@ export function requireBulbs(config: AppConfig): void {
 }
 
 function syncOptions(config: AppConfig, look?: ChosenLook): Partial<SyncOptions> {
-  return {
-    fps: config.fps,
-    smoothing: config.smoothing,
-    colorWeighting: config.colorWeighting,
-    colorMode: config.colorMode,
-    minChange: config.minChange,
-    sceneCut: config.sceneCut,
-    keepAliveMs: config.keepAliveMs,
-    calibration: look ? applyLook(config.calibration, look.look) : config.calibration,
-    hueTarget: look?.look.hue,
-  };
+  return syncOptionsFor(config, look?.look);
 }
 
 /**
@@ -94,7 +83,7 @@ export async function runDiscover(flags: CliFlags): Promise<number> {
   try {
     const bulbs = await discoverBulbs(socket, { broadcastAddresses: addresses, timeoutMs });
     if (bulbs.length === 0) {
-      console.log(`\nNo bulbs answered within ${timeoutMs} ms.\n${FIREWALL_HINT}`);
+      console.log(`\nNo bulbs answered within ${timeoutMs} ms.\n${NO_REPLY_HINT}`);
       return 1;
     }
     console.log(`\nFound ${bulbs.length} bulb${bulbs.length === 1 ? "" : "s"}:\n`);
@@ -128,7 +117,7 @@ export async function runState(config: AppConfig): Promise<number> {
   } finally {
     await socket.close();
   }
-  if (failed) console.log(`\n${FIREWALL_HINT}`);
+  if (failed) console.log(`\n${NO_REPLY_HINT}`);
   return failed ? 1 : 0;
 }
 
@@ -161,7 +150,7 @@ export async function runPower(config: AppConfig, on: boolean): Promise<number> 
     await socket.close();
   }
   if (noReply) console.log(`
-${FIREWALL_HINT}`);
+${NO_REPLY_HINT}`);
   return failed ? 1 : 0;
 }
 

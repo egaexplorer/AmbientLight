@@ -130,6 +130,15 @@ describe("config", () => {
     assert.throws(() => resolveConfig(file, parseCommandLine(["sync", "--max-dimming", "30"]).flags), /cannot be higher/);
   });
 
+  it("reads brightness from the file and --brightness, within 10-100", () => {
+    assert.equal(resolveConfig(undefined, parseCommandLine(["sync"]).flags).brightness, 70);
+    const file = validateConfigFile({ brightness: 50 }, "test");
+    assert.equal(resolveConfig(file, parseCommandLine(["sync"]).flags).brightness, 50);
+    assert.equal(resolveConfig(file, parseCommandLine(["once", "--brightness", "100"]).flags).brightness, 100);
+    assert.throws(() => validateConfigFile({ brightness: 5 }, "test"), /between 10 and 100/);
+    assert.throws(() => resolveConfig(undefined, parseCommandLine(["sync", "--brightness", "101"]).flags), /--brightness/);
+  });
+
   it("reads mutedGreenCorrection from the file and --muted-green, within 0-1", () => {
     assert.equal(resolveConfig(undefined, parseCommandLine(["sync"]).flags).calibration.mutedGreenCorrection, 1);
     const file = validateConfigFile({ calibration: { mutedGreenCorrection: 0.5 } }, "test");

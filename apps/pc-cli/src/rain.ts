@@ -10,12 +10,12 @@ import {
   type WeatherSnapshot,
   WizLight,
 } from "@ambientlight/core";
+import { createNodeUdpSocket } from "@ambientlight/node";
 import { type Advice, createAdvisor } from "./advisor.js";
 import { CliError, type CliFlags, type SimulatedWeather } from "./cli.js";
 import { requireBulbs, waitForShutdown } from "./commands.js";
 import type { AppConfig } from "./config.js";
 import { errorMessage, swatch } from "./log.js";
-import { createNodeUdpSocket } from "./udp.js";
 import { WeatherClient } from "./weather.js";
 
 const POLL_MS = 120_000;

@@ -1,4 +1,5 @@
 import { type FrameReport, type PilotState, previewRgb, type Rgb, type WizColor } from "@ambientlight/core";
+import { errorMessage } from "@ambientlight/node";
 
 const isTty = process.stdout.isTTY === true;
 const useColor = isTty && process.env.NO_COLOR === undefined;
@@ -41,9 +42,7 @@ export function formatPilot(state: PilotState): string {
   return parts.join("  ");
 }
 
-export function errorMessage(error: unknown): string {
-  return error instanceof Error ? error.message : String(error);
-}
+export { errorMessage };
 
 /** Live one-line status for `sync`; prints a line per frame in verbose mode, once a second when not a TTY. */
 export class StatusLine {

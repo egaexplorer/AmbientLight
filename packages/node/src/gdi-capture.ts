@@ -6,8 +6,13 @@ import path from "node:path";
 import { fileURLToPath } from "node:url";
 import type { PixelFrame, ScreenCapturer } from "@ambientlight/core";
 
-/** C# source of the helper. `../native/` resolves to `apps/pc-cli/native/` from both `src/` and `dist/`. */
-const SOURCE = fileURLToPath(new URL("../native/gdi-capture.cs", import.meta.url));
+/**
+ * C# source of the helper. `../native/` resolves to `packages/node/native/` from both `src/` and `dist/`. A bundled
+ * app (Electron) passes `helperSource` instead, because bundling moves this module away from that folder.
+ */
+export function defaultHelperSource(): string {
+  return fileURLToPath(new URL("../native/gdi-capture.cs", import.meta.url));
+}
 const REQUEST = Buffer.of(1);
 
 export interface GdiCapturerOptions {
@@ -18,6 +23,8 @@ export interface GdiCapturerOptions {
   height: number;
   /** Give up on a frame after this long and restart the helper. Default 2000 ms. */
   timeoutMs?: number;
+  /** Path of `gdi-capture.cs`. Default: `native/gdi-capture.cs` in this package. */
+  helperSource?: string;
 }
 
 /** Splits the helper's stdout stream into fixed-size frames. */
@@ -69,8 +76,8 @@ function findCsc(): string {
  * Path of the compiled helper, compiling it first if needed. The exe is cached in
  * `%LOCALAPPDATA%\AmbientLight\` under a hash of its source, so it's built once and rebuilt when the source changes.
  */
-export async function ensureHelper(): Promise<string> {
-  const source = await fs.promises.readFile(SOURCE);
+export async function ensureHelper(sourcePath: string = defaultHelperSource()): Promise<string> {
+  const source = await fs.promises.readFile(sourcePath);
   const hash = createHash("sha256").update(source).digest("hex").slice(0, 12);
   const dir = path.join(process.env.LOCALAPPDATA ?? path.join(os.homedir(), "AppData", "Local"), "AmbientLight");
   const exe = path.join(dir, `gdi-capture-${hash}.exe`);
@@ -79,7 +86,7 @@ export async function ensureHelper(): Promise<string> {
   await fs.promises.mkdir(dir, { recursive: true });
   const temp = path.join(dir, `gdi-capture-${hash}.${process.pid}.tmp.exe`);
   await new Promise<void>((resolve, reject) => {
-    execFile(findCsc(), ["/nologo", "/optimize+", `/out:${temp}`, SOURCE], { windowsHide: true }, (error, stdout) => {
+    execFile(findCsc(), ["/nologo", "/optimize+", `/out:${temp}`, sourcePath], { windowsHide: true }, (error, stdout) => {
       if (error) reject(new Error(`Couldn't compile the screen capture helper: ${stdout.trim() || error.message}`));
       else resolve();
     });
@@ -151,7 +158,7 @@ export class GdiCapturer implements ScreenCapturer {
   }
 
   private async spawnHelper(): Promise<ChildProcessWithoutNullStreams> {
-    const exe = await ensureHelper();
+    const exe = await ensureHelper(this.options.helperSource);
     const args = [String(this.options.width), String(this.options.height)];
     if (this.options.screen !== undefined) args.push(String(this.options.screen));
 

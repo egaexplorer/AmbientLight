@@ -14,7 +14,8 @@ Capture screen  ->  Downscale + average color  ->  Calibrate + smooth  ->  UDP s
 
 **Status:** Phases 1–2 work end to end in the PC command-line app (capture, average, calibrate,
 smooth, throttle, send, restore on exit). Phase 3 (calibrating on real hardware) is in progress, and Phase 4
-(Electron desktop app, Android app) is next. Film looks are built and tested on live APIs, real film frames and a fake bulb, not yet judged on a real bulb.
+(Windows desktop app, then Android app) has started: the [desktop app](#desktop-app-windows)'s demo flow is built and
+waits for its first test on a real bulb. Film looks are built and tested on live APIs, real film frames and a fake bulb, not yet judged on a real bulb.
 The rain signal is a parked option: tested on live weather data and a fake bulb, not
 yet on a real bulb or with a real AI answer. See [docs/ROADMAP.md](docs/ROADMAP.md).
 
@@ -23,16 +24,19 @@ yet on a real bulb or with a real AI answer. See [docs/ROADMAP.md](docs/ROADMAP.
 ```text
 packages/core     Shared TypeScript: WiZ UDP protocol, color pipeline, sync engine.
                   No Node.js APIs, so the React Native app can reuse it unchanged.
-apps/pc-cli       Node.js CLI: GDI capture helper (screenshot-desktop + sharp as fallback), node:dgram UDP.
-apps/desktop      Phase 4: Electron app (planned)
+packages/node     Node.js adapters shared by the CLI and the desktop app: GDI capture helper, node:dgram UDP,
+                  config files, film title lookup.
+apps/pc-cli       Node.js CLI (screenshot-desktop + sharp as a capture fallback).
+apps/desktop      Phase 4: Electron app for Windows (demo flow built; screens in docs/UI_DESIGN.md)
 apps/android      Phase 4: React Native + Kotlin MediaProjection (planned)
-docs/             Architecture, WiZ protocol notes, roadmap, development guide
+docs/             Architecture, WiZ protocol notes, roadmap, development guide, UI design
 ```
 
 ## Requirements
 
-- **Windows 10/11** (macOS and Linux work too with `"capture": "screenshot-desktop"`; Linux needs ImageMagick).
-  On Windows, the first `once`/`sync` builds a small capture helper with the C# compiler that ships with Windows
+- **Windows 10/11.** AmbientLight targets Windows PCs and, later, Android; macOS, Linux and iOS aren't supported
+  (the CLI's `"capture": "screenshot-desktop"` fallback may run there, but that isn't tested or maintained).
+  The first `once`/`sync` builds a small capture helper with the C# compiler that ships with Windows
   (.NET Framework 4); later runs reuse it.
 - **Node.js 22.12 or newer.** Node 24 LTS is recommended.
 - **A Philips WiZ bulb** set up in the official WiZ app, on the **same Wi‑Fi/subnet** as the PC.
@@ -64,8 +68,9 @@ npm run sync
 ```
 
 > **Windows Firewall:** the first time you run `discover` or `sync`, Windows may ask whether Node.js can
-> use the network. Allow it on **Private networks**. If you don't, sending colors still works, but discovery
-> and "restore previous state" can't receive the bulb's replies.
+> use the network. Allowing it on **Private networks** is the safe answer, but on the test PC the answer didn't
+> matter: Windows lets the bulb's replies to AmbientLight's own requests through, even with the prompt cancelled.
+> If no bulb answers, search again first; a bulb can miss searches for about a minute.
 
 You can pass any setting on the command line instead of the config file, e.g.
 `npm run sync -- --bulb 192.168.1.50 --fps 12 --saturation 1.5`.
@@ -85,6 +90,39 @@ You can pass any setting on the command line instead of the config file, e.g.
 | `npm run sync -- --film "<title>"` | Sync with the look of that film's genre ([Film looks](#film-looks)). Also `--series` and `--look`, and the same for `once` |
 | `npm run rain` | Weather signal on the bulb ([Rain signal](#rain-signal)). Don't run it at the same time as `sync` |
 | `npm run help` | All options |
+| `npm run desktop` | Starts the [desktop app](#desktop-app-windows) from source |
+
+## Desktop app (Windows)
+
+The same sync without a terminal. The first milestone covers one flow: find a bulb, blink it, choose a film look
+(by title or by picking one), start, watch the live colors, stop.
+
+```powershell
+npm install
+npm run desktop    # the first start downloads Electron (~100 MB) if npm install didn't
+```
+
+- **Find bulbs** searches the network like `npm run discover`; **Blink** flashes a bulb twice and puts it back. You can
+  also add a bulb by IP.
+- **Start sync** captures with the same GDI helper as the CLI, so frame rate and colors match `npm run sync`
+  (measured on the real bulb: 20 FPS, and exactly the color `npm run once` sends for the same picture).
+  **Stop sync**, closing the window or quitting all put the bulbs back the way they were.
+- **Film look**: type a film or series title (Wikipedia or TVmaze, as `--film` / `--series`) or pick a look. A look
+  applies at once, also while syncing.
+- **Brightness** (Home, under the live colors): 70 % shows the look as designed, and the bulb's top brightness
+  scales with it, so with Horror (capped at 45 %) 100 % gives 64 % and 35 % gives 22.5 %. It applies at once, also
+  while syncing, and is saved as `brightness`. The label shows what the bulb reaches ("bulb up to 45 %"); with no
+  look or a look capped at 100 %, settings above 70 change nothing.
+- **Minimize while syncing** (on by default) keeps the app's own window out of the captured picture.
+- Settings live in `%APPDATA%\AmbientLight\ambientlight.config.json`. On the first start the app copies the CLI's
+  `ambientlight.config.json` (searched from where you ran `npm run desktop`), so bulbs and calibration carry over.
+  Only values that differ from the defaults are saved. Set `AMBIENTLIGHT_CONFIG` to use another file.
+- The first start makes Windows ask whether Electron can use the network, as it does for Node.js. Allow it on
+  **Private networks**; on the test PC the app also worked with the question left unanswered.
+
+Not yet in the app: the setup wizard, Bulbs and Tuning pages, display choice, tray icon and an installer
+([roadmap](docs/ROADMAP.md#phase-4-desktop-app-electron-and-android-port-react-native-)). Use the config file or the
+CLI for those meanwhile.
 
 ## Configuration
 
@@ -104,6 +142,7 @@ Command-line flags override it.
 | `colorMode` | `"dominant"` | `"dominant"`: the bulb shows the strongest color on screen (by area and vividness), so red and green never mix into an orange that isn't there. `"average"`: all colors are mixed. |
 | `minChange` | `4` | Changes smaller than this (0–255 scale) aren't sent, which avoids flooding the bulb. |
 | `keepAliveMs` | `2000` | Re-sends the current color this often in case a UDP packet was lost. |
+| `brightness` | `70` | 10–100. 70 shows a film look (or plain sync) as designed; the top brightness scales linearly with it, up to the bulb's 100 % (Horror's 45 % becomes 64 % at 100). The desktop app's Brightness slider. CLI: `--brightness`. |
 | `restoreOnExit` | `true` | Restores the bulb's previous color, white, or scene when `sync` or `rain` stops. |
 | `weatherArea` | `null` | BMKG village code (adm4) for `rain`, e.g. `"31.71.03.1001"` (Kemayoran). |
 | `calibration.saturationBoost` | `1.3` | Makes washed-out average colors more vivid. |
@@ -179,7 +218,8 @@ npm run sync -- --look horror               # pick it yourself, no internet
 | `action` | 100 % | 5500 K | Strong, nearby colors lean red-orange |
 | `drama` | 80 % | 3800 K | Soft, natural |
 
-- A look works on top of your calibration: it scales saturation and gamma, can only lower your `maxDimming`, and turns
+- A look works on top of your calibration: it scales saturation and gamma, can only lower your `maxDimming` (`brightness` above
+  70 then brightens it again), and turns
   hues by at most 20° before gamma. Colors far from the look's hue and muted greens aren't turned.
 - The title must match exactly (case and punctuation don't matter), including other names in the article's first
   sentence, so Indonesian titles work. A similar title is suggested, never guessed. Comedy horror counts as comedy.

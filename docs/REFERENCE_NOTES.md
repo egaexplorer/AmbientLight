@@ -52,7 +52,7 @@ Several design decisions in [ARCHITECTURE.md](ARCHITECTURE.md) match what the mo
 - **Newest frame wins, no queue** (`SyncEngine`). wiz-pc's scheduler is built around the same rule;
   wiz-led-nodejs shows the failure mode (a FIFO queue with a 300 ms gap that builds a backlog of stale colors).
 - **Keep-alive re-send** (`keepAliveMs`). MihirGupta07/wiz-sync re-sends every 1 s for the same reason.
-- **Subnet broadcast on every adapter** (`apps/pc-cli/src/network.ts`). HyperHDR's WiZ discovery does the same.
+- **Subnet broadcast on every adapter** (`packages/node/src/network.ts`). HyperHDR's WiZ discovery does the same.
 
 ## Top lessons, ranked
 
@@ -67,7 +67,7 @@ Several design decisions in [ARCHITECTURE.md](ARCHITECTURE.md) match what the mo
 | 7 | Letterbox detection with a 3-line probe plus a stability counter. | new `color/letterbox.ts`, `average.ts` | HyperHDR, hyperion.ng, ambient-setup |
 | 8 | Discovery: also broadcast `registration`; save bulbs by MAC and re-resolve the IP. | `wiz/discovery.ts`, `pc-cli` config | MihirGupta07, wiz-pc, SignalRGB, ambient-setup, HyperHDR |
 | 9 | Retransmit `getPilot` once after ~400 ms; clamp dimming to the bulb's `minDimLevel`. | `wiz/light.ts` | homebridge-wiz-lan, pywizlight |
-| 10 | Faster PC capture. Done with a GDI helper that stays running (`"capture": "gdi"`, 367 → 32 ms per frame); later DXGI with a GPU downscale, and reusing the last frame when the screen didn't change. | `apps/pc-cli/src/gdi-capture.ts` | node-screenshots, Prismatik, HyperHDR |
+| 10 | Faster PC capture. Done with a GDI helper that stays running (`"capture": "gdi"`, 367 → 32 ms per frame); later DXGI with a GPU downscale, and reusing the last frame when the screen didn't change. | `packages/node/src/gdi-capture.ts` | node-screenshots, Prismatik, HyperHDR |
 | 11 | An `identify` command that flashes one bulb. | `pc-cli` `commands.ts` | ambient-setup, HyperHDR, namanb-lab |
 | 12 | Presets (ambient / movie / gaming / relax) as bundles of existing options. | `pc-cli` config | ambient-setup |
 | 13 | Android capture: tiny `VirtualDisplay`, `acquireLatestImage`, rotation and Android 14 rules. | `apps/android` (Phase 4) | namanb-lab, hyperion-android-reborn |
@@ -107,6 +107,38 @@ Where the references lose or save time between a change on screen and the bulb, 
   downscale (HyperHDR, Lightpack, hyperion.ng). None starts a process per frame as `screenshot-desktop` does.
 - **Timers.** hyperion.ng and HyperHDR use precise timers; no reference uses `timeBeginPeriod`. Node's timers on
   Windows fire late by up to ~16 ms, which is why `SyncEngine` now sleeps to fixed frame times.
+
+## UI study (2026-11-23)
+
+How the references and three commercial apps lay out their GUI, read from their READMEs and help pages (no
+screenshots were described in enough detail to copy a layout). It shaped the desktop app's screens
+([UI_DESIGN.md](UI_DESIGN.md)).
+
+| GUI | Apps |
+| --- | --- |
+| Native desktop window | ambient-setup (Tk), MihirGupta07/wiz-sync (Tkinter), Prismatik (Qt, with a tray icon) |
+| Local web dashboard | wiz-pc (Next.js + shadcn/ui over a WebSocket), LedFx (React, port 8888), screenBloom (Flask), HyperHDR (Bootstrap) |
+| Phone or TV app | namanb-lab/wiz-sync (Android and Android TV) |
+| Commercial desktop | Philips Hue Sync, Govee Desktop (DreamView), Nanoleaf desktop app (Screen Mirror) |
+
+| Pattern | Seen in | Used in AmbientLight |
+| --- | --- | --- |
+| First-run wizard | ambient-setup (bulbs → preset → start), MihirGupta07 (discover → select → save), Hue Sync (choose area → start) | Setup wizard |
+| Discovery list with details, plus manual add | namanb-lab (IP, MAC, model, firmware, power, signal), LedFx (scan + add) | Find bulbs dialog, Bulbs page |
+| Identify button per bulb | ambient-setup (flashes green), namanb-lab (Blink), HyperHDR (`pulse`) | Blink |
+| Card or dot per bulb with its live color and a power switch | wiz-pc, ambient-setup | Bulbs strip on Home, Bulbs page |
+| One prominent start/stop control | Hue Sync, MihirGupta07's "power jewel", namanb-lab | Start sync button |
+| Modes or presets with a short description | Hue Sync (video, game, music; intensity subtle to intense), Govee (movie, gaming), Nanoleaf (match, palette, melt, fade), ambient-setup | Film-look chips; presets later |
+| Fine-tuning kept behind a section | ambient-setup, screenBloom, MihirGupta07's knobs | Tuning page, Advanced collapsed |
+| Display picker | Govee ("Color-Picking Screen"), screenBloom, Nanoleaf | Setup wizard, `screen` |
+| Global brightness cap | screenBloom, ambient-setup's relax preset (50 %) | Max brightness slider |
+| Lights off or dimmed on the lock screen | Govee | The capture helper already resends the last frame; an option later |
+| Tray quick toggle | Prismatik | Tray menu |
+| Light delay for slow outputs | MihirGupta07 (Bluetooth speakers) | `delayMs` idea in ROADMAP "Later ideas" |
+
+Also noted: Govee offers a GDI capture mode as a fallback when sync fails, and Hue Sync can dim the lights when the
+app starts so the screen stays the focus. Hue Sync, Govee and Nanoleaf all state that DRM-protected streams
+(Netflix and similar) can't be captured.
 
 ---
 
@@ -408,7 +440,7 @@ Details checked on 2026-11-21 (version 0.2.8, `xcap` 0.4.1):
 - The `LICENSE` file is MIT (napi-rs template), but `package.json` says Apache-2.0.
 
 Applies to AmbientLight: lesson 10, but it wasn't used. The same GDI copy in our own helper that stays running
-(`apps/pc-cli/native/gdi-capture.cs`) declares DPI awareness, shrinks the frame before it reaches Node, keeps
+(`packages/node/native/gdi-capture.cs`) declares DPI awareness, shrinks the frame before it reaches Node, keeps
 screenshot-desktop's display ids, and adds no dependency (ARCHITECTURE.md, design decision 12). Don't pass a GDI
 capture with alpha 0 to `sharp().resize()`: sharp premultiplies alpha before resizing and only removes it
 afterwards, so the frame turns black.
