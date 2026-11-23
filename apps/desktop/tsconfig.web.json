@@ -1,0 +1,17 @@
+{
+  // Type-checks the renderer (React, DOM). Vite builds it.
+  "extends": "../../tsconfig.base.json",
+  "compilerOptions": {
+    "module": "ESNext",
+    "moduleResolution": "Bundler",
+    "lib": ["ES2023", "DOM", "DOM.Iterable"],
+    "jsx": "react-jsx",
+    "composite": false,
+    "declaration": false,
+    "declarationMap": false,
+    "sourceMap": false,
+    "noEmit": true,
+    "types": ["vite/client"]
+  },
+  "include": ["src/renderer/src", "src/shared"]
+}

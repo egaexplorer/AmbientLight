@@ -13,6 +13,9 @@ jobs:
       matrix:
         os: [windows-latest, ubuntu-latest]
     runs-on: ${{ matrix.os }}
+    env:
+      # Tests and the desktop build don't start Electron, so skip its ~100 MB download.
+      ELECTRON_SKIP_BINARY_DOWNLOAD: "1"
     steps:
       - uses: actions/checkout@v6
       - uses: actions/setup-node@v6

@@ -14,7 +14,8 @@ Capture screen  ->  Downscale + average color  ->  Calibrate + smooth  ->  UDP s
 
 **Status:** Phases 1–2 work end to end in the PC command-line app (capture, average, calibrate,
 smooth, throttle, send, restore on exit). Phase 3 (calibrating on real hardware) is in progress, and Phase 4
-(Windows desktop app, then Android app) is next: the desktop app's screens are designed ([docs/UI_DESIGN.md](docs/UI_DESIGN.md)). Film looks are built and tested on live APIs, real film frames and a fake bulb, not yet judged on a real bulb.
+(Windows desktop app, then Android app) has started: the [desktop app](#desktop-app-windows)'s demo flow is built and
+waits for its first test on a real bulb. Film looks are built and tested on live APIs, real film frames and a fake bulb, not yet judged on a real bulb.
 The rain signal is a parked option: tested on live weather data and a fake bulb, not
 yet on a real bulb or with a real AI answer. See [docs/ROADMAP.md](docs/ROADMAP.md).
 
@@ -26,7 +27,7 @@ packages/core     Shared TypeScript: WiZ UDP protocol, color pipeline, sync engi
 packages/node     Node.js adapters shared by the CLI and the desktop app: GDI capture helper, node:dgram UDP,
                   config files, film title lookup.
 apps/pc-cli       Node.js CLI (screenshot-desktop + sharp as a capture fallback).
-apps/desktop      Phase 4: Electron app for Windows (planned; screens in docs/UI_DESIGN.md)
+apps/desktop      Phase 4: Electron app for Windows (demo flow built; screens in docs/UI_DESIGN.md)
 apps/android      Phase 4: React Native + Kotlin MediaProjection (planned)
 docs/             Architecture, WiZ protocol notes, roadmap, development guide, UI design
 ```
@@ -88,6 +89,34 @@ You can pass any setting on the command line instead of the config file, e.g.
 | `npm run sync -- --film "<title>"` | Sync with the look of that film's genre ([Film looks](#film-looks)). Also `--series` and `--look`, and the same for `once` |
 | `npm run rain` | Weather signal on the bulb ([Rain signal](#rain-signal)). Don't run it at the same time as `sync` |
 | `npm run help` | All options |
+| `npm run desktop` | Starts the [desktop app](#desktop-app-windows) from source |
+
+## Desktop app (Windows)
+
+The same sync without a terminal. The first milestone covers one flow: find a bulb, blink it, choose a film look
+(by title or by picking one), start, watch the live colors, stop.
+
+```powershell
+npm install        # the first time downloads Electron (~100 MB)
+npm run desktop
+```
+
+- **Find bulbs** searches the network like `npm run discover`; **Blink** flashes a bulb twice and puts it back. You can
+  also add a bulb by IP.
+- **Start sync** captures with the same GDI helper as the CLI, so frame rate and colors match `npm run sync`.
+  **Stop sync**, closing the window or quitting all put the bulbs back the way they were.
+- **Film look**: type a film or series title (Wikipedia or TVmaze, as `--film` / `--series`) or pick a look. A look
+  applies at once, also while syncing.
+- **Minimize while syncing** (on by default) keeps the app's own window out of the captured picture.
+- Settings live in `%APPDATA%\AmbientLight\ambientlight.config.json`. On the first start the app copies the CLI's
+  `ambientlight.config.json` (searched from where you ran `npm run desktop`), so bulbs and calibration carry over.
+  Only values that differ from the defaults are saved. Set `AMBIENTLIGHT_CONFIG` to use another file.
+- Windows may ask whether Electron can use the network, as it does for Node.js. Allow it on **Private networks**,
+  or the bulbs' replies can't reach the app.
+
+Not yet in the app: the setup wizard, Bulbs and Tuning pages, display choice, tray icon and an installer
+([roadmap](docs/ROADMAP.md#phase-4-desktop-app-electron-and-android-port-react-native-)). Use the config file or the
+CLI for those meanwhile.
 
 ## Configuration
 

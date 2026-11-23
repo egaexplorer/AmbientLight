@@ -102,6 +102,50 @@ prints to the terminal or reads command-line flags. Errors meant for the user ar
 | `rain.ts` | The `rain` command: 2-minute loop, signal colors, simulations, keep-alive, restore on exit |
 | `log.ts` | Live status line with a true-color swatch |
 
+### `apps/desktop` (`@ambientlight/desktop`, Windows)
+
+An Electron app built with electron-vite (React, Tailwind). The workspace packages are bundled from their TypeScript
+sources; `screenshot-desktop` stays external because it runs files from its own folder.
+
+```mermaid
+flowchart LR
+  subgraph Renderer["Renderer (React, sandboxed)"]
+    UI[Home, Find bulbs]
+  end
+  subgraph Main["Main process (Node.js)"]
+    CTRL[AppController]
+    SESS[SyncSession]
+    GDI[GdiCapturer]
+    UDP[UdpSocket]
+  end
+  UI -- "window.ambient (preload, invoke)" --> CTRL
+  CTRL -- "ambient:state, ambient:frame (≤ 10/s)" --> UI
+  CTRL --> SESS --> GDI
+  SESS --> UDP --> BULB((WiZ bulb))
+```
+
+| File | Responsibility |
+| --- | --- |
+| `src/shared/api.ts` | The IPC contract: `AmbientApi` (what `window.ambient` offers), `AppState`, `FrameView`, channel names |
+| `src/main/index.ts` | Electron: single-instance lock, the window (`contextIsolation`, `sandbox`, no Node.js in the renderer, links open in the browser), IPC handlers, config location, restore before quitting |
+| `src/main/controller.ts` | `AppController`: config, film look, discovery, Blink, one `SyncSession`; publishes state changes and frame views. Electron, the network and capture come in through a `Platform`, so tests use fakes |
+| `src/main/frame-view.ts` | `FrameReport` → `FrameView` (hex colors, the bulb's color with white LEDs drawn at their temperature, fps, share sent), at most one per 100 ms |
+| `src/main/validate.ts` | Checks every IPC argument (IPv4 addresses, at most 16 bulbs, known looks, title length) |
+| `src/preload/index.ts` | `contextBridge` → `window.ambient`; built as CommonJS, which a sandboxed preload needs |
+| `src/renderer/src` | The React UI; `model/` holds DOM-free helpers (look chips, status and error text) that a React Native app could reuse; `mock-api.ts` stands in for the main process in a plain browser |
+
+Decisions:
+
+- **The engine runs in the main process,** next to UDP and the capture helper. The renderer only draws: it gets at
+  most 10 frame views a second, so a busy UI can't slow the sync.
+- **Settings:** `%APPDATA%\AmbientLight\ambientlight.config.json` (or `AMBIENTLIGHT_CONFIG`), the same format as the
+  CLI's. The first start copies the CLI's config. `saveConfigFile` writes only values that differ from the defaults,
+  so tuned defaults still reach existing users.
+- **Quitting always restores:** `before-quit` waits for `AppController.shutdown()` (stop the session, send each bulb
+  its saved state) before the app exits, whether the user pressed Stop, closed the window or quit.
+- **Expected failures are values, not exceptions:** a film lookup returns its `TitleError` code and Blink returns
+  `ok: false`, so the renderer words them itself. Unexpected errors are logged in the main process.
+
 ## Design decisions
 
 1. **Average in linear light.** Screens emit light linearly in physical terms. A half-white, half-black

@@ -54,7 +54,19 @@ numbers come from measurements in [ARCHITECTURE.md](ARCHITECTURE.md#latency-budg
 | Problem badge | border `#6b4b25`, text `#f2c48d` | Other verdicts |
 | Font | Inter 400–700 | Everything; tabular numbers for live values |
 
-Radius 14 px for cards, 9–10 px for controls. The window opens at 1000×680 and can shrink to 860×580.
+Radius 14 px for cards, 9–10 px for controls. The window opens at 1000×680 and can shrink to 860×580; the sidebar
+stays put and only the content scrolls.
+
+### Built so far (2026-11-23)
+
+The Home screen and the Find bulbs dialog (`apps/desktop/src/renderer`), as in the wireframe, with these differences:
+
+- **Font:** Segoe UI, the Windows system font, instead of Inter. It needs no download, and the app's content
+  security policy allows no outside fonts.
+- **"Minimize while syncing"** instead of "Hide window while syncing": without a tray icon yet, a hidden window
+  couldn't be brought back. It becomes "hide" with the tray.
+- **Sidebar:** only Home, until the other screens exist.
+- **Find bulbs** also lists configured bulbs that didn't answer ("Not answering"), so they can be kept or dropped.
 
 ## Screen spec
 

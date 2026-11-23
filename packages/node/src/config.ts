@@ -1,12 +1,15 @@
 import fs from "node:fs";
 import path from "node:path";
 import {
+  applyLook,
   type CalibrationOptions,
   type ColorMode,
   DEFAULT_CALIBRATION,
   DEFAULT_SYNC_OPTIONS,
+  type FilmLook,
   MAX_FPS,
   MIN_FPS,
+  type SyncOptions,
 } from "@ambientlight/core";
 import { UserError } from "./errors.js";
 
@@ -237,15 +240,24 @@ export function checkConfigLimits(config: AppConfig): AppConfig {
   return config;
 }
 
-/** The file form of a config: absent display and weather area become `null`. */
+/**
+ * The file form of a config: the bulbs plus every value that differs from the defaults, so later changes to the
+ * defaults (Phase 3 tuning) still reach the user.
+ */
 export function toConfigFile(config: AppConfig): ConfigFile {
-  return {
-    ...config,
-    bulbs: [...config.bulbs],
-    screen: config.screen ?? null,
-    weatherArea: config.weatherArea ?? null,
-    calibration: { ...config.calibration },
-  };
+  const file: ConfigFile = { bulbs: [...config.bulbs] };
+  const out = file as Record<string, unknown>;
+  for (const key of Object.keys(DEFAULT_CONFIG) as Array<keyof AppConfig>) {
+    if (key === "bulbs" || key === "calibration") continue;
+    const value = config[key];
+    if (value !== DEFAULT_CONFIG[key]) out[key] = value ?? null;
+  }
+  const calibration: Partial<CalibrationOptions> = {};
+  for (const key of Object.keys(DEFAULT_CONFIG.calibration) as Array<keyof CalibrationOptions>) {
+    if (config.calibration[key] !== DEFAULT_CONFIG.calibration[key]) calibration[key] = config.calibration[key];
+  }
+  if (Object.keys(calibration).length > 0) file.calibration = calibration;
+  return file;
 }
 
 /**
@@ -260,4 +272,19 @@ export function saveConfigFile(filePath: string, config: AppConfig): AppConfig {
   fs.writeFileSync(temp, `${JSON.stringify(file, null, 2)}\n`);
   fs.renameSync(temp, filePath);
   return checked;
+}
+
+/** The `SyncEngine` options for a config, with a film look on top of its calibration. */
+export function syncOptionsFor(config: AppConfig, look?: FilmLook): Partial<SyncOptions> {
+  return {
+    fps: config.fps,
+    smoothing: config.smoothing,
+    colorWeighting: config.colorWeighting,
+    colorMode: config.colorMode,
+    minChange: config.minChange,
+    sceneCut: config.sceneCut,
+    keepAliveMs: config.keepAliveMs,
+    calibration: look ? applyLook(config.calibration, look) : config.calibration,
+    hueTarget: look?.hue,
+  };
 }

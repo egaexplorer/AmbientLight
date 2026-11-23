@@ -1,6 +1,5 @@
 import { setTimeout as delay } from "node:timers/promises";
 import {
-  applyLook,
   discoverBulbs,
   type PixelFrame,
   pilotToRestoreParams,
@@ -13,7 +12,7 @@ import {
   WizLight,
   WizTimeoutError,
 } from "@ambientlight/core";
-import { broadcastAddresses, createNodeUdpSocket, GdiCapturer } from "@ambientlight/node";
+import { broadcastAddresses, createNodeUdpSocket, GdiCapturer, syncOptionsFor } from "@ambientlight/node";
 import { CliError, type CliFlags } from "./cli.js";
 import type { AppConfig } from "./config.js";
 import { type ChosenLook, describeLook } from "./film.js";
@@ -33,17 +32,7 @@ export function requireBulbs(config: AppConfig): void {
 }
 
 function syncOptions(config: AppConfig, look?: ChosenLook): Partial<SyncOptions> {
-  return {
-    fps: config.fps,
-    smoothing: config.smoothing,
-    colorWeighting: config.colorWeighting,
-    colorMode: config.colorMode,
-    minChange: config.minChange,
-    sceneCut: config.sceneCut,
-    keepAliveMs: config.keepAliveMs,
-    calibration: look ? applyLook(config.calibration, look.look) : config.calibration,
-    hueTarget: look?.look.hue,
-  };
+  return syncOptionsFor(config, look?.look);
 }
 
 /**

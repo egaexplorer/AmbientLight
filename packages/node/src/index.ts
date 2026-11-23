@@ -18,6 +18,7 @@ export {
   RANGES,
   type Range,
   saveConfigFile,
+  syncOptionsFor,
   toConfigFile,
   validateConfigFile,
 } from "./config.js";

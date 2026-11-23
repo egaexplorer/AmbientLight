@@ -26,19 +26,41 @@ dependency change.
 
 | Script | Description |
 | --- | --- |
-| `npm run build` | `tsc -b`: builds `packages/core`, `packages/node`, then `apps/pc-cli` into their `dist/` folders |
+| `npm run build` | `tsc -b`: builds `packages/core`, `packages/node`, then `apps/pc-cli` into their `dist/` folders; then bundles the desktop app into `apps/desktop/out` |
 | `npm run clean` | Removes build output |
 | `npm test` | Runs all `*.test.ts` with Node's built-in test runner (via `tsx`) |
-| `npm run typecheck` | Type-checks source and tests together (`tsconfig.tests.json`) |
+| `npm run typecheck` | Type-checks source and tests together (`tsconfig.tests.json`, then the desktop app's two tsconfigs) |
 | `npm run check` | build + typecheck + test (what CI runs) |
+| `npm run desktop` | Starts the desktop app from source (see below) |
 | `npm run discover` / `check-bulb` / `state` / `on` / `off` / `displays` / `color` / `once` / `sync` / `rain` / `help` | Run the CLI from source (`check-bulb` runs the CLI's `check` command; `npm run check` is the build + test script) |
 
 Pass CLI flags after `--`: `npm run sync -- --bulb 192.168.1.50 -v`.
 To run the compiled CLI instead: `npm run build`, then `node apps/pc-cli/dist/main.js sync`.
 
+## The desktop app
+
+```powershell
+npm run desktop                        # electron-vite dev: the app with hot reload of the UI
+npm run build -w @ambientlight/desktop # bundles main, preload and renderer into apps/desktop/out
+npm run typecheck -w @ambientlight/desktop
+```
+
+- Two tsconfigs: `tsconfig.node.json` (main, preload, shared, tests) and `tsconfig.web.json` (renderer: DOM, JSX).
+  The root `tsconfig.tests.json` leaves `apps/desktop` out; the root `typecheck` and `build` scripts run the
+  desktop's own.
+- Imports in the desktop app have no `.js` suffix (Bundler resolution); electron-vite bundles them.
+- **UI work without Windows or a bulb:** the renderer uses `src/renderer/src/mock-api.ts` when `window.ambient` is
+  missing. Build, then serve `apps/desktop/out/renderer` with any static server (e.g. `python -m http.server`) and
+  open it in a browser.
+- **The real app on Linux** (an agent's container): `node node_modules/electron/install.js` fetches Electron if
+  `ELECTRON_SKIP_BINARY_DOWNLOAD` skipped it, and Playwright's `_electron.launch` with `--no-sandbox` under
+  `xvfb-run` drives it. Screen capture needs Windows, so such a run can check everything but the GDI capture.
+- CI sets `ELECTRON_SKIP_BINARY_DOWNLOAD=1`: tests and the build don't start Electron.
+- Use the fake bulb below with `AMBIENTLIGHT_CONFIG` pointing at a scratch config whose `bulbs` is `["127.0.0.1"]`.
+
 ## How the workspace is wired
 
-- **npm workspaces:** `packages/core`, `packages/node` and `apps/pc-cli`. `@ambientlight/node` (the Node.js adapters
+- **npm workspaces:** `packages/core`, `packages/node`, `apps/pc-cli` and `apps/desktop`. `@ambientlight/node` (the Node.js adapters
   the CLI and the desktop app share) depends on `@ambientlight/core`; the CLI depends on both. npm links them locally.
 - **TypeScript project references:** the root `tsconfig.json` references all three, `packages/node` references
   `packages/core`, and `apps/pc-cli` references both. Shared compiler options live in `tsconfig.base.json` (strict,

@@ -16,7 +16,8 @@ describe("saveConfigFile", () => {
 
     assert.deepEqual(saved, config);
     assert.deepEqual(applyConfigFile(loadConfigFile(file)), config);
-    assert.equal(JSON.parse(fs.readFileSync(file, "utf8")).screen, null);
+    // Only what differs from the defaults is written, so new defaults still apply.
+    assert.deepEqual(JSON.parse(fs.readFileSync(file, "utf8")), { bulbs: ["192.168.1.50"], fps: 15, calibration: { maxDimming: 80 } });
     assert.deepEqual(fs.readdirSync(path.dirname(file)), ["ambientlight.config.json"]);
   });
 
@@ -29,6 +30,14 @@ describe("saveConfigFile", () => {
     const cal = { ...DEFAULT_CONFIG.calibration, minDimming: 90, maxDimming: 50 };
     assert.throws(() => saveConfigFile(file, { ...DEFAULT_CONFIG, calibration: cal }), /minDimming/);
     assert.equal(fs.readFileSync(file, "utf8"), before);
+  });
+
+  it("writes a chosen display, and null for a cleared one only when it differs", () => {
+    const file = path.join(dir, "display.json");
+    saveConfigFile(file, applyConfigFile({ screen: "\\\\.\\DISPLAY2" }));
+    assert.equal(JSON.parse(fs.readFileSync(file, "utf8")).screen, "\\\\.\\DISPLAY2");
+    saveConfigFile(file, applyConfigFile({}));
+    assert.equal("screen" in JSON.parse(fs.readFileSync(file, "utf8")), false);
   });
 
   it("doesn't share arrays or calibration with the defaults", () => {

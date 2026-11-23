@@ -129,6 +129,11 @@ Targets: Windows (PC) and Android only; macOS, Linux and iOS are not planned.
       updates) and `identifyBulb` in the core
 - [ ] **Demo flow by 2026-11-25, for the video on 2026-11-26:** find a bulb, Blink, film title or look chip, Start
       with live colors, Stop or quit restores the bulb
+      - [x] Built (2026-11-23): Home screen and Find bulbs dialog, main-process controller on `SyncSession`, typed IPC,
+            sandboxed preload. Tested with fakes, in a browser with the mock API, and as the real Electron app under
+            Xvfb against a fake bulb (20 FPS, Horror look at dim 45 %, the bulb restored on quit)
+      - [ ] The user runs it on Windows with the real bulb: FPS and capture time like `sync -v`, the same color as the
+            CLI on a paused shot, restore on Stop and on closing the window
 - [ ] **MVP by 2026-12-10, for the live demo on 2026-12-12:** setup wizard, Bulbs page with check report and power,
       Tuning page that applies live, display picker, tray (close to tray, start with Windows), Diagnostics, About
       with data credits, CLI `sync` on `SyncSession`, NSIS installer
