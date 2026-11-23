@@ -165,7 +165,7 @@ Techniques:
 - **Discovery** broadcasts `registration`, then asks each bulb for `getSystemConfig` (model, firmware) and shows
   RSSI; a **blink** button identifies a bulb.
 - Foreground service types: `mediaProjection` for capture (`FOREGROUND_SERVICE_MEDIA_PROJECTION` permission).
-- Known limits it documents: DRM apps (Netflix) capture as black; some TVs have no capture-permission dialog;
+- Known limits it documents: some streaming apps can't be captured; some TVs have no capture-permission dialog;
   4K video can lag on TVs.
 
 Applies to AmbientLight: lessons 3, 4, 5, 6 and 13. Its Android capture design is the template for the Phase 4

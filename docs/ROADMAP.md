@@ -130,7 +130,7 @@ Lessons from the reference study ([REFERENCE_NOTES.md](REFERENCE_NOTES.md)):
       Render the `VirtualDisplay` ~96 px wide so the GPU downscales, use `ImageReader` with 2 images and
       `acquireLatestImage()`, respect `rowStride`, register the projection callback before
       `createVirtualDisplay` (Android 14+), and resize on rotation (namanb-lab, hyperion-android-reborn)
-- [ ] Android TV support (see namanb-lab/wiz-sync); DRM apps capture as black, which can't be worked around
+- [ ] Android TV support (see namanb-lab/wiz-sync); check which apps can be captured
 
 **Electron, from the reference study**
 
@@ -141,6 +141,8 @@ Lessons from the reference study ([REFERENCE_NOTES.md](REFERENCE_NOTES.md)):
 - Multi-zone: several bulbs mapped to screen regions (left/right/top), like Hyperion edge mapping
   (HyperHDR's WiZ driver maps one zone per bulb)
 - Audio-reactive mode (WASAPI loopback, see MihirGupta07/wiz-sync)
+- TV sources that screen capture can't reach: an HDMI capture device between the source and the TV, read like a
+  webcam, as dedicated sync boxes do. Untested here
 - Push updates: `registration` with `register: true` and a listener on UDP 38900, so the Electron UI shows changes
   made in the WiZ app (pywizlight, wikari)
 - Send at a steady rate between captures with the time-based smoother, and an optional `delayMs` to match TV
@@ -241,7 +243,7 @@ Findings for whichever is built:
 
 - Windows' media session API answers from PowerShell 5.1, so ideas 1, 3 and 4 may get title and position from it.
   Only the session count was read; whether browsers report a usable position is untested.
-- DRM video often captures as black, so test and demo with YouTube or open movies.
+- Test and demo with YouTube or open movies.
 - Wikimedia wants a User-Agent with a contact, and LRCLIB one that names the app.
 
 What the film and music APIs allow (verbatim terms read on 2026-11-22; our reading, not legal advice):
