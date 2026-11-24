@@ -1,18 +1,17 @@
 // The contract between the main process and the renderer. Types only, plus the channel names: the renderer reaches the
 // main process through `window.ambient` (src/preload), never through Node.js.
-import type { LookName, SessionState } from "@ambientlight/core";
+import type { GameLookName, LookName, SessionState } from "@ambientlight/core";
 
-export type TitleKind = "film" | "series";
+export type TitleKind = "film" | "series" | "game";
 
-/** The film look in use: picked from a chip, or found from a title. */
-export interface LookChoice {
-  name: LookName;
+/** The film or game look in use: picked from a chip, or found from a title. */
+export type LookChoice = ({ set: "film"; name: LookName } | { set: "game"; name: GameLookName }) & {
   /** Present when the look came from a title lookup. */
   title?: string;
   genres?: string;
   source?: string;
   url?: string;
-}
+};
 
 export interface BulbInfo {
   ip: string;

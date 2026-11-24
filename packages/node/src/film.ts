@@ -2,7 +2,16 @@ import crypto from "node:crypto";
 import fs from "node:fs/promises";
 import os from "node:os";
 import path from "node:path";
-import { FILM_LOOKS, type FilmLook, type LookName, lookForGenres } from "@ambientlight/core";
+import {
+  FILM_LOOKS,
+  type FilmLook,
+  GAME_LOOKS,
+  type GameLook,
+  type GameLookName,
+  gameLookForGenres,
+  type LookName,
+  lookForGenres,
+} from "@ambientlight/core";
 import { errorMessage, UserError } from "./errors.js";
 
 const WIKIPEDIA_API = "https://en.wikipedia.org/w/api.php";
@@ -12,7 +21,12 @@ const TVMAZE_API = "https://api.tvmaze.com/search/shows";
 const USER_AGENT = "film-genre-lookup/0.1";
 const TIMEOUT_MS = 15_000;
 
-export type TitleKind = "film" | "series";
+export type TitleKind = "film" | "series" | "game";
+
+/** The CLI flag that picks a look by hand, for the advice in error messages. */
+function lookFlag(kind: TitleKind): string {
+  return kind === "game" ? "--game-look" : "--look";
+}
 
 /**
  * Why a title lookup failed, so each app can word its own advice (the messages name the CLI's flags):
@@ -74,11 +88,47 @@ interface WikiPage {
   extract?: string;
 }
 
+/** How the first sentence of a film or game article reads, and which ones are about something else. */
+interface ArticleRules {
+  /** Groups: 1 the names, 2 the kind before the noun, 3 (optional) the noun when it can name the genre itself. */
+  sentence: RegExp;
+  /** A kind that shows the article is about something else. */
+  reject: RegExp;
+  hasGenre(text: string): boolean;
+}
+
+const FILM_ARTICLE: ArticleRules = {
+  sentence:
+    /^(.{1,300}?) (?:is|was) an? (.{0,160}?)\bfilm\b(?! (?:series|director|producer|studio|festival|company|critic|actor|actress))/,
+  // "is a media franchise beginning with the 1968 film", "is an actress and film director"
+  reject: /(?:^|\s)(?:by|franchise|series|album|soundtrack|game|actor|actress|singer)(?:\s|,|$)/i,
+  hasGenre: (text) => lookForGenres(text) !== undefined,
+};
+
+// "is an American video game designer", "is a game show", "is an online game publisher": about something else.
+// Not "game developed by" or "game published by", which is how a game's own article goes on.
+const AFTER_GAME = [
+  "show", "designers?", "developers?", "publish(?:ers?|ing)", "engine", "studio", "company", "console", "series", "franchise",
+  "character", "composer", "journalist", "director", "producer", "writer", "artist", "theory", "mode", "controller",
+  "soundtrack", "awards?", "magazine", "website", "convention", "festival", "platform", "system", "music", "genre",
+  "industry", "streamer",
+].join("|");
+
+const GAME_ARTICLE: ArticleRules = {
+  // "is a 2022 action role-playing game developed by", "is a 2014 survival horror video game", "is a visual novel".
+  // The kind stays inside the first sentence: a publisher's article mentions games in the next one.
+  sentence: new RegExp(`^(.{1,300}?) (?:is|was) an? ([^.]{0,160}?)\\b(?:video )?(game|visual novel)\\b(?! (?:${AFTER_GAME})\\b)`),
+  // "is an upcoming film based on the video game", "is a fantasy tabletop role-playing game", "is a board game"
+  reject:
+    /(?:^|\s)(?:by|franchise|series|album|soundtrack|film|television|TV|anime|manga|comic|based|adaptation|board|tabletop|pen-and-paper|dice|actor|actress|singer)(?:\s|,|$)/i,
+  hasGenre: (text) => gameLookForGenres(text) !== undefined,
+};
+
 /**
- * Picks the film whose title, or another name in its first sentence ("Indonesian: Pengabdi Setan"), is exactly what
- * was typed. It never settles for a similar one: "Wednesday" would become the surf film "Big Wednesday".
+ * Picks the article whose title, or another name in its first sentence ("Indonesian: Pengabdi Setan"), is exactly
+ * what was typed. It never settles for a similar one: "Wednesday" would become the surf film "Big Wednesday".
  */
-export function pickFilm(body: unknown, input: string): { found?: TitleInfo; similar: string[] } {
+function pickArticle(body: unknown, input: string, rules: ArticleRules): { found?: TitleInfo; similar: string[] } {
   const pages = [...((body as { query?: { pages?: WikiPage[] } }).query?.pages ?? [])].sort((a, b) => a.index - b.index);
   const { name, year } = splitYear(input);
   const wanted = normalize(name);
@@ -88,12 +138,12 @@ export function pickFilm(body: unknown, input: string): { found?: TitleInfo; sim
   for (const page of pages) {
     if (page.title.startsWith("List of ")) continue;
     const text = (page.extract ?? "").replace(/\s+/g, " ");
-    const sentence =
-      /^(.{1,300}?) (?:is|was) an? (.{0,160}?)\bfilm\b(?! (?:series|director|producer|studio|festival|company|critic|actor|actress))/.exec(text);
+    const sentence = rules.sentence.exec(text);
     if (!sentence) continue;
-    const [, names, kind] = sentence as unknown as [string, string, string];
-    // "is a media franchise beginning with the 1968 film", "is an actress and film director"
-    if (/(?:^|\s)(?:by|franchise|series|album|soundtrack|game|actor|actress|singer)(?:\s|,|$)/i.test(kind)) continue;
+    const [, names = "", before = "", noun] = sentence;
+    if (rules.reject.test(before)) continue;
+    // "visual novel" names the genre; "game" doesn't.
+    const kind = noun && noun !== "game" ? `${before}${noun}` : before;
 
     similar.push(printable(page.title));
     if (year && !`${page.title} ${kind} ${page.description ?? ""}`.includes(year)) continue;
@@ -101,7 +151,7 @@ export function pickFilm(body: unknown, input: string): { found?: TitleInfo; sim
     const info: TitleInfo = {
       title: printable(page.title),
       // The short description is only a fallback: after " by " it holds names, which could pass for genres.
-      genres: printable(lookForGenres(kind) ? kind : `${kind} ${page.description?.split(" by ")[0] ?? ""}`),
+      genres: printable(rules.hasGenre(kind) ? kind : `${kind} ${page.description?.split(" by ")[0] ?? ""}`),
       source: "Wikipedia (CC BY-SA 4.0)",
       // encodeURI keeps "?" and "#", which would cut off titles like "What's Up with Love?".
       url: `https://en.wikipedia.org/wiki/${encodeURI(page.title.replaceAll(" ", "_")).replaceAll("?", "%3F").replaceAll("#", "%23")}`,
@@ -114,6 +164,19 @@ export function pickFilm(body: unknown, input: string): { found?: TitleInfo; sim
     if (otherNames.includes(wanted)) byOtherName ??= info;
   }
   return byOtherName ? { found: byOtherName, similar } : { similar };
+}
+
+/** Picks the film called exactly what was typed from a Wikipedia search (see `pickArticle`). */
+export function pickFilm(body: unknown, input: string): { found?: TitleInfo; similar: string[] } {
+  return pickArticle(body, input, FILM_ARTICLE);
+}
+
+/**
+ * Picks the video game called exactly what was typed. Only "... game" sentences count, so "Elden Ring" can't become
+ * the film, and board, tabletop and dice games are skipped.
+ */
+export function pickGame(body: unknown, input: string): { found?: TitleInfo; similar: string[] } {
+  return pickArticle(body, input, GAME_ARTICLE);
 }
 
 interface TvShow {
@@ -141,25 +204,25 @@ export function pickSeries(body: unknown, input: string): { found?: TitleInfo; s
   };
 }
 
-async function getJson(url: string, service: string, fetchFn: typeof fetch): Promise<unknown> {
+async function getJson(url: string, service: string, fetchFn: typeof fetch, flag: string): Promise<unknown> {
   let response: Response;
   try {
     response = await fetchFn(url, { headers: { "user-agent": USER_AGENT }, signal: AbortSignal.timeout(TIMEOUT_MS) });
   } catch (error) {
-    throw new TitleError("offline", `Can't reach ${service} (${errorMessage(error)}). Pick a look yourself, e.g. --look horror.`);
+    throw new TitleError("offline", `Can't reach ${service} (${errorMessage(error)}). Pick a look yourself, e.g. ${flag} horror.`);
   }
   if (response.status === 429) {
     const wait = response.headers.get("retry-after") ?? "60";
     const seconds = Number(wait);
-    throw new TitleError("rate-limited", `${service} is limiting requests. Try again in ${wait} s, or pick a look with --look.`, {
+    throw new TitleError("rate-limited", `${service} is limiting requests. Try again in ${wait} s, or pick a look with ${flag}.`, {
       ...(Number.isFinite(seconds) ? { retryAfterS: seconds } : {}),
     });
   }
-  if (!response.ok) throw new TitleError("http", `${service} answered HTTP ${response.status}. Pick a look with --look.`);
+  if (!response.ok) throw new TitleError("http", `${service} answered HTTP ${response.status}. Pick a look with ${flag}.`);
   try {
     return await response.json();
   } catch {
-    throw new TitleError("unreadable", `${service} sent an unreadable answer. Pick a look with --look.`);
+    throw new TitleError("unreadable", `${service} sent an unreadable answer. Pick a look with ${flag}.`);
   }
 }
 
@@ -175,7 +238,9 @@ export async function findTitle(
   cacheDir: string = defaultCacheDir(),
 ): Promise<TitleInfo> {
   const { name, year } = splitYear(input);
-  if (normalize(name) === "") throw new TitleError("no-title", `--${kind} needs a title, e.g. --${kind} "Pengabdi Setan"`);
+  const example = kind === "game" ? "DreadOut" : "Pengabdi Setan";
+  if (normalize(name) === "") throw new TitleError("no-title", `--${kind} needs a title, e.g. --${kind} "${example}"`);
+  const flag = lookFlag(kind);
 
   const key = crypto.createHash("sha256").update(`${kind}:${normalize(name)}:${year ?? ""}`).digest("hex").slice(0, 24);
   const file = path.join(cacheDir, `${key}.json`);
@@ -188,34 +253,35 @@ export async function findTitle(
   }
 
   let result: { found?: TitleInfo; similar: string[] };
-  if (kind === "film") {
+  if (kind === "series") {
+    result = pickSeries(await getJson(`${TVMAZE_API}?${new URLSearchParams({ q: name })}`, "TVmaze", fetchFn, flag), input);
+  } else {
     const query = new URLSearchParams({
       action: "query",
       format: "json",
       formatversion: "2",
       generator: "search",
-      gsrsearch: [name, year, "film"].filter(Boolean).join(" "),
+      gsrsearch: [name, year, kind === "game" ? "video game" : "film"].filter(Boolean).join(" "),
       gsrlimit: "10",
       prop: "description|extracts",
       exintro: "1",
       explaintext: "1",
       exlimit: "max",
     });
-    const body = await getJson(`${WIKIPEDIA_API}?${query}`, "Wikipedia", fetchFn);
-    if ((body as { error?: unknown }).error) throw new TitleError("refused", "Wikipedia refused the search. Pick a look with --look.");
-    result = pickFilm(body, input);
-  } else {
-    result = pickSeries(await getJson(`${TVMAZE_API}?${new URLSearchParams({ q: name })}`, "TVmaze", fetchFn), input);
+    const body = await getJson(`${WIKIPEDIA_API}?${query}`, "Wikipedia", fetchFn, flag);
+    if ((body as { error?: unknown }).error) throw new TitleError("refused", `Wikipedia refused the search. Pick a look with ${flag}.`);
+    result = kind === "game" ? pickGame(body, input) : pickFilm(body, input);
   }
 
   if (!result.found) {
     const close = result.similar.slice(0, 4);
     const similar = close.map((title) => `"${title}"`).join(", ");
-    const other = kind === "film" ? "--series for a TV series" : "--film for a film";
+    const other = { film: "--series for a TV series, ", series: "--film for a film, ", game: "" }[kind];
+    const versions = kind === "game" ? "Doom (2016)" : "Dune (1984)";
     throw new TitleError(
       "not-found",
       `No ${kind} called "${input}" found.${similar ? ` Similar: ${similar}.` : ""}\n` +
-        `Use the full title (add the year like "Dune (1984)" to choose a version), ${other}, or --look <genre>.`,
+        `Use the full title (add the year like "${versions}" to choose a version), ${other}or ${flag} <genre>.`,
       { similar: close },
     );
   }
@@ -229,14 +295,12 @@ export async function findTitle(
   return result.found;
 }
 
-export interface ChosenLook {
-  name: LookName;
-  look: FilmLook;
-  /** Absent when the look was picked with --look. */
-  info?: TitleInfo;
-}
+/** A film look (also for series) or a game look. `info` is absent when the look was picked by hand. */
+export type ChosenLook =
+  | { set: "film"; name: LookName; look: FilmLook; info?: TitleInfo }
+  | { set: "game"; name: GameLookName; look: GameLook; info?: TitleInfo };
 
-/** Looks a film or series up (see `findTitle`) and picks the look for its genre. */
+/** Looks a film, series or game up (see `findTitle`) and picks the look for its genre. */
 export async function lookForTitle(
   kind: TitleKind,
   input: string,
@@ -244,7 +308,14 @@ export async function lookForTitle(
   cacheDir?: string,
 ): Promise<ChosenLook & { info: TitleInfo }> {
   const info = await findTitle(kind, input, fetchFn, cacheDir);
+  const noGenre = () =>
+    new TitleError("no-genre", `Found ${info.title}, but no known genre in "${info.genres}". Pick one with ${lookFlag(kind)}.`);
+  if (kind === "game") {
+    const name = gameLookForGenres(info.genres);
+    if (!name) throw noGenre();
+    return { set: "game", name, look: GAME_LOOKS[name], info };
+  }
   const name = lookForGenres(info.genres);
-  if (!name) throw new TitleError("no-genre", `Found ${info.title}, but no known genre in "${info.genres}". Pick one with --look.`);
-  return { name, look: FILM_LOOKS[name], info };
+  if (!name) throw noGenre();
+  return { set: "film", name, look: FILM_LOOKS[name], info };
 }

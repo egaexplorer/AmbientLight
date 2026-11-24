@@ -1,6 +1,6 @@
 import assert from "node:assert/strict";
 import { describe, it } from "node:test";
-import { FILM_LOOKS, type ScreenCapturer } from "@ambientlight/core";
+import { FAST_SMOOTHING, FILM_LOOKS, GAME_LOOKS, type ScreenCapturer, type SyncSession } from "@ambientlight/core";
 import { type AppConfig, applyConfigFile, TitleError, UserError } from "@ambientlight/node";
 import { FakeCapturer, FakeSocket, solidFrame } from "../../../packages/core/test/helpers.js";
 import type { AppState, FrameView } from "../src/shared/api.js";
@@ -19,14 +19,14 @@ function bulbSocket(): FakeSocket {
   return socket;
 }
 
-function setup(config: Partial<AppConfig> = { bulbs: [BULB] }) {
+function setup(config: Partial<AppConfig> = { bulbs: [BULB], smoothing: 1 }) {
   const sockets: FakeSocket[] = [];
   const capturers: Array<FakeCapturer & { closed: boolean }> = [];
   const saved: AppConfig[] = [];
   const states: AppState[] = [];
   const frames: FrameView[] = [];
   const platform: Platform = {
-    loadConfig: () => applyConfigFile({ ...config, smoothing: 1 }),
+    loadConfig: () => applyConfigFile({ smoothing: 1, ...config }),
     saveConfig: (c) => {
       saved.push(c);
       return c;
@@ -45,10 +45,15 @@ function setup(config: Partial<AppConfig> = { bulbs: [BULB] }) {
       return capturer;
     },
     broadcastAddresses: () => ["192.168.1.255"],
-    lookForTitle: async (_kind, title) => {
-      if (title === "Pengabdi Setan") {
-        const info = { title: "Satan's Slaves", genres: "2017 Indonesian supernatural horror", source: "Wikipedia (CC BY-SA 4.0)", url: "https://en.wikipedia.org/wiki/Satan%27s_Slaves" };
-        return { name: "horror", look: FILM_LOOKS.horror, info };
+    lookForTitle: async (kind, title) => {
+      const source = { source: "Wikipedia (CC BY-SA 4.0)", url: "https://en.wikipedia.org/" };
+      if (kind === "film" && title === "Pengabdi Setan") {
+        const info = { title: "Satan's Slaves", genres: "2017 Indonesian supernatural horror", ...source };
+        return { set: "film", name: "horror", look: FILM_LOOKS.horror, info };
+      }
+      if (kind === "game" && title === "Valorant") {
+        const info = { title: "Valorant", genres: "2020 first-person tactical hero shooter", ...source };
+        return { set: "game", name: "shooter", look: GAME_LOOKS.shooter, info };
       }
       throw new TitleError("not-found", "No film", { similar: ["Dune Part Two"] });
     },
@@ -110,7 +115,7 @@ describe("AppController", () => {
   it("saves the brightness and applies it at once while syncing, 70 meaning the look as designed", async () => {
     const { controller, frames, saved } = setup();
     assert.equal(controller.getState().brightness, 70);
-    await controller.setLook({ name: "horror" });
+    await controller.setLook({ set: "film", name: "horror" });
     assert.equal(controller.getState().brightnessCap, 45);
     await controller.startSync();
     const state = await controller.setBrightness(100);
@@ -119,6 +124,26 @@ describe("AppController", () => {
     assert.equal(state.brightnessCap, 64);
     const seen = frames.length;
     await until(() => frames.length > seen && frames.at(-1)!.bulbText.includes("dim 64 %"));
+    await controller.stopSync();
+  });
+
+  it("applies a game look's pace to the running sync", async () => {
+    const { controller } = setup({ bulbs: [BULB], smoothing: 0.7, sceneCut: 40 });
+    await controller.startSync();
+    // The session is private; its options are what the engine runs with.
+    const running = () => (controller as unknown as { session: SyncSession }).session.syncOptions;
+    assert.equal(running().smoothing, 0.7);
+
+    const result = await controller.findTitle("game", "Valorant");
+    assert.ok(result.ok);
+    assert.deepEqual([result.look.set, result.look.name], ["game", "shooter"]);
+    assert.equal(running().smoothing, FAST_SMOOTHING);
+    assert.equal(running().sceneCut, 25);
+
+    await controller.setLook({ set: "game", name: "cozy" });
+    assert.equal(running().smoothing, 0.4);
+    await controller.setLook({ set: "film", name: "action" });
+    assert.equal(running().smoothing, 0.7);
     await controller.stopSync();
   });
 

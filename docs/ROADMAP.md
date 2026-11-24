@@ -89,7 +89,8 @@ Based on the *WiZ PC Screen-Sync Ambilight Project Guide* (Google Drive).
 - [x] Measure the app's `r,g,b,c,w` for 11 colors with `npm run state` and fit the encoder to them (hue level,
       white level, hue-tinted cold/warm split)
 - [ ] Measure the app between saturation 0.5 and 0.75 (e.g. #ff7070, #ff6060) and replace the ramp if it differs
-- [ ] Presets: gaming (fast), movie (smooth), ambient (very smooth, dimmer)
+- [ ] Presets: gaming (fast), movie (smooth), ambient (very smooth, dimmer). The speed part of gaming exists as the
+      game looks' pace ([Film looks](#film-looks-))
 
 Lessons from the reference study ([REFERENCE_NOTES.md](REFERENCE_NOTES.md)):
 
@@ -199,11 +200,39 @@ Picked on 2026-11-22 as the core feature. Priority: the core working, with a wri
 - [ ] Later, if there is time: night watching (cap by sunset; see the options below)
 - [ ] Later: optional AI look per title from the Wikipedia summary
 - [ ] Later: read the title from the player, switch looks without restarting
-- [ ] Later: game looks, `--game "<title>"`. One Wikipedia search found the genre for 8 of 9 test games
-      (2026-11-23), including DreadOut (survival horror) and Coffee Talk (visual novel); "Elden Ring" first matched
-      the upcoming film, so accept only "... game" sentences. The genre also sets the response: racing and shooters
-      get `smoothing` near 1 and a lower `sceneCut`, horror and calm games stay smooth. Untested: capture of games in
-      exclusive full screen
+- [x] Game looks (2026-11-24): `--game "<title>"`, `--game-look`, and a Game tab in the desktop app. A game look is a
+      film look's colors plus a pace (fast, normal, calm) that moves `smoothing` and `sceneCut`
+      ([ARCHITECTURE.md](ARCHITECTURE.md), decision 16). Picked by the user: reuse the film colors, fast = 0.95
+- [x] Game lookup on live Wikipedia (2026-11-24): 15 of 16 test games found, each with a fitting look. DreadOut →
+      horror; Valorant, Counter-Strike 2, Tekken 8 → shooter; Forza Horizon 5 → racing; Coffee Talk (visual novel),
+      Stardew Valley → cozy; Hollow Knight → platformer; Civilization VI, Dota 2, Mobile Legends: Bang Bang →
+      strategy; Elden Ring (the game, not the upcoming film), Genshin Impact, Minecraft, A Space for the Unbound →
+      adventure. Pamali has no English Wikipedia article, so it needs `--game-look horror`. An Indonesian game
+      publisher's article first slipped into the "similar" list (it mentions games in its second sentence); the kind
+      now has to stay inside the first sentence
+- [x] Capture of a game on the user's PC (2026-11-24): Monster Hunter Rise, about 5 minutes in each mode, with a
+      read-only probe that took a frame through the GDI helper every 3 s and sent nothing to the bulb. Borderless
+      full screen: 101 frames, none black or frozen. Exclusive full screen (Windows'
+      `SHQueryUserNotificationState` reported an exclusive Direct3D app): 108 frames of the live game (title screen,
+      cutscene, hunt, menus), with 74 % of the pixels changing between frames on average; the 7 black frames were a
+      20-second loading screen, and the 4 unchanged ones the still title screen before it. So GDI is enough for this
+      game. Other games are untested: Windows 10 and 11 often keep composing "exclusive" games on the desktop
+      (fullscreen optimizations), which is probably why GDI still sees this one, so an older game that truly takes
+      over the screen might capture black. The README tells players to switch to borderless if the light stays dark
+- [ ] Check the desktop app's fps while a game runs. With Monster Hunter Rise running, the probe's capture took
+      49 ms median (69 ms max) against 38 ms with other windows in front: close to the 50 ms frame slot at 20 FPS.
+      A hint, not a measurement: the probe took 160×90 frames every 3 s, probably next to the app's own capture
+- [ ] Measure what capture costs a game: the game's own frame rate with sync on and off (gamers will ask)
+- [x] Judge on the real bulb how a fast look feels (2026-11-24): while playing Monster Hunter Rise, the user found
+      the fast look (smoothing 0.95) felt right. One session by eye, without a side-by-side against no look. By its
+      genre ("action role-playing") the game itself gets the adventure look at normal speed; the fast speed comes
+      from picking a fast look (Shooter & fighting)
+- [ ] Later, if a game feels jumpy or slow: compare 1.0 (`--smoothing 1`) with 0.95, and measure
+      `FAST_SCENE_CUT` (25 is a guess)
+- [ ] Later: center weighting for games. HUDs (health bars, minimaps) sit still at the edges and can win the
+      dominant hue; ambient-setup's gaming preset samples only the central 25 % of the screen. Monster Hunter Rise's
+      hunt frames have a minimap, health bars and item icons at the edges. To measure it, save frames during play (as
+      in the 2026-11-24 test) and run them through `analyzeFrame` with and without a center crop
 - [ ] Ask before adding contact details to the Wikimedia User-Agent (200 instead of 10 requests a minute)
 
 ## Option: rain signal (on hold)

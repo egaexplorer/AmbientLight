@@ -3,7 +3,8 @@
 Turn a Philips WiZ smart bulb into an ambient backlight for your PC (and later Android) screen.
 AmbientLight captures the screen, works out its average color, and sends it straight to the bulb
 over your local network (UDP port 38899). Screen sync doesn't need a cloud service or extra hardware.
-With a title, [film looks](#film-looks) give the light the mood of the film's genre (one internet lookup at the start).
+With a title, [film looks](#film-looks) give the light the mood of the film's genre (one internet lookup at the start),
+and [game looks](#game-looks) do the same for games, also setting how fast the light reacts.
 An optional prototype, [`rain`](#rain-signal) (not chosen as a product feature yet), turns the bulb into a "is it a good time to head out?" light. It reads public
 weather data and can ask a free AI model for advice, so that mode needs internet.
 
@@ -16,6 +17,7 @@ Capture screen  ->  Downscale + average color  ->  Calibrate + smooth  ->  UDP s
 smooth, throttle, send, restore on exit). Phase 3 (calibrating on real hardware) is in progress, and Phase 4
 (Windows desktop app, then Android app) has started: the [desktop app](#desktop-app-windows)'s demo flow is built and
 waits for its first test on a real bulb. Film looks are built and tested on live APIs, real film frames and a fake bulb, not yet judged on a real bulb.
+Game looks reuse the film looks' colors; their lookup is tested on live Wikipedia, their speed not yet on a real bulb.
 The rain signal is a parked option: tested on live weather data and a fake bulb, not
 yet on a real bulb or with a real AI answer. See [docs/ROADMAP.md](docs/ROADMAP.md).
 
@@ -88,14 +90,15 @@ You can pass any setting on the command line instead of the config file, e.g.
 | `npm run once` | Captures one frame and sends its color (Phase 1). Add `-- --save-frame <file.png>` to also save the frame it analyzed |
 | `npm run sync` | Continuous screen sync (Phase 2). Add `-v` to print every frame |
 | `npm run sync -- --film "<title>"` | Sync with the look of that film's genre ([Film looks](#film-looks)). Also `--series` and `--look`, and the same for `once` |
+| `npm run sync -- --game "<title>"` | Sync with the look and speed of that game's genre ([Game looks](#game-looks)). Also `--game-look`, and the same for `once` |
 | `npm run rain` | Weather signal on the bulb ([Rain signal](#rain-signal)). Don't run it at the same time as `sync` |
 | `npm run help` | All options |
 | `npm run desktop` | Starts the [desktop app](#desktop-app-windows) from source |
 
 ## Desktop app (Windows)
 
-The same sync without a terminal. The first milestone covers one flow: find a bulb, blink it, choose a film look
-(by title or by picking one), start, watch the live colors, stop.
+The same sync without a terminal. The first milestone covers one flow: find a bulb, blink it, choose a film or game
+look (by title or by picking one), start, watch the live colors, stop.
 
 ```powershell
 npm install
@@ -107,8 +110,9 @@ npm run desktop    # the first start downloads Electron (~100 MB) if npm install
 - **Start sync** captures with the same GDI helper as the CLI, so frame rate and colors match `npm run sync`
   (measured on the real bulb: 20 FPS, and exactly the color `npm run once` sends for the same picture).
   **Stop sync**, closing the window or quitting all put the bulbs back the way they were.
-- **Film look**: type a film or series title (Wikipedia or TVmaze, as `--film` / `--series`) or pick a look. A look
-  applies at once, also while syncing.
+- **Look**: type a film, series or game title (Wikipedia, TVmaze or Wikipedia, as `--film` / `--series` / `--game`)
+  or pick a look. The Game tab shows the game looks, the other tabs the film looks. A look applies at once, also
+  while syncing.
 - **Brightness** (Home, under the live colors): 70 % shows the look as designed, and the bulb's top brightness
   scales with it, so with Horror (capped at 45 %) 100 % gives 64 % and 35 % gives 22.5 %. It applies at once, also
   while syncing, and is saved as `brightness`. The label shows what the bulb reaches ("bulb up to 45 %"); with no
@@ -228,6 +232,44 @@ npm run sync -- --look horror               # pick it yourself, no internet
   leaves the PC.
 
 Film data: [Wikipedia](https://en.wikipedia.org/). Series data: [TVmaze](https://www.tvmaze.com/). Both CC BY-SA 4.0.
+
+## Game looks
+
+The same idea for games: the light still follows the screen, and the game's genre decides its colors and how fast
+it reacts.
+
+```powershell
+npm run sync -- --game "DreadOut"           # genre from Wikipedia
+npm run sync -- --game "Doom (2016)"        # add the year to choose a version
+npm run sync -- --game-look shooter         # pick it yourself, no internet
+```
+
+| Look | Genres | Colors of film look | Speed |
+| --- | --- | --- | --- |
+| `horror` | Survival and psychological horror | `horror` | Normal |
+| `racing` | Racing, driving, sports | `scifi` | Fast |
+| `shooter` | Shooters, battle royale, fighting, hack and slash | `action` | Fast |
+| `cozy` | Visual novels, life and farming sims, puzzles | `comedy` | Calm |
+| `platformer` | Platformers, Metroidvanias, party and rhythm games | `animation` | Normal |
+| `strategy` | Strategy, 4X, city builders, simulations, MOBAs, card games | `drama` | Calm |
+| `adventure` | Role-playing, action-adventure, open world, sandbox, survival | `action` | Normal |
+
+- **Speed** only pushes your own settings its way. Fast raises `smoothing` to at least 0.95 and lowers `sceneCut` to
+  at most 25: 90 % of a color change shows after ~77 ms instead of ~190 ms, and a one-frame flash still reaches the
+  bulb at ~78 % and fades. Calm lowers `smoothing` to at most 0.4 (~450 ms), so menus and maps don't make the light
+  twitch. Normal keeps yours. `--smoothing 1` still turns smoothing off under a fast look.
+- **Colors** are those of the film look named in the table, including its brightness cap, so the `brightness`
+  setting works the same. Retuning a film look retunes the game looks built on it.
+- **Lookup** works as for films: an exact title only, and only articles whose first sentence calls it a game ("is a
+  2022 action role-playing game"), so "Elden Ring" finds the game, not the film, and board and tabletop games are
+  skipped. The first matching row wins, so a horror visual novel is horror. Only the title is sent, once, to English
+  Wikipedia, and the result is cached with the film titles. A game without an English Wikipedia article (such as
+  Pamali) isn't found: pick its look with `--game-look`.
+- **Capture** uses the same GDI helper as for videos. Monster Hunter Rise was captured live both in borderless full
+  screen and in exclusive full screen (tested 2026-11-24); only its loading screens were black. Other games haven't
+  been tested: if the light stays dark while a game runs, switch the game to borderless window mode.
+
+Game data: [Wikipedia](https://en.wikipedia.org/) (CC BY-SA 4.0).
 
 ## Rain signal
 
