@@ -31,24 +31,22 @@ export function macText(mac: string | undefined): string {
   return pairs ? pairs.join(":") : mac;
 }
 
-const SERVICE: Record<TitleKind, string> = { film: "Wikipedia", series: "TVmaze" };
+const SERVICE: Record<TitleKind, string> = { film: "Wikipedia", series: "TVmaze", game: "Wikipedia" };
 
 /** The advice for a failed title lookup, worded for the app (the error codes come from @ambientlight/node). */
 export function titleErrorText(kind: TitleKind, title: string, result: Extract<TitleResult, { ok: false }>): string {
   switch (result.code) {
     case "no-title":
-      return `Type a ${kind === "film" ? "film" : "series"} title first.`;
+      return `Type a ${kind} title first.`;
     case "offline":
       return `Can't reach ${SERVICE[kind]}. Pick a look below instead.`;
     case "rate-limited":
       return `${SERVICE[kind]} is limiting lookups. Try again in ${result.retryAfterS ?? 60} s, or pick a look below.`;
     case "not-found": {
       const similar = result.similar.slice(0, 3).map((t) => `“${t}”`).join(", ");
-      const other = kind === "film" ? "Series" : "Film";
-      return (
-        `No ${kind} called “${title.trim()}” found.${similar ? ` Close: ${similar}.` : ""} ` +
-        `Use the full title, add the year like “Dune (1984)”, or switch to ${other}.`
-      );
+      const found = `No ${kind} called “${title.trim()}” found.${similar ? ` Close: ${similar}.` : ""} `;
+      if (kind === "game") return `${found}Use the full title, add the year like “Doom (2016)”, or pick a look below.`;
+      return `${found}Use the full title, add the year like “Dune (1984)”, or switch to ${kind === "film" ? "Series" : "Film"}.`;
     }
     case "no-genre":
       return "Found it, but its description names no genre the looks know. Pick a look below.";

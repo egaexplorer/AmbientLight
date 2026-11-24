@@ -1,9 +1,10 @@
-import { DESIGN_BRIGHTNESS, FILM_LOOKS } from "@ambientlight/core";
+import { DESIGN_BRIGHTNESS } from "@ambientlight/core";
 import type { AmbientApi, AppState, FrameView, LookChoice } from "../../shared/api";
+import { lookOf } from "./model/looks";
 
 /** The top brightness the main process would report (default calibration: 10–100 %). */
 function capFor(brightness: number, look: LookChoice | null): number {
-  const design = look ? FILM_LOOKS[look.name].maxDimming : 100;
+  const design = look ? lookOf(look).maxDimming : 100;
   return Math.round(Math.min(100, Math.max(10, (design * brightness) / DESIGN_BRIGHTNESS)));
 }
 
@@ -52,14 +53,16 @@ export function createMockApi(): AmbientApi {
     setBulbs: async (ips) => set({ bulbs: ips }),
     findTitle: async (kind, title) => {
       await wait(500);
-      if (/setan|satan/i.test(title)) {
-        const look: LookChoice = {
-          name: "horror",
-          title: "Satan's Slaves",
-          genres: "2017 Indonesian supernatural horror",
-          source: "Wikipedia (CC BY-SA 4.0)",
-          url: "https://en.wikipedia.org/",
-        };
+      const source = { source: "Wikipedia (CC BY-SA 4.0)", url: "https://en.wikipedia.org/" };
+      let look: LookChoice | undefined;
+      if (kind !== "game" && /setan|satan/i.test(title)) {
+        look = { set: "film", name: "horror", title: "Satan's Slaves", genres: "2017 Indonesian supernatural horror", ...source };
+      } else if (kind === "game" && /dreadout/i.test(title)) {
+        look = { set: "game", name: "horror", title: "DreadOut", genres: "2014 survival horror", ...source };
+      } else if (kind === "game" && /valorant/i.test(title)) {
+        look = { set: "game", name: "shooter", title: "Valorant", genres: "2020 first-person tactical hero shooter", ...source };
+      }
+      if (look) {
         set({ look, brightnessCap: capFor(state.brightness, look) });
         return { ok: true, look };
       }

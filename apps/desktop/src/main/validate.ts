@@ -1,4 +1,4 @@
-import { LOOK_NAMES, type LookName } from "@ambientlight/core";
+import { GAME_LOOK_NAMES, type GameLookName, LOOK_NAMES, type LookName } from "@ambientlight/core";
 import { RANGES, UserError } from "@ambientlight/node";
 import type { LookChoice, TitleKind } from "../shared/api";
 
@@ -24,7 +24,7 @@ export function checkBulbList(value: unknown): string[] {
 }
 
 export function checkTitleKind(value: unknown): TitleKind {
-  if (value !== "film" && value !== "series") throw new UserError('Expected "film" or "series"');
+  if (value !== "film" && value !== "series" && value !== "game") throw new UserError('Expected "film", "series" or "game"');
   return value;
 }
 
@@ -51,8 +51,11 @@ export function checkLook(value: unknown): LookChoice | null {
   if (value === null) return null;
   if (typeof value !== "object" || Array.isArray(value)) throw new UserError("Expected a look");
   const raw = value as Record<string, unknown>;
-  if (!(LOOK_NAMES as readonly unknown[]).includes(raw.name)) throw new UserError(`Unknown look ${String(raw.name)}`);
-  const look: LookChoice = { name: raw.name as LookName };
+  if (raw.set !== "film" && raw.set !== "game") throw new UserError('Expected a look "set" of "film" or "game"');
+  const names: readonly unknown[] = raw.set === "game" ? GAME_LOOK_NAMES : LOOK_NAMES;
+  if (!names.includes(raw.name)) throw new UserError(`Unknown ${raw.set} look ${String(raw.name)}`);
+  const look: LookChoice =
+    raw.set === "game" ? { set: "game", name: raw.name as GameLookName } : { set: "film", name: raw.name as LookName };
   for (const key of ["title", "genres", "source", "url"] as const) {
     const text = optionalText(raw[key], key);
     if (text !== undefined) look[key] = text;

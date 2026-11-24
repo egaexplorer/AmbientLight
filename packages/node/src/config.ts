@@ -2,12 +2,14 @@ import fs from "node:fs";
 import path from "node:path";
 import {
   applyLook,
+  applyPace,
   type CalibrationOptions,
   type ColorMode,
   DEFAULT_CALIBRATION,
   DEFAULT_SYNC_OPTIONS,
   DESIGN_BRIGHTNESS,
   type FilmLook,
+  type GamePace,
   MAX_FPS,
   MIN_FPS,
   scaleBrightness,
@@ -283,15 +285,20 @@ export function saveConfigFile(filePath: string, config: AppConfig): AppConfig {
   return checked;
 }
 
-/** The `SyncEngine` options for a config: a film look on top of its calibration, then the brightness setting. */
-export function syncOptionsFor(config: AppConfig, look?: FilmLook): Partial<SyncOptions> {
+/**
+ * The `SyncEngine` options for a config: a film or game look on top of its calibration, then the brightness setting.
+ * A game look's pace also moves `smoothing` and `sceneCut` (`applyPace`).
+ */
+export function syncOptionsFor(config: AppConfig, look?: FilmLook & { pace?: GamePace }): Partial<SyncOptions> {
+  const response = { smoothing: config.smoothing, sceneCut: config.sceneCut };
+  const { smoothing, sceneCut } = look?.pace ? applyPace(response, look.pace) : response;
   return {
     fps: config.fps,
-    smoothing: config.smoothing,
+    smoothing,
     colorWeighting: config.colorWeighting,
     colorMode: config.colorMode,
     minChange: config.minChange,
-    sceneCut: config.sceneCut,
+    sceneCut,
     keepAliveMs: config.keepAliveMs,
     calibration: scaleBrightness(look ? applyLook(config.calibration, look) : config.calibration, config.brightness / DESIGN_BRIGHTNESS),
     hueTarget: look?.hue,

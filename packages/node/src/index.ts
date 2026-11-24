@@ -30,6 +30,7 @@ export {
   findTitle,
   lookForTitle,
   pickFilm,
+  pickGame,
   pickSeries,
   splitYear,
   TitleError,

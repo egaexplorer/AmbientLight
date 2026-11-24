@@ -30,7 +30,7 @@ describe("lookForTitle", () => {
 
   it("returns the look, the title and its source", async () => {
     const chosen = await lookForTitle("film", "Sintel", answer(page("Sintel", "Sintel is a 2010 animated fantasy short film.")), cache);
-    assert.equal(chosen.name, "animation");
+    assert.deepEqual([chosen.set, chosen.name], ["film", "animation"]);
     assert.equal(chosen.info.title, "Sintel");
     assert.equal(chosen.info.source, "Wikipedia (CC BY-SA 4.0)");
   });
@@ -48,6 +48,20 @@ describe("lookForTitle", () => {
       await code(lookForTitle("film", "Quiet Days", answer(page("Quiet Days", "Quiet Days is a 1999 film.")), cache)),
       "no-genre",
     );
+  });
+
+  it("finds a game look, and words its advice for --game-look", async () => {
+    const dread = page("DreadOut", "DreadOut is a 2014 survival horror video game developed by Digital Happiness.");
+    const chosen = await lookForTitle("game", "DreadOut", answer(dread), cache);
+    assert.ok(chosen.set === "game");
+    assert.deepEqual([chosen.name, chosen.look.pace], ["horror", "normal"]);
+    assert.equal(chosen.info.genres, "2014 survival horror");
+    const offline = (async () => {
+      throw new Error("offline");
+    }) as typeof fetch;
+    await assert.rejects(lookForTitle("game", "Doom", offline, cache), /--game-look/);
+    const online = page("Fortnite", "Fortnite is an online video game developed by Epic Games.");
+    await assert.rejects(lookForTitle("game", "Fortnite", answer(online), cache), (error: TitleError) => error.code === "no-genre");
   });
 
   it("reports the wait of a rate limit and the titles that came close", async () => {

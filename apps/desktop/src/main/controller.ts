@@ -2,6 +2,7 @@ import {
   discoverBulbs,
   FILM_LOOKS,
   type FrameReport,
+  GAME_LOOKS,
   identifyBulb,
   type ScreenCapturer,
   SyncSession,
@@ -132,13 +133,10 @@ export class AppController {
   async findTitle(kind: TitleKind, title: string): Promise<TitleResult> {
     try {
       const chosen = await this.platform.lookForTitle(kind, title);
-      const look: LookChoice = {
-        name: chosen.name,
-        title: chosen.info.title,
-        genres: chosen.info.genres,
-        source: chosen.info.source,
-        url: chosen.info.url,
-      };
+      const { info } = chosen;
+      const found = { title: info.title, genres: info.genres, source: info.source, url: info.url };
+      const look: LookChoice =
+        chosen.set === "game" ? { set: "game", name: chosen.name, ...found } : { set: "film", name: chosen.name, ...found };
       await this.setLook(look);
       return { ok: true, look };
     } catch (error) {
@@ -155,7 +153,7 @@ export class AppController {
     }
   }
 
-  /** Sets the film look; while syncing it applies at once. */
+  /** Sets the film or game look; while syncing it applies at once. */
   async setLook(look: LookChoice | null): Promise<AppState> {
     this.look = look;
     if (this.session) await this.session.update({ sync: this.syncOptions() });
@@ -233,7 +231,9 @@ export class AppController {
   }
 
   private syncOptions() {
-    return syncOptionsFor(this.config, this.look ? FILM_LOOKS[this.look.name] : undefined);
+    const look = this.look;
+    if (!look) return syncOptionsFor(this.config);
+    return syncOptionsFor(this.config, look.set === "game" ? GAME_LOOKS[look.name] : FILM_LOOKS[look.name]);
   }
 
   private async sharedSocket(): Promise<UdpSocket> {

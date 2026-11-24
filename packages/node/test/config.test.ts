@@ -3,7 +3,7 @@ import fs from "node:fs";
 import os from "node:os";
 import path from "node:path";
 import { after, describe, it } from "node:test";
-import { FILM_LOOKS, type FilmLook } from "@ambientlight/core";
+import { FILM_LOOKS, type FilmLook, GAME_LOOKS } from "@ambientlight/core";
 import { applyConfigFile, DEFAULT_CONFIG, loadConfigFile, saveConfigFile, syncOptionsFor, UserError } from "../src/index.js";
 
 describe("saveConfigFile", () => {
@@ -58,6 +58,15 @@ describe("syncOptionsFor", () => {
     assert.ok(Math.abs((top(100, FILM_LOOKS.horror) ?? 0) - 64.2857) < 0.001);
     assert.equal(top(70), 100);
     assert.equal(top(35), 50);
+  });
+
+  it("lets a game look's pace move smoothing and scene cuts, and nothing else", () => {
+    const fast = syncOptionsFor(DEFAULT_CONFIG, GAME_LOOKS.shooter);
+    assert.deepEqual([fast.smoothing, fast.sceneCut], [0.95, 25]);
+    assert.deepEqual(fast.calibration, syncOptionsFor(DEFAULT_CONFIG, FILM_LOOKS.action).calibration);
+    assert.equal(syncOptionsFor(DEFAULT_CONFIG, GAME_LOOKS.cozy).smoothing, 0.4);
+    assert.equal(syncOptionsFor(DEFAULT_CONFIG, GAME_LOOKS.horror).smoothing, DEFAULT_CONFIG.smoothing);
+    assert.equal(syncOptionsFor(DEFAULT_CONFIG, FILM_LOOKS.action).smoothing, DEFAULT_CONFIG.smoothing);
   });
 
   it("saves a brightness only when it differs from 70", () => {

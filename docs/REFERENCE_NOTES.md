@@ -69,7 +69,7 @@ Several design decisions in [ARCHITECTURE.md](ARCHITECTURE.md) match what the mo
 | 9 | Retransmit `getPilot` once after ~400 ms; clamp dimming to the bulb's `minDimLevel`. | `wiz/light.ts` | homebridge-wiz-lan, pywizlight |
 | 10 | Faster PC capture. Done with a GDI helper that stays running (`"capture": "gdi"`, 367 → 32 ms per frame); later DXGI with a GPU downscale, and reusing the last frame when the screen didn't change. | `packages/node/src/gdi-capture.ts` | node-screenshots, Prismatik, HyperHDR |
 | 11 | An `identify` command that flashes one bulb. | `pc-cli` `commands.ts` | ambient-setup, HyperHDR, namanb-lab |
-| 12 | Presets (ambient / movie / gaming / relax) as bundles of existing options. | `pc-cli` config | ambient-setup |
+| 12 | Presets (ambient / movie / gaming / relax) as bundles of existing options. Partly done: game looks set `smoothing` and `sceneCut` per genre (fast or calm); center focus is not | `pc-cli` config | ambient-setup |
 | 13 | Android capture: tiny `VirtualDisplay`, `acquireLatestImage`, rotation and Android 14 rules. | `apps/android` (Phase 4) | namanb-lab, hyperion-android-reborn |
 
 The per-repository sections below explain each lesson.

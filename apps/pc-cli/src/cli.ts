@@ -1,5 +1,5 @@
 import { parseArgs } from "node:util";
-import { LOOK_NAMES, type LookName } from "@ambientlight/core";
+import { GAME_LOOK_NAMES, type GameLookName, LOOK_NAMES, type LookName } from "@ambientlight/core";
 import { UserError as CliError } from "@ambientlight/node";
 
 export const COMMANDS = ["discover", "check", "state", "on", "off", "displays", "color", "once", "sync", "rain", "help"] as const;
@@ -38,6 +38,8 @@ export interface CliFlags {
   film?: string;
   series?: string;
   look?: LookName;
+  game?: string;
+  gameLook?: GameLookName;
   plan?: string;
   simulate?: SimulatedWeather;
   rgb?: { r: number; g: number; b: number };
@@ -97,6 +99,9 @@ Options:
       --series <title>    Film look from a TV series' genre on TVmaze
       --look <name>       Pick the film look yourself: ${LOOK_NAMES.slice(0, 4).join(", ")},
                           ${LOOK_NAMES.slice(4).join(", ")}
+      --game <title>      Game look from the game's genre on Wikipedia (sync, once), e.g. --game "DreadOut"
+      --game-look <name>  Pick the game look yourself: ${GAME_LOOK_NAMES.slice(0, 4).join(", ")},
+                          ${GAME_LOOK_NAMES.slice(4).join(", ")}
       --save-frame <file> Save the frame "once" analyzed as a PNG, to study a scene
       --plan <text>       Your plan for "rain", for the AI (e.g. "naik motor, bisa tunggu sampai 19:00")
       --simulate <name>   Made-up weather for "rain": go, prepare, wait, danger or unknown
@@ -112,7 +117,8 @@ Examples:
   npm run off
   npm run color -- --bulb 192.168.1.50 --rgb 255,0,0
   npm run sync -- --bulb 192.168.1.50 --fps 10
-  npm run sync -- --film "Pengabdi Setan"`;
+  npm run sync -- --film "Pengabdi Setan"
+  npm run sync -- --game "DreadOut"`;
 
 function toNumber(flag: string, raw: string | undefined): number | undefined {
   if (raw === undefined) return undefined;
@@ -133,20 +139,12 @@ function parseRgb(raw: string | undefined): CliFlags["rgb"] {
   return { r, g, b };
 }
 
-function parseLook(raw: string | undefined): LookName | undefined {
+function parseChoice<T extends string>(flag: string, raw: string | undefined, choices: readonly T[]): T | undefined {
   if (raw === undefined) return undefined;
-  if (!(LOOK_NAMES as readonly string[]).includes(raw)) {
-    throw new CliError(`--look expects one of ${LOOK_NAMES.join(", ")}, got "${raw}"`);
+  if (!(choices as readonly string[]).includes(raw)) {
+    throw new CliError(`--${flag} expects one of ${choices.join(", ")}, got "${raw}"`);
   }
-  return raw as LookName;
-}
-
-function parseSimulation(raw: string | undefined): SimulatedWeather | undefined {
-  if (raw === undefined) return undefined;
-  if (!(SIMULATIONS as readonly string[]).includes(raw)) {
-    throw new CliError(`--simulate expects one of ${SIMULATIONS.join(", ")}, got "${raw}"`);
-  }
-  return raw as SimulatedWeather;
+  return raw as T;
 }
 
 function parseScreen(raw: string | undefined): string | number | undefined {
@@ -188,6 +186,8 @@ export function parseCommandLine(argv: readonly string[]): ParsedCommandLine {
         film: { type: "string" },
         series: { type: "string" },
         look: { type: "string" },
+        game: { type: "string" },
+        "game-look": { type: "string" },
         plan: { type: "string" },
         simulate: { type: "string" },
         rgb: { type: "string" },
@@ -247,15 +247,17 @@ export function parseCommandLine(argv: readonly string[]): ParsedCommandLine {
   if (flags.saveFrame !== undefined && name !== "once") throw new CliError('--save-frame only works with "once"');
   set("film", values.film);
   set("series", values.series);
-  set("look", parseLook(values.look));
-  const lookFlags = [flags.film, flags.series, flags.look].filter((value) => value !== undefined).length;
-  if (lookFlags > 1) throw new CliError("Use only one of --film, --series and --look");
+  set("look", parseChoice("look", values.look, LOOK_NAMES));
+  set("game", values.game);
+  set("gameLook", parseChoice("game-look", values["game-look"], GAME_LOOK_NAMES));
+  const lookFlags = [flags.film, flags.series, flags.look, flags.game, flags.gameLook].filter((value) => value !== undefined).length;
+  if (lookFlags > 1) throw new CliError("Use only one of --film, --series, --look, --game and --game-look");
   if (lookFlags === 1 && name !== "sync" && name !== "once") {
-    throw new CliError('--film, --series and --look only work with "sync" and "once"');
+    throw new CliError('--film, --series, --look, --game and --game-look only work with "sync" and "once"');
   }
   set("plan", values.plan);
   if (flags.plan !== undefined && name !== "rain") throw new CliError('--plan only works with "rain"');
-  set("simulate", parseSimulation(values.simulate));
+  set("simulate", parseChoice("simulate", values.simulate, SIMULATIONS));
   if (flags.simulate !== undefined && name !== "rain") throw new CliError('--simulate only works with "rain"');
   set("rgb", parseRgb(values.rgb));
   set("dimming", toNumber("dimming", values.dimming));

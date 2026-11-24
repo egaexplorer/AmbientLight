@@ -13,7 +13,7 @@ a change): <https://claude.ai/artifact/9de8MxMAdW5DoCv6J7tHWN>
 
 | Artboard | Milestone | What it shows |
 | --- | --- | --- |
-| Home | Demo flow (2026-11-26) | Start/Stop, live colors, film look, bulbs strip |
+| Home | Demo flow (2026-11-26) | Start/Stop, live colors, film or game look, bulbs strip |
 | Find bulbs dialog | Demo flow | Discovery results, Blink, add by IP, what to try when nothing answers (search again first, firewall last) |
 | Bulbs | MVP (2026-12-12) | One card per bulb: power, Blink, Check report, remove |
 | Tuning | MVP | Sliders for the calibration and sync options, reset per slider |
@@ -71,6 +71,8 @@ The Home screen and the Find bulbs dialog (`apps/desktop/src/renderer`), as in t
   brightness control before the Tuning page exists. It sends at most one change per 150 ms while dragging.
 - **Bulbs strip:** the chip shows the IP without the "Ready" badge; that needs `checkBulb`, which comes with the
   Bulbs page.
+- **Game tab** in the Look card (added 2026-11-24, not in the wireframe yet): the card is titled "Look", the tab
+  asks for a game title and shows the game chips. The card opens on the Game tab when a game look is in use.
 
 Checked against the wireframe on 2026-11-23 with screenshots of the running app (`drive.mjs shot`): apart from the
 points above, Home and Find bulbs are as drawn. The same day the "nothing answered" box changed in both: it now
@@ -86,7 +88,7 @@ What backs each control. "IPC" names the `window.ambient` call (see ARCHITECTURE
 | Home | Start/Stop sync | IPC `sync.start` / `sync.stop` → `SyncSession` (restores the bulbs on stop) |
 | Home | Live colors: screen average, hue source, bulb | `sync:frame` events (`FrameReport.average`, `.color`, `previewRgb(output)`), 10 per second |
 | Home | Status pill and stats | `sync:state`, fps and capture ms from `sync:frame` |
-| Home | Film / Series / Pick a look | IPC `film.find` (`findTitle`, Wikipedia or TVmaze, cached) → `lookForGenres`; or a look chip (`LOOK_NAMES`, `FILM_LOOKS`) |
+| Home | Film / Series / Game / Pick a look | IPC `findTitle` (Wikipedia or TVmaze, cached) → `lookForGenres`, or `gameLookForGenres` for a game; or a look chip (`LOOK_NAMES` + `FILM_LOOKS`, or on the Game tab `GAME_LOOK_NAMES` + `GAME_LOOKS`). `LookChoice.set` says which (`"film"` or `"game"`) |
 | Home | Brightness slider (10–100, 70 = the look as designed) | IPC `setBrightness` → `brightness` in the config → `syncOptionsFor` (`scaleBrightness`); `AppState.brightnessCap` is the bulb's resulting top % |
 | Home | Bulbs strip | `bulbs` in the config; Find bulbs opens the dialog |
 | Find bulbs | Search again | IPC `bulbs.discover` (`discoverBulbs` on every adapter's broadcast address) |
@@ -123,10 +125,12 @@ Home screen:
 1. A large round Start sync / Stop sync button, with "Primary display to 1 bulb" under it.
 2. Live colors: three swatches labeled Screen average, Hue source (dominant), Bulb shows, each with a hex value,
    and a line "20.0 fps · capture 32 ms · 14 % of frames sent". A status pill "Idle" or "Syncing · 20.0 fps".
-3. Film look card: a segmented control Film | Series | Pick a look, a title field with a Find button, a result line
+3. Look card: a segmented control Film | Series | Game | Pick a look, a title field with a Find button, a result line
    (title, genre, source Wikipedia CC BY-SA 4.0, chosen look), and 9 look chips in a 3-column grid: No look,
    Horror, Thriller, Romance, Animation, Comedy, Sci-fi, Action, Drama, each with one detail line
-   (e.g. "Up to 45 % · 6500 K · pale, dim").
+   (e.g. "Up to 45 % · 6500 K · pale, dim"). On the Game tab the field asks for a game title and 8 game chips
+   replace them: No look, Horror, Racing & sports, Shooter & fighting, Cozy, Platformer, Strategy & sim,
+   Adventure & RPG, each with its speed first (e.g. "Fast · up to 100 % · leans red-orange").
 4. A bulbs strip: a chip with a color dot, "192.168.1.50" and "Ready", a Find bulbs button and a
    "Hide window while syncing" checkbox.
 

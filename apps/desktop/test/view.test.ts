@@ -5,7 +5,7 @@ import { UserError } from "@ambientlight/node";
 import { bulbPreview, frameLogLine, FrameViews, kelvinToRgb, toHex } from "../src/main/frame-view.js";
 import { checkBrightness, checkBulbList, checkIp, checkLook, checkTitleKind } from "../src/main/validate.js";
 import { brightnessText, macText, statsText, titleErrorText } from "../src/renderer/src/model/format.js";
-import { lookChips } from "../src/renderer/src/model/looks.js";
+import { gameLookChips, lookChips, lookLabel, sameLook } from "../src/renderer/src/model/looks.js";
 
 function report(sent: boolean, captureMs = 31.6): FrameReport {
   return {
@@ -83,9 +83,14 @@ describe("IPC input checks", () => {
   });
 
   it("accepts known looks and title kinds only", () => {
-    assert.deepEqual(checkLook({ name: "horror", title: "X", extra: 1 }), { name: "horror", title: "X" });
+    assert.deepEqual(checkLook({ set: "film", name: "horror", title: "X", extra: 1 }), { set: "film", name: "horror", title: "X" });
+    assert.deepEqual(checkLook({ set: "game", name: "shooter" }), { set: "game", name: "shooter" });
     assert.equal(checkLook(null), null);
-    assert.throws(() => checkLook({ name: "gore" }), UserError);
+    assert.throws(() => checkLook({ set: "film", name: "gore" }), UserError);
+    assert.throws(() => checkLook({ name: "horror" }), UserError);
+    assert.throws(() => checkLook({ set: "game", name: "thriller" }), UserError);
+    assert.throws(() => checkLook({ set: "film", name: "shooter" }), UserError);
+    assert.equal(checkTitleKind("game"), "game");
     assert.throws(() => checkTitleKind("book"), UserError);
   });
 });
@@ -106,6 +111,9 @@ describe("renderer text", () => {
     assert.match(text, /No film called “Dune” found\. Close: “Dune Part Two”\./);
     assert.doesNotMatch(text, /--/);
     assert.match(titleErrorText("series", "x", { ok: false, code: "rate-limited", message: "", similar: [], retryAfterS: 7 }), /TVmaze .* 7 s/);
+    const game = titleErrorText("game", "Doom", { ok: false, code: "not-found", message: "", similar: [] });
+    assert.match(game, /No game called “Doom” found\. .*“Doom \(2016\)”, or pick a look below\./);
+    assert.match(titleErrorText("game", "x", { ok: false, code: "offline", message: "", similar: [] }), /Wikipedia/);
   });
 
   it("describes the live numbers and every look", () => {
@@ -115,6 +123,18 @@ describe("renderer text", () => {
     );
     const chips = lookChips();
     assert.equal(chips.length, 9);
-    assert.deepEqual(chips[1], { name: "horror", label: "Horror", detail: "Up to 45 % · 6500 K · pale, dim" });
+    assert.deepEqual(chips[1], { look: { set: "film", name: "horror" }, label: "Horror", detail: "Up to 45 % · 6500 K · pale, dim" });
+    const games = gameLookChips();
+    assert.equal(games.length, 8);
+    assert.deepEqual(games[0]!.look, null);
+    assert.deepEqual(games.find((chip) => chip.look?.name === "shooter"), {
+      look: { set: "game", name: "shooter" },
+      label: "Shooter & fighting",
+      detail: "Fast · up to 100 % · leans red-orange",
+    });
+    assert.equal(lookLabel({ set: "game", name: "cozy" }), "Cozy");
+    assert.ok(sameLook({ set: "game", name: "horror", title: "DreadOut" }, { set: "game", name: "horror" }));
+    assert.ok(!sameLook({ set: "game", name: "horror" }, { set: "film", name: "horror" }));
+    assert.ok(sameLook(null, null) && !sameLook(null, { set: "film", name: "drama" }));
   });
 });

@@ -84,7 +84,8 @@ npm run state                                          # did Stop restore the bu
   Its color fields are those of `npm run state`, so a line compares directly with `npm run once`'s "reports" line.
 - **Color check:** show a still picture full screen (anything on top of it is captured too), sync a few seconds,
   stop, then run `npm run once` on the same picture. After the smoothing settles, the last logged frame should equal
-  what the bulb reports. Add `--look horror` to `once` after `setLook({ name: "horror" })` in the app, and
+  what the bulb reports. Add `--look horror` to `once` after `setLook({ set: "film", name: "horror" })` in the app
+  (`--game-look shooter` after `setLook({ set: "game", name: "shooter" })`), and
   `--brightness` with the app's setting if it isn't 70 (the app keeps its own config in `%APPDATA%`).
 - **Before driving the bulb or showing test scenes, check that the user isn't using the app or the bulb.** Only one
   copy of the app runs, so a second start quits at once; on 2026-11-23 a test run ran into the user's own test, turned
@@ -124,7 +125,7 @@ npm run state                                          # did Stop restore the bu
   After changing `packages/node/native/gdi-capture.cs` or `gdi-capture.ts`, check capture time and colors by hand with
   `sync -v`.
 
-## Testing film looks
+## Testing film and game looks
 
 - Tests inject `fetch` and a temporary cache, so they need no network.
 - Try a look without the real bulb: `npm run sync -- --look horror --bulb 127.0.0.1` with the fake bulb below.
@@ -132,7 +133,15 @@ npm run state                                          # did Stop restore the bu
   romance. Open films work (Sintel, Big Buck Bunny, Tears of Steel: CC BY 3.0, thumbnails every 30 s on
   archive.org). Internet Archive lists Sintel's frames twice (stereo and surround), so count distinct seconds.
 - Keep live probes under 10 Wikipedia requests a minute, and stop on a 429. Delete
-  `%LOCALAPPDATA%\AmbientLight\titles` to repeat a lookup.
+  `%LOCALAPPDATA%\AmbientLight\titles` to repeat a lookup, or pass `lookForTitle` an empty cache folder, as the
+  2026-11-24 probe of 16 games did (one request every 7 s).
+- A game look's colors are a film look's, so tune colors in `FILM_LOOKS`. A game look only adds its pace, which
+  `once` prints (`fast: smoothing at least 0.95`); judge the speed on the bulb.
+- To check that a game is captured, sample the screen every few seconds while the user plays, with `GdiCapturer`
+  alone (no bulb commands), and log the foreground window and `SHQueryUserNotificationState` (3 = an exclusive
+  full-screen Direct3D app, 2 = a borderless full-screen window), so each frame's mode is known. Besides black
+  frames, look at how much changed between frames: a frozen desktop picture changes ~0 %, a game in play 50–97 %.
+  The 2026-11-24 check of Monster Hunter Rise did this with a scratch script (see ROADMAP).
 
 ## Testing the rain signal
 
@@ -201,6 +210,7 @@ s.bind(38899, "127.0.0.1");
 | `Couldn't compile the screen capture helper` / `Can't find the C# compiler` | The `"gdi"` capture needs `%WINDIR%\Microsoft.NET\Framework64\v4.0.30319\csc.exe` (part of Windows 10/11). Use `--capture screenshot-desktop` meanwhile. |
 | `Screen capture is unavailable` | Only the `screenshot-desktop` fallback uses `sharp`. Re-run `npm install` so it fetches its native binary for your platform. |
 | `No film called ... found` | Use the full title, add the year, use `--series` for a TV series, or `--look <name>`. |
+| `No game called ... found` | Use the full title as on English Wikipedia, add the year (`"Doom (2016)"`), or pick with `--game-look <name>`. A game without an English article (e.g. Pamali) can't be found. |
 | `Wikipedia is limiting requests` | Wait as long as it says, or use `--look`. Titles that worked before come from the cache. |
 | Low FPS in `sync -v` | Capture time is the limit. With `"capture": "gdi"` it is ~20–35 ms; `screenshot-desktop` takes ~370 ms per frame on Windows (it compiles its helper on every frame). |
 | `'screenCapture_1.3.3.bat' is not recognized` (screenshot-desktop) | The environment variable `NoDefaultCurrentDirectoryInExePath` is set (some agent and CI shells set it), so `cmd.exe` won't run the `.bat` that screenshot-desktop starts by bare name from its folder. Unset it for that command, or use the `"gdi"` capture, which starts its helper by full path. |

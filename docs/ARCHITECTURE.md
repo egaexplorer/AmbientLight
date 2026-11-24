@@ -60,6 +60,7 @@ the capture itself. `minChange` keeps the bulb from being flooded: in that ~23-m
 | `color/average.ts` | `analyzeFrame`: plain mean of a `PixelFrame` in linear light (brightness) plus a vivid-weighted mean of the dominant hue family (hue); `averageColor` returns the plain mean. RGB/RGBA/BGR(A), optional sampling step. `frameChange`: mean absolute channel difference of two frames (scene-cut detection) |
 | `color/calibration.ts` | `calibrate`: turns a screen color into WiZ `{r,g,b,c,w,dimming}` (pale colors as hue + white LEDs), or `{temp,dimming}` for near-gray colors; `previewRgb` shows the color a `WizColor` makes |
 | `color/looks.ts` | `FILM_LOOKS`, `lookForGenres` (genre words → look), `applyLook` (look on top of the user's calibration), `scaleBrightness` (the brightness setting: 70 = `DESIGN_BRIGHTNESS` = as designed), `turnHue` (small, bounded hue lean) |
+| `color/game-looks.ts` | `GAME_LOOKS` (a film look's colors plus a `pace`), `gameLookForGenres`, `applyPace` (fast/calm move `smoothing` and `sceneCut`) |
 | `color/smoothing.ts` | `EmaSmoother`, `colorDistance` |
 | `sync/engine.ts` | `SyncEngine`: the capture → process → transmit loop on fixed frame times; resets the smoothers on scene cuts |
 | `sync/session.ts` | `SyncSession`: one sync run for an app. Reads the bulbs' states, runs a `SyncEngine`, restarts it with new options or another capturer while running (`update`), restores the bulbs on `stop`. Calls are queued, so a double click can't interleave them |
@@ -82,8 +83,8 @@ prints to the terminal or reads command-line flags. Errors meant for the user ar
 | `gdi-capture.ts` | `GdiCapturer` (`"capture": "gdi"`, the Windows default): compiles `native/gdi-capture.cs` once into `%LOCALAPPDATA%\AmbientLight\gdi-capture-<hash>.exe`, keeps it running, and reads one 64×36 BGRA frame per request over stdin/stdout. `FrameAssembler` splits the byte stream into frames. A bundled app passes the `.cs` path as `helperSource` |
 | `native/gdi-capture.cs` | The helper (C# 5, compiled by the `csc.exe` that ships with Windows): per-monitor DPI-aware, `BitBlt` of the display into a bitmap allocated once, `StretchBlt` with `HALFTONE` (area average, measured within 0.5 of the true mean) down to the frame size. Resends the last frame while the secure desktop (UAC, lock screen) blocks capture |
 | `network.ts` | Subnet broadcast addresses for every LAN adapter (reliable discovery on Windows) |
-| `config.ts` | `ambientlight.config.json`: `AppConfig`, defaults, ranges, validation, `applyConfigFile` (defaults ← file), `checkConfigLimits`, `saveConfigFile` (validates, then writes through a temporary file) |
-| `film.ts` | `findTitle` / `lookForTitle`: one Wikipedia or TVmaze request, exact-title picker, title cache. Failures are `TitleError`s with a `code` (`offline`, `rate-limited`, `not-found` with `similar` titles, `no-genre`, …) so each app words its own advice |
+| `config.ts` | `ambientlight.config.json`: `AppConfig`, defaults, ranges, validation, `applyConfigFile` (defaults ← file), `checkConfigLimits`, `saveConfigFile` (validates, then writes through a temporary file), `syncOptionsFor` (config + film or game look → `SyncEngine` options) |
+| `film.ts` | `findTitle` / `lookForTitle`: one Wikipedia (film, game) or TVmaze (series) request, exact-title pickers (`pickFilm`, `pickGame`, `pickSeries`), title cache. Failures are `TitleError`s with a `code` (`offline`, `rate-limited`, `not-found` with `similar` titles, `no-genre`, …) so each app words its own advice |
 | `displays.ts` | `listDisplays` through screenshot-desktop, without sharp |
 | `errors.ts` | `UserError`, `errorMessage` |
 
@@ -96,7 +97,7 @@ prints to the terminal or reads command-line flags. Errors meant for the user ar
 | `commands.ts` | `discover`, `state`, `displays`, `color`, `once` (reads the bulb back after sending, optionally saves the frame), `sync` |
 | `check.ts` | `check` (`npm run check-bulb`): runs `checkBulb` on each bulb and prints the report |
 | `frame-file.ts` | `saveFramePng`: writes the analyzed frame as a PNG for `once --save-frame` |
-| `film.ts` | `--film`, `--series`, `--look` → a look (`chooseLook`), and the text that describes it |
+| `film.ts` | `--film`, `--series`, `--look`, `--game`, `--game-look` → a look (`chooseLook`), and the text that describes it |
 | `weather.ts` | `WeatherClient`: fetches and validates BMKG forecast, BMKG CAP alerts (cached per file) and METAR |
 | `advisor.ts` | Optional AI advice through Gemini's or Groq's chat-completions endpoint, checked against what the rules allow |
 | `rain.ts` | The `rain` command: 2-minute loop, signal colors, simulations, keep-alive, restore on exit |
@@ -128,7 +129,7 @@ flowchart LR
 | --- | --- |
 | `src/shared/api.ts` | The IPC contract: `AmbientApi` (what `window.ambient` offers), `AppState`, `FrameView`, channel names |
 | `src/main/index.ts` | Electron: single-instance lock, the window (`contextIsolation`, `sandbox`, no Node.js in the renderer, links open in the browser), IPC handlers, config location, restore before quitting |
-| `src/main/controller.ts` | `AppController`: config, film look, discovery, Blink, one `SyncSession`; publishes state changes and frame views. Electron, the network and capture come in through a `Platform`, so tests use fakes |
+| `src/main/controller.ts` | `AppController`: config, film or game look, discovery, Blink, one `SyncSession`; publishes state changes and frame views. Electron, the network and capture come in through a `Platform`, so tests use fakes |
 | `src/main/frame-view.ts` | `FrameReport` → `FrameView` (hex colors, the bulb's color with white LEDs drawn at their temperature, fps, share sent), at most one per 100 ms. The capture time is the mean of every frame since the previous view: a frame passes the 100 ms gate more often when its own capture was slow, so its time alone read ~9 ms high. `frameLogLine`: one line per frame for `AMBIENTLIGHT_VERBOSE=1` |
 | `src/main/validate.ts` | Checks every IPC argument (IPv4 addresses, at most 16 bulbs, known looks, title length) |
 | `src/preload/index.ts` | `contextBridge` → `window.ambient`; built as CommonJS, which a sandboxed preload needs |
@@ -143,7 +144,7 @@ Decisions:
   so tuned defaults still reach existing users.
 - **Quitting always restores:** `before-quit` waits for `AppController.shutdown()` (stop the session, send each bulb
   its saved state) before the app exits, whether the user pressed Stop, closed the window or quit.
-- **Expected failures are values, not exceptions:** a film lookup returns its `TitleError` code and Blink returns
+- **Expected failures are values, not exceptions:** a title lookup returns its `TitleError` code and Blink returns
   `ok: false`, so the renderer words them itself. Unexpected errors are logged in the main process.
 
 ## Design decisions
@@ -275,6 +276,21 @@ Decisions:
    `desktopCapturer` replaces it ([ROADMAP.md](ROADMAP.md#phase-4-desktop-app-electron-and-android-port-react-native-)).
    The desktop app doesn't load `sharp`: it only serves the CLI's `screenshot-desktop` fallback (~2.7 FPS) and PNG
    saving, which Electron's `nativeImage` covers, and a native module would need unpacking in the installer.
+16. **Game looks are film colors plus a pace (2026-11-24).** Games differ from each other less in mood than in how
+   fast the screen changes, and the eight film looks' colors are already measured (decision 13). So a game look is
+   `{ ...FILM_LOOKS.x, pace }` (`color/game-looks.ts`), picked by the user (2026-11-24) over separate game colors that
+   no one has tuned. The pace only moves the user's own response settings its way (`applyPace`), as a look only
+   lowers `maxDimming`: fast sets `smoothing` to at least 0.95 (90 % of a change after ~77 ms instead of ~190 ms;
+   at 20 FPS a one-frame flash reaches the bulb at ~78 %) and `sceneCut` to at most 25 (a guess, unmeasured). The
+   user chose 0.95 over 1.0 (no smoothing), which would send every muzzle flash and blinking HUD element at full
+   strength; `--smoothing 1` still gives 1.0. On the real bulb, 0.95 felt right to the user (Monster Hunter Rise,
+   2026-11-24). Calm sets `smoothing` to at most 0.4 (~450 ms) for menus and maps.
+   The lookup is the film lookup (decision 14) with another sentence rule: the first sentence must call the subject
+   a game ("is a 2022 action role-playing game"), stay inside that sentence (a publisher's article mentions games
+   in the next one), and not be about a board, tabletop or dice game, a game series, or a person. Capture needs
+   nothing new: the GDI helper (decision 12) captured Monster Hunter Rise live in borderless and in exclusive full
+   screen (2026-11-24, [ROADMAP.md](ROADMAP.md#film-looks-)), though the capture took ~49 ms instead of ~38 ms
+   while the game ran.
 
 ## Rain signal
 

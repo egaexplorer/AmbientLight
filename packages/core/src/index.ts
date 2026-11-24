@@ -33,6 +33,18 @@ export {
   scaleBrightness,
   turnHue,
 } from "./color/looks.js";
+export {
+  applyPace,
+  CALM_SMOOTHING,
+  FAST_SCENE_CUT,
+  FAST_SMOOTHING,
+  GAME_LOOK_NAMES,
+  GAME_LOOKS,
+  type GameLook,
+  type GameLookName,
+  type GamePace,
+  gameLookForGenres,
+} from "./color/game-looks.js";
 
 // WiZ local UDP protocol
 export {

@@ -1,18 +1,24 @@
-import type { LookName } from "@ambientlight/core";
 import { type FormEvent, useEffect, useRef, useState } from "react";
-import type { AppState, FrameView, TitleKind } from "../../../shared/api";
+import type { AppState, FrameView, LookChoice, TitleKind } from "../../../shared/api";
 import { api } from "../api";
 import { Button, Card, Swatch } from "../components/ui";
 import { brightnessText, statsText, statusText, titleErrorText } from "../model/format";
-import { lookChips, lookLabel } from "../model/looks";
+import { gameLookChips, lookChips, lookLabel, sameLook } from "../model/looks";
 
 type LookMode = TitleKind | "pick";
 
 const MODES: ReadonlyArray<readonly [LookMode, string]> = [
   ["film", "Film"],
   ["series", "Series"],
+  ["game", "Game"],
   ["pick", "Pick a look"],
 ];
+
+const TITLE_FIELD: Record<TitleKind, { label: string; placeholder: string }> = {
+  film: { label: "Film title (Wikipedia)", placeholder: "e.g. Pengabdi Setan, or Dune (1984)" },
+  series: { label: "Series title (TVmaze)", placeholder: "e.g. Wednesday" },
+  game: { label: "Game title (Wikipedia)", placeholder: "e.g. DreadOut, or Doom (2016)" },
+};
 
 const MINIMIZE_KEY = "ambientlight.minimizeWhileSyncing";
 
@@ -209,7 +215,8 @@ function BrightnessControl({ state }: { state: AppState | null }) {
 }
 
 function LookCard({ state }: { state: AppState | null }) {
-  const [mode, setMode] = useState<LookMode>("film");
+  // Opens on the tab whose chips show the look in use.
+  const [mode, setMode] = useState<LookMode>(() => (state?.look?.set === "game" ? "game" : "film"));
   const [query, setQuery] = useState("");
   const [searching, setSearching] = useState(false);
   const [message, setMessage] = useState<string | null>(null);
@@ -230,19 +237,21 @@ function LookCard({ state }: { state: AppState | null }) {
     }
   }
 
-  async function pick(name: LookName | null) {
+  async function pick(choice: LookChoice | null) {
     setMessage(null);
     try {
-      await api.setLook(name ? { name } : null);
+      await api.setLook(choice);
     } catch (error) {
       setMessage(error instanceof Error ? error.message : String(error));
     }
   }
 
+  const chips = mode === "game" ? gameLookChips() : lookChips();
+
   return (
-    <Card label="Film look" className="flex flex-col gap-4">
+    <Card label="Look" className="flex flex-col gap-4">
       <div className="flex flex-wrap items-baseline justify-between gap-2">
-        <h2 className="m-0 text-[15px] font-semibold">Film look</h2>
+        <h2 className="m-0 text-[15px] font-semibold">Look</h2>
         <span className="text-[13px] text-muted">The light still follows the screen. The genre decides how.</span>
       </div>
 
@@ -267,14 +276,14 @@ function LookCard({ state }: { state: AppState | null }) {
         <form onSubmit={(e) => void find(e)} className="flex flex-wrap items-end gap-2.5">
           <div className="flex flex-[1_1_280px] flex-col gap-1.5">
             <label htmlFor="title-in" className="text-xs text-muted">
-              {mode === "series" ? "Series title (TVmaze)" : "Film title (Wikipedia)"}
+              {TITLE_FIELD[mode].label}
             </label>
             <input
               id="title-in"
               type="text"
               value={query}
               onChange={(e) => setQuery(e.target.value)}
-              placeholder={mode === "series" ? "e.g. Wednesday" : "e.g. Pengabdi Setan, or Dune (1984)"}
+              placeholder={TITLE_FIELD[mode].placeholder}
               maxLength={200}
               className="h-11 rounded-[9px] border border-field-line bg-field px-3.5 text-sm text-ink placeholder:text-[#7d8089]"
             />
@@ -307,19 +316,19 @@ function LookCard({ state }: { state: AppState | null }) {
               )}
             </span>
           )}
-          <span className="font-semibold">Look: {lookLabel(look.name)}</span>
+          <span className="font-semibold">Look: {lookLabel(look)}</span>
         </div>
       )}
 
       <div className="grid grid-cols-3 gap-2.5">
-        {lookChips().map((chip) => {
-          const selected = (look?.name ?? null) === chip.name;
+        {chips.map((chip) => {
+          const selected = sameLook(look, chip.look);
           return (
             <button
               key={chip.label}
               type="button"
               aria-pressed={selected}
-              onClick={() => void pick(chip.name)}
+              onClick={() => void pick(chip.look)}
               className={`flex min-h-14 cursor-pointer flex-col gap-0.5 rounded-[10px] border-2 px-3 py-2.5 text-left ${
                 selected ? "border-ink bg-[#22242a]" : "border-[#2e3036] bg-[#141518] hover:border-control-line"
               }`}
