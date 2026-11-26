@@ -205,16 +205,21 @@ Picked on 2026-11-22 as the core feature. Priority: the core working, with a wri
       needs `--series`. Horror free on YouTube → horror: Lights Out (2013) (the short; without the year the 2016
       feature), Night of the Living Dead, The Terror (1963), Horror Express, Carnival of Souls. Without a year, House on
       Haunted Hill and Nosferatu find the 1999 and 2024 films. Cargo (2013), "Australian short", gets no genre. About
-      ten searches within seconds got HTTP 429 from Wikipedia (retry after ~24 s), which the app reports as such
+      ten searches within seconds got HTTP 429 from Wikipedia (retry after ~24 s), which the app reports as such.
+      2026-11-26: Fear Street Part One: 1994 → horror ("2021 American supernatural slasher"). Demon Slayer as a series
+      → horror (TVmaze "Action, Anime, Fantasy, Horror"), but its films Mugen Train (2020) and Infinity Castle (2025)
+      → animation ("animated dark fantasy"). The films need the full title: "Demon Slayer Kimetsu no Yaiba The Movie
+      Infinity Castle" works without the colon and dash; "Infinity Castle" and "Demon Slayer: Infinity Castle" are
+      refused with the full title suggested
 - [x] Looks measured through `SyncEngine` on 99 distinct frames of Sintel, Big Buck Bunny and Tears of Steel: each
       differs from plain sync on 59–92 % of frames and from each other look on at least 63 %, no vivid color turned
       white, hue moved at most 30° after gamma
 - [x] End to end on a fake bulb: 20 FPS kept, previous state restored
 - [ ] Judge the looks on the real bulb, above all horror (too dark?), romance and animation, then tune
-- [ ] Record the demo video (script ready 2026-11-25, moved to Netflix in Chrome on 2026-11-26: One Punch Man S1E12,
-      the Boros fight (`--series`), and Fear Street Part One: 1994 (`--film`, Wikipedia "2021 American supernatural
-      slasher" → horror, checked on a fake bulb 2026-11-26) instead of the YouTube short Remain Calm, plus Monster
-      Hunter Rise for game looks)
+- [ ] Record the demo video (script ready 2026-11-25, moved to Netflix in Chrome on 2026-11-26: Demon Slayer:
+      Infinity Castle, the Akaza fight (`--film`, animation) instead of One Punch Man, and Fear Street Part One: 1994
+      (`--film`, horror) instead of the YouTube short Remain Calm, plus Monster Hunter Rise for game looks. All three
+      lookups now go to Wikipedia; TVmaze isn't in the video)
 - [ ] Later, if there is time: night watching (cap by sunset; see the options below)
 - [x] AI tuning per title (2026-11-24, branch `feat/ai-look-tuning`): with a Gemini or Groq key, the AI reads the
       Wikipedia or TVmaze summary and nudges the genre look in fixed steps (brightness, warmth, vividness, −2…+2 each;

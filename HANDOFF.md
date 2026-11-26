@@ -114,8 +114,8 @@ npm run check-bulb                   # must end with "Ready"
 3. Judge the film looks on the real bulb, above all horror (too dark?), romance and animation.
 4. Click through the desktop app once by hand and answer Electron's firewall prompt (HANDOFF_DESKTOP, step A).
 5. Record the video and render it (the hackathon folder's `HANDOFF.md`). The CLI is the fallback if the app
-   misbehaves. Since 2026-11-26 the film scenes play on Netflix in Chrome (One Punch Man S1E12, Fear Street Part One:
-   1994); the script `naskah-video.md` has the minutes.
+   misbehaves. Since 2026-11-26 the film scenes play on Netflix in Chrome (Demon Slayer: Infinity Castle for the
+   animation look, Fear Street Part One: 1994 for horror); the script `naskah-video.md` says where in each film.
 
 **B. 2026-11-27 → 12-10: the desktop MVP** (HANDOFF_DESKTOP, step B): setup wizard, Bulbs page with check report and
 power, Tuning page that applies live, display picker, tray, Diagnostics, About with data credits, CLI `sync` on
