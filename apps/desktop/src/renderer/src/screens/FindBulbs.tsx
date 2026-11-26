@@ -180,7 +180,7 @@ export function FindBulbsDialog({ configured, onClose }: { configured: string[];
             <span className="text-soft">Press Search again. A bulb can miss searches for about a minute, more so right after it's switched on.</span>
             <span className="text-soft">Check that the PC and the bulb are on the same Wi-Fi (guest and IoT networks often isolate devices).</span>
             <span className="text-soft">In the WiZ app, turn on Settings › Security › Allow local communication.</span>
-            <span className="text-soft">Still nothing? Check that your firewall allows AmbientLight on Private networks.</span>
+            <span className="text-soft">Still nothing? Check that your firewall allows I'm bien light on Private networks.</span>
           </div>
         )}
 

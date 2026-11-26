@@ -1,6 +1,6 @@
 import assert from "node:assert/strict";
 import { describe, it } from "node:test";
-import { FAST_SMOOTHING, FILM_LOOKS, GAME_LOOKS, type ScreenCapturer, type SyncSession } from "@ambientlight/core";
+import { FAST_SMOOTHING, FILM_LOOKS, GAME_LOOKS, type ScreenCapturer, type SyncSession, tuneLook } from "@ambientlight/core";
 import { type AppConfig, applyConfigFile, TitleError, UserError } from "@ambientlight/node";
 import { FakeCapturer, FakeSocket, solidFrame } from "../../../packages/core/test/helpers.js";
 import type { AppState, FrameView } from "../src/shared/api.js";
@@ -50,6 +50,15 @@ function setup(config: Partial<AppConfig> = { bulbs: [BULB], smoothing: 1 }) {
       if (kind === "film" && title === "Pengabdi Setan") {
         const info = { title: "Satan's Slaves", genres: "2017 Indonesian supernatural horror", ...source };
         return { set: "film", name: "horror", look: FILM_LOOKS.horror, info };
+      }
+      if (kind === "film" && title === "Agak Laen") {
+        const info = { title: "Agak Laen", genres: "2024 Indonesian horror comedy", ...source };
+        const tuning = { brightness: -1, warmth: 1, vividness: 0, reason: "Scares first.", by: "Fake AI" } as const;
+        return { set: "film", name: "comedy", look: tuneLook(FILM_LOOKS.comedy, tuning), info, tuning };
+      }
+      if (kind === "film" && title === "Sintel") {
+        const info = { title: "Sintel", genres: "2010 animated fantasy short", ...source };
+        return { set: "film", name: "animation", look: FILM_LOOKS.animation, info, aiError: "Gemini HTTP 429: quota" };
       }
       if (kind === "game" && title === "Valorant") {
         const info = { title: "Valorant", genres: "2020 first-person tactical hero shooter", ...source };
@@ -145,6 +154,22 @@ describe("AppController", () => {
     await controller.setLook({ set: "film", name: "action" });
     assert.equal(running().smoothing, 0.7);
     await controller.stopSync();
+  });
+
+  it("uses the AI's tuning of a title until a look is picked by hand", async () => {
+    const { controller } = setup();
+    const result = await controller.findTitle("film", "Agak Laen");
+    assert.ok(result.ok);
+    assert.equal(result.look.tuning?.reason, "Scares first.");
+    // Comedy reaches 100 %, so "dimmer" lowers the cap to 90 %.
+    assert.equal(controller.getState().brightnessCap, 90);
+    await controller.setLook({ set: "film", name: "comedy" });
+    assert.equal(controller.getState().brightnessCap, 100);
+
+    const failed = await controller.findTitle("film", "Sintel");
+    assert.ok(failed.ok);
+    assert.equal(failed.look.aiError, "Gemini HTTP 429: quota");
+    assert.equal(failed.look.tuning, undefined);
   });
 
   it("returns lookup failures with their code", async () => {

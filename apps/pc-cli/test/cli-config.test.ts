@@ -10,6 +10,12 @@ describe("parseCommandLine", () => {
     assert.throws(() => parseCommandLine(["sync", "--save-frame", "lamp.png"]), CliError);
   });
 
+  it("takes --no-ai with a look for sync and once only", () => {
+    assert.equal(parseCommandLine(["sync", "--film", "Dune", "--no-ai"]).flags.noAi, true);
+    assert.equal(parseCommandLine(["once"]).flags.noAi, false);
+    assert.throws(() => parseCommandLine(["rain", "--no-ai"]), CliError);
+  });
+
   it("defaults to help", () => {
     assert.equal(parseCommandLine([]).command, "help");
   });

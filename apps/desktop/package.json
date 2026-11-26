@@ -1,9 +1,9 @@
 {
   "name": "@ambientlight/desktop",
-  "productName": "AmbientLight",
+  "productName": "I'm bien light",
   "version": "0.1.0",
   "private": true,
-  "description": "Windows desktop app (Electron) for AmbientLight: screen sync for Philips WiZ bulbs with film looks.",
+  "description": "Windows desktop app (Electron) for I'm bien light: screen sync for Philips WiZ bulbs with film looks.",
   "type": "module",
   "main": "out/main/index.js",
   "scripts": {

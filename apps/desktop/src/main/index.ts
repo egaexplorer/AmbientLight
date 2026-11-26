@@ -6,11 +6,14 @@ import {
   type AppConfig,
   broadcastAddresses,
   CONFIG_FILE_NAME,
+  createLookTuner,
   createNodeUdpSocket,
   errorMessage,
   findConfigFile,
   GdiCapturer,
   loadConfigFile,
+  loadEnvFileIn,
+  type LookTuner,
   lookForTitle,
   saveConfigFile,
   UserError,
@@ -41,6 +44,19 @@ function loadConfig(file: string): AppConfig {
   return cliConfig ? saveConfigFile(file, config) : config;
 }
 
+/**
+ * The AI that tunes a title's look, from a key in `.env`: next to the app's config, or in development also next to the
+ * CLI's config (the repository root). A variable that is already set wins. `undefined` without a key.
+ */
+function createTuner(file: string): LookTuner | undefined {
+  loadEnvFileIn(path.dirname(file));
+  if (!app.isPackaged) {
+    const cliConfig = findConfigFile(process.env.INIT_CWD ?? process.cwd());
+    if (cliConfig) loadEnvFileIn(path.dirname(cliConfig));
+  }
+  return createLookTuner(process.env);
+}
+
 /** The C# source of the capture helper: next to the app when installed, in packages/node during development. */
 function helperSource(): string {
   return app.isPackaged
@@ -49,6 +65,7 @@ function helperSource(): string {
 }
 
 function createPlatform(file: string): Platform {
+  const tuner = createTuner(file);
   return {
     loadConfig: () => loadConfig(file),
     saveConfig: (config) => saveConfigFile(file, config),
@@ -63,7 +80,7 @@ function createPlatform(file: string): Platform {
       });
     },
     broadcastAddresses: () => broadcastAddresses(),
-    lookForTitle: (kind, title) => lookForTitle(kind, title),
+    lookForTitle: (kind, title) => lookForTitle(kind, title, fetch, undefined, tuner),
     now: () => performance.now(),
   };
 }
@@ -78,7 +95,7 @@ function createWindow(): BrowserWindow {
     minHeight: 580,
     show: false,
     backgroundColor: "#111214",
-    title: "AmbientLight",
+    title: "I'm bien light",
     autoHideMenuBar: true,
     webPreferences: {
       preload: path.join(here, "../preload/index.cjs"),
@@ -125,6 +142,10 @@ function registerIpc(controller: AppController): void {
   handle(CHANNELS.stopSync, () => controller.stopSync());
   handle(CHANNELS.minimizeWindow, () => window?.minimize());
 }
+
+// Electron names the settings folder after `productName`. The app was renamed from AmbientLight to I'm bien light;
+// keep the old folder so bulbs, calibration and `.env` carry over. Must run before the single-instance lock.
+app.setPath("userData", path.join(app.getPath("appData"), "AmbientLight"));
 
 if (!app.requestSingleInstanceLock()) {
   // Two copies would fight over the same bulbs.

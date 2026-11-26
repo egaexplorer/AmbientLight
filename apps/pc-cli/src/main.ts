@@ -1,6 +1,7 @@
 #!/usr/bin/env node
 import path from "node:path";
 import process from "node:process";
+import { createLookTuner, loadEnvFileIn } from "@ambientlight/node";
 import { runCheck } from "./check.js";
 import { CliError, parseCommandLine, USAGE } from "./cli.js";
 import { runColor, runDiscover, runDisplays, runPower, runState, runSync } from "./commands.js";
@@ -21,9 +22,11 @@ async function main(argv: readonly string[]): Promise<number> {
   const file: ConfigFile | undefined = configPath ? loadConfigFile(configPath) : undefined;
   if (configPath && flags.verbose) console.log(`Using config ${configPath}`);
   const config = resolveConfig(file, flags);
+  // An AI key (GEMINI_API_KEY or GROQ_API_KEY) sits in .env next to the config file.
+  loadEnvFileIn(configPath ? path.dirname(configPath) : (process.env.INIT_CWD ?? process.cwd()));
 
   // Resolved before anything touches the bulb, so a wrong title doesn't change the light.
-  const look = await chooseLook(flags);
+  const look = await chooseLook(flags, fetch, undefined, createLookTuner(process.env));
 
   switch (command) {
     case "discover":
@@ -42,8 +45,7 @@ async function main(argv: readonly string[]): Promise<number> {
     case "once":
       return runSync(config, { once: true, verbose: flags.verbose, saveFrame: flags.saveFrame, look });
     case "rain":
-      // .env sits next to the config file.
-      return runRain(config, flags, configPath ? path.dirname(configPath) : (process.env.INIT_CWD ?? process.cwd()));
+      return runRain(config, flags);
     case "sync":
       return runSync(config, { once: false, verbose: flags.verbose, look });
   }

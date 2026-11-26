@@ -45,6 +45,17 @@ export {
   type GamePace,
   gameLookForGenres,
 } from "./color/game-looks.js";
+export {
+  type LookTuning,
+  stepOf,
+  TUNING_CONTROLS,
+  TUNING_STEP_SIZES,
+  TUNING_WORDS,
+  type TuningControl,
+  type TuningStep,
+  tuneLook,
+  tuningWords,
+} from "./color/look-tuning.js";
 
 // WiZ local UDP protocol
 export {

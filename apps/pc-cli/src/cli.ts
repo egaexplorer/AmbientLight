@@ -40,6 +40,8 @@ export interface CliFlags {
   look?: LookName;
   game?: string;
   gameLook?: GameLookName;
+  /** Keep the genre look for --film, --series and --game even when an AI key is set. */
+  noAi: boolean;
   plan?: string;
   simulate?: SimulatedWeather;
   rgb?: { r: number; g: number; b: number };
@@ -53,7 +55,7 @@ export interface ParsedCommandLine {
   flags: CliFlags;
 }
 
-export const USAGE = `AmbientLight - sync Philips WiZ bulbs to your screen
+export const USAGE = `I'm bien light - sync Philips WiZ bulbs to your screen
 
 Usage (from the repository root):
   npm run <command> -- [options]
@@ -102,6 +104,7 @@ Options:
       --game <title>      Game look from the game's genre on Wikipedia (sync, once), e.g. --game "DreadOut"
       --game-look <name>  Pick the game look yourself: ${GAME_LOOK_NAMES.slice(0, 4).join(", ")},
                           ${GAME_LOOK_NAMES.slice(4).join(", ")}
+      --no-ai             Keep the genre look; don't let the AI tune it for the title (needs a key in .env)
       --save-frame <file> Save the frame "once" analyzed as a PNG, to study a scene
       --plan <text>       Your plan for "rain", for the AI (e.g. "naik motor, bisa tunggu sampai 19:00")
       --simulate <name>   Made-up weather for "rain": go, prepare, wait, danger or unknown
@@ -188,6 +191,7 @@ export function parseCommandLine(argv: readonly string[]): ParsedCommandLine {
         look: { type: "string" },
         game: { type: "string" },
         "game-look": { type: "string" },
+        "no-ai": { type: "boolean", default: false },
         plan: { type: "string" },
         simulate: { type: "string" },
         rgb: { type: "string" },
@@ -216,6 +220,7 @@ export function parseCommandLine(argv: readonly string[]): ParsedCommandLine {
 
   const flags: CliFlags = {
     noRestore: values["no-restore"],
+    noAi: values["no-ai"],
     verbose: values.verbose,
     help: values.help,
   };
@@ -255,6 +260,7 @@ export function parseCommandLine(argv: readonly string[]): ParsedCommandLine {
   if (lookFlags === 1 && name !== "sync" && name !== "once") {
     throw new CliError('--film, --series, --look, --game and --game-look only work with "sync" and "once"');
   }
+  if (flags.noAi && name !== "sync" && name !== "once") throw new CliError('--no-ai only works with "sync" and "once"');
   set("plan", values.plan);
   if (flags.plan !== undefined && name !== "rain") throw new CliError('--plan only works with "rain"');
   set("simulate", parseChoice("simulate", values.simulate, SIMULATIONS));

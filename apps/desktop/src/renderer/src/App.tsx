@@ -28,7 +28,7 @@ export function App() {
       <nav aria-label="Main" className="flex w-[200px] shrink-0 flex-col gap-1 overflow-y-auto border-r border-[#24262b] bg-side px-3 py-5">
         <div className="flex items-center gap-2.5 px-2.5 pb-5 pt-1">
           <BulbIcon size={22} />
-          <span className="text-[15px] font-bold">AmbientLight</span>
+          <span className="text-[15px] font-bold">I'm bien light</span>
         </div>
         <a href="#home" aria-current="page" className="flex items-center gap-2.5 rounded-lg bg-control p-2.5 text-sm font-semibold text-ink-strong no-underline">
           <HomeIcon />

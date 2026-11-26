@@ -22,6 +22,7 @@ export {
   toConfigFile,
   validateConfigFile,
 } from "./config.js";
+export { AI_PROVIDERS, type AiClient, type AiProvider, type AiRequest, createAiClient, loadEnvFileIn } from "./ai.js";
 export { type DisplayInfo, listDisplays } from "./displays.js";
 export { errorMessage, UserError } from "./errors.js";
 export {
@@ -33,11 +34,21 @@ export {
   pickGame,
   pickSeries,
   splitYear,
+  summaryText,
   TitleError,
   type TitleErrorCode,
   type TitleInfo,
   type TitleKind,
 } from "./film.js";
+export {
+  asTitleTuning,
+  checkTuning,
+  createLookTuner,
+  type LookTuner,
+  type TitleTuning,
+  type TuningRequest,
+  TUNING_VERSION,
+} from "./look-ai.js";
 export { defaultHelperSource, ensureHelper, FrameAssembler, GdiCapturer, type GdiCapturerOptions } from "./gdi-capture.js";
 export { broadcastAddresses, intToIpv4, ipv4ToInt, subnetBroadcast } from "./network.js";
 export { createNodeUdpSocket, type NodeUdpSocketOptions } from "./udp.js";

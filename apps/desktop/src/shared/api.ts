@@ -1,8 +1,16 @@
 // The contract between the main process and the renderer. Types only, plus the channel names: the renderer reaches the
 // main process through `window.ambient` (src/preload), never through Node.js.
-import type { GameLookName, LookName, SessionState } from "@ambientlight/core";
+import type { GameLookName, LookName, LookTuning, SessionState } from "@ambientlight/core";
 
 export type TitleKind = "film" | "series" | "game";
+
+/** How an AI nudged a title's look (steps −2 to +2), and why. */
+export type LookTuningView = LookTuning & {
+  /** One English sentence from the AI. */
+  reason: string;
+  /** The model, e.g. "Gemini (gemini-3.5-flash-lite)". */
+  by: string;
+};
 
 /** The film or game look in use: picked from a chip, or found from a title. */
 export type LookChoice = ({ set: "film"; name: LookName } | { set: "game"; name: GameLookName }) & {
@@ -11,6 +19,10 @@ export type LookChoice = ({ set: "film"; name: LookName } | { set: "game"; name:
   genres?: string;
   source?: string;
   url?: string;
+  /** Present when an AI tuned the look for the title; the genre look is used as it is otherwise. */
+  tuning?: LookTuningView;
+  /** Why the AI didn't tune the title's look (it failed, or the source had no summary). Absent without a key. */
+  aiError?: string;
 };
 
 export interface BulbInfo {

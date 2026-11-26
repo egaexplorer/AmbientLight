@@ -6,6 +6,7 @@ import {
   identifyBulb,
   type ScreenCapturer,
   SyncSession,
+  tuneLook,
   type UdpSocket,
   WizLight,
 } from "@ambientlight/core";
@@ -134,7 +135,14 @@ export class AppController {
     try {
       const chosen = await this.platform.lookForTitle(kind, title);
       const { info } = chosen;
-      const found = { title: info.title, genres: info.genres, source: info.source, url: info.url };
+      const found = {
+        title: info.title,
+        genres: info.genres,
+        source: info.source,
+        url: info.url,
+        ...(chosen.tuning ? { tuning: chosen.tuning } : {}),
+        ...(chosen.aiError !== undefined ? { aiError: chosen.aiError } : {}),
+      };
       const look: LookChoice =
         chosen.set === "game" ? { set: "game", name: chosen.name, ...found } : { set: "film", name: chosen.name, ...found };
       await this.setLook(look);
@@ -233,7 +241,8 @@ export class AppController {
   private syncOptions() {
     const look = this.look;
     if (!look) return syncOptionsFor(this.config);
-    return syncOptionsFor(this.config, look.set === "game" ? GAME_LOOKS[look.name] : FILM_LOOKS[look.name]);
+    const base = look.set === "game" ? GAME_LOOKS[look.name] : FILM_LOOKS[look.name];
+    return syncOptionsFor(this.config, look.tuning ? tuneLook(base, look.tuning) : base);
   }
 
   private async sharedSocket(): Promise<UdpSocket> {
