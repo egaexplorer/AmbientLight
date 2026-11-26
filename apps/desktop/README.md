@@ -1,6 +1,6 @@
 # apps/desktop (Phase 4, Windows)
 
-The Electron desktop app for AmbientLight. It wraps `@ambientlight/core` and `@ambientlight/node`:
+The Electron desktop app for I'm bien light. It wraps `@ambientlight/core` and `@ambientlight/node`:
 
 - Screen capture with the same GDI helper as the CLI (decision 15 in
   [ARCHITECTURE.md](../../docs/ARCHITECTURE.md)), in the main process behind the core's `ScreenCapturer`

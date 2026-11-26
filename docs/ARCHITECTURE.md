@@ -61,6 +61,7 @@ the capture itself. `minChange` keeps the bulb from being flooded: in that ~23-m
 | `color/calibration.ts` | `calibrate`: turns a screen color into WiZ `{r,g,b,c,w,dimming}` (pale colors as hue + white LEDs), or `{temp,dimming}` for near-gray colors; `previewRgb` shows the color a `WizColor` makes |
 | `color/looks.ts` | `FILM_LOOKS`, `lookForGenres` (genre words → look), `applyLook` (look on top of the user's calibration), `scaleBrightness` (the brightness setting: 70 = `DESIGN_BRIGHTNESS` = as designed), `turnHue` (small, bounded hue lean) |
 | `color/game-looks.ts` | `GAME_LOOKS` (a film look's colors plus a `pace`), `gameLookForGenres`, `applyPace` (fast/calm move `smoothing` and `sceneCut`) |
+| `color/look-tuning.ts` | `LookTuning` (brightness, warmth, vividness: steps −2…2), `TUNING_WORDS` (the words an AI picks, one per step), `stepOf`, `tuneLook` (a film or game look nudged in fixed steps, within the bulb's ranges), `tuningWords` |
 | `color/smoothing.ts` | `EmaSmoother`, `colorDistance` |
 | `sync/engine.ts` | `SyncEngine`: the capture → process → transmit loop on fixed frame times; resets the smoothers on scene cuts |
 | `sync/session.ts` | `SyncSession`: one sync run for an app. Reads the bulbs' states, runs a `SyncEngine`, restarts it with new options or another capturer while running (`update`), restores the bulbs on `stop`. Calls are queued, so a double click can't interleave them |
@@ -84,7 +85,9 @@ prints to the terminal or reads command-line flags. Errors meant for the user ar
 | `native/gdi-capture.cs` | The helper (C# 5, compiled by the `csc.exe` that ships with Windows): per-monitor DPI-aware, `BitBlt` of the display into a bitmap allocated once, `StretchBlt` with `HALFTONE` (area average, measured within 0.5 of the true mean) down to the frame size. Resends the last frame while the secure desktop (UAC, lock screen) blocks capture |
 | `network.ts` | Subnet broadcast addresses for every LAN adapter (reliable discovery on Windows) |
 | `config.ts` | `ambientlight.config.json`: `AppConfig`, defaults, ranges, validation, `applyConfigFile` (defaults ← file), `checkConfigLimits`, `saveConfigFile` (validates, then writes through a temporary file), `syncOptionsFor` (config + film or game look → `SyncEngine` options) |
-| `film.ts` | `findTitle` / `lookForTitle`: one Wikipedia (film, game) or TVmaze (series) request, exact-title pickers (`pickFilm`, `pickGame`, `pickSeries`), title cache. Failures are `TitleError`s with a `code` (`offline`, `rate-limited`, `not-found` with `similar` titles, `no-genre`, …) so each app words its own advice |
+| `film.ts` | `findTitle` / `lookForTitle`: one Wikipedia (film, game) or TVmaze (series) request, exact-title pickers (`pickFilm`, `pickGame`, `pickSeries`), title cache with the summary (`summaryText`). Failures are `TitleError`s with a `code` (`offline`, `rate-limited`, `not-found` with `similar` titles, `no-genre`, …) so each app words its own advice. With a `LookTuner`, `lookForTitle` has the look tuned by AI (decision 17) and caches the answer |
+| `ai.ts` | `createAiClient`: one chat-completions POST to Gemini or Groq (whichever key is set), JSON schema, timeout, errors without the key. `loadEnvFileIn` reads `.env`. Shared by the look tuner and the rain advice |
+| `look-ai.ts` | `createLookTuner` (prompt and schema for a look tuning), `checkTuning` (accepts only `TUNING_WORDS` and a short reason) |
 | `displays.ts` | `listDisplays` through screenshot-desktop, without sharp |
 | `errors.ts` | `UserError`, `errorMessage` |
 
@@ -99,7 +102,7 @@ prints to the terminal or reads command-line flags. Errors meant for the user ar
 | `frame-file.ts` | `saveFramePng`: writes the analyzed frame as a PNG for `once --save-frame` |
 | `film.ts` | `--film`, `--series`, `--look`, `--game`, `--game-look` → a look (`chooseLook`), and the text that describes it |
 | `weather.ts` | `WeatherClient`: fetches and validates BMKG forecast, BMKG CAP alerts (cached per file) and METAR |
-| `advisor.ts` | Optional AI advice through Gemini's or Groq's chat-completions endpoint, checked against what the rules allow |
+| `advisor.ts` | Optional AI advice through `createAiClient` (`@ambientlight/node`), checked against what the rules allow |
 | `rain.ts` | The `rain` command: 2-minute loop, signal colors, simulations, keep-alive, restore on exit |
 | `log.ts` | Live status line with a true-color swatch |
 
@@ -129,9 +132,9 @@ flowchart LR
 | --- | --- |
 | `src/shared/api.ts` | The IPC contract: `AmbientApi` (what `window.ambient` offers), `AppState`, `FrameView`, channel names |
 | `src/main/index.ts` | Electron: single-instance lock, the window (`contextIsolation`, `sandbox`, no Node.js in the renderer, links open in the browser), IPC handlers, config location, restore before quitting |
-| `src/main/controller.ts` | `AppController`: config, film or game look, discovery, Blink, one `SyncSession`; publishes state changes and frame views. Electron, the network and capture come in through a `Platform`, so tests use fakes |
+| `src/main/controller.ts` | `AppController`: config, film or game look (with its AI tuning), discovery, Blink, one `SyncSession`; publishes state changes and frame views. Electron, the network and capture come in through a `Platform`, so tests use fakes |
 | `src/main/frame-view.ts` | `FrameReport` → `FrameView` (hex colors, the bulb's color with white LEDs drawn at their temperature, fps, share sent), at most one per 100 ms. The capture time is the mean of every frame since the previous view: a frame passes the 100 ms gate more often when its own capture was slow, so its time alone read ~9 ms high. `frameLogLine`: one line per frame for `AMBIENTLIGHT_VERBOSE=1` |
-| `src/main/validate.ts` | Checks every IPC argument (IPv4 addresses, at most 16 bulbs, known looks, title length) |
+| `src/main/validate.ts` | Checks every IPC argument (IPv4 addresses, at most 16 bulbs, known looks, title length). A look from the renderer loses any AI tuning: tunings only come from a lookup in the main process |
 | `src/preload/index.ts` | `contextBridge` → `window.ambient`; built as CommonJS, which a sandboxed preload needs |
 | `src/renderer/src` | The React UI; `model/` holds DOM-free helpers (look chips, status and error text) that a React Native app could reuse; `mock-api.ts` stands in for the main process in a plain browser |
 
@@ -291,6 +294,40 @@ Decisions:
    nothing new: the GDI helper (decision 12) captured Monster Hunter Rise live in borderless and in exclusive full
    screen (2026-11-24, [ROADMAP.md](ROADMAP.md#film-looks-)), though the capture took ~49 ms instead of ~38 ms
    while the game ran.
+17. **An AI nudges a title's look in fixed steps (2026-11-24).** The genre rules can't tell two horror films apart, but
+   a title's summary can. So with a Gemini or Groq key, `lookForTitle` sends the summary (Wikipedia's introduction or
+   TVmaze's summary, both CC BY-SA), the title, its genre words and the genre look's numbers, and the AI answers with a
+   reason and one word per control:
+
+   ```mermaid
+   flowchart LR
+     TITLE[Title] --> LOOKUP[Wikipedia / TVmaze]
+     LOOKUP -->|genre words| RULES[lookForGenres]
+     RULES --> BASE[Genre look]
+     LOOKUP -->|summary| AI[AI model, optional]
+     BASE -->|numbers| AI
+     AI --> GUARD[checkTuning]
+     GUARD -->|steps −2…2| TUNE[tuneLook]
+     BASE --> TUNE
+     TUNE --> SYNC[syncOptionsFor]
+   ```
+
+   - **Words, not numbers.** The AI picks from five words per control ("dimmer", "much warmer"); `TUNING_WORDS` maps them
+     to steps and `TUNING_STEP_SIZES` to numbers (brightness cap ±10 and color base ±5, white ∓800 K, saturation
+     ±15 %), so the code decides how far a step goes. The schema uses string enums because support for integer enums in
+     Gemini's OpenAI-compatible endpoint is uncertain; `checkTuning` rejects any other value anyway, like
+     `checkAdvice` in the rain signal.
+   - **Three controls, chosen by the user (2026-11-24): brightness, warmth, vividness.** The hue lean stays the
+     genre's. Hue is where looks went wrong before (scifi looked like romance, decision 13), and no tuned hue was
+     measured on frames. Steps are large because a few % of dimming is invisible on the user's bulb. Warmth only
+     shows in white and gray scenes, since `whiteTemp` is only used there.
+   - **Wait, then sync.** The lookup already finishes before the bulb is touched, so the AI is waited for (10 s at
+     most) instead of switching the look mid-sync; the CLI's `SyncEngine` path stays as it was. On any failure the
+     genre look is used and `aiError` says why.
+   - **Cached once per title and look** (`look-tuning:v<TUNING_VERSION>:<url>:<set>:<name>`), so a rehearsed demo gets
+     the same light, free quotas are spared, and a changed genre look is asked again. Title cache entries from before
+     summaries were kept are looked up again once, and still used if that lookup fails.
+   - **The AI never sees the screen or the user's settings,** only public facts about the title.
 
 ## Rain signal
 
@@ -314,7 +351,8 @@ flowchart LR
 3. **Polygons, not titles.** An alert titled "Jakarta" covered Depok, Bogor and South Tangerang but neither test point in central
    Jakarta, so every alert in the list is read and matched by polygon and time. Files are cached, which keeps the
    requests under BMKG's 60 per minute.
-4. **No SDK.** Both AI providers take the same single POST, so `fetch` is enough and the provider follows the key.
+4. **No SDK.** Both AI providers take the same single POST, so `fetch` is enough and the provider follows the key
+   (`createAiClient` in `@ambientlight/node`, shared with the look tuning).
    The AI is asked again only when the facts change or the last call failed, to spare free quotas.
 
 ## Adding a platform (Phase 4)

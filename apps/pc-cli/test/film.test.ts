@@ -3,6 +3,7 @@ import fs from "node:fs/promises";
 import os from "node:os";
 import path from "node:path";
 import { after, before, describe, it } from "node:test";
+import type { LookTuner } from "@ambientlight/node";
 import { CliError, parseCommandLine } from "../src/cli.js";
 import { chooseLook, describeLook, findTitle, pickFilm, pickGame, pickSeries, splitYear } from "../src/film.js";
 
@@ -152,6 +153,29 @@ describe("findTitle and chooseLook", () => {
     await assert.rejects(findTitle("film", "Dune", limited, cache), /7 s/);
     await assert.rejects(findTitle("film", "Dune", empty, cache), /No film called "Dune"/);
     await assert.rejects(findTitle("film", "  ", offline, cache), CliError);
+  });
+
+  it("lets an AI tune a title's look unless --no-ai, and says what it did", async () => {
+    const online = (async () => Response.json(HORROR)) as typeof fetch;
+    let asked = 0;
+    const tuner: LookTuner = {
+      name: "Fake AI",
+      tune: async () => {
+        asked++;
+        return { brightness: -1, warmth: 0, vividness: 0, reason: "Grim.", by: "Fake AI" };
+      },
+    };
+    const tuned = (await chooseLook({ ...flags(), film: "Pengabdi Setan" }, online, cache, tuner))!;
+    assert.equal(tuned.look.maxDimming, 35);
+    assert.match(describeLook(tuned), /\nAI: {5}Fake AI: dimmer\. "Grim\."\nLook: {3}horror look, tuned by AI \(brightness up to 35%/);
+
+    const off = (await chooseLook({ ...flags(), film: "Pengabdi Setan", noAi: true }, online, cache, tuner))!;
+    assert.equal(off.look.maxDimming, 45);
+    assert.match(describeLook(off), /AI: {5}off \(--no-ai\)/);
+    const noKey = (await chooseLook({ ...flags(), film: "Pengabdi Setan" }, online, cache))!;
+    assert.match(describeLook(noKey), /AI: {5}off \(no GEMINI_API_KEY or GROQ_API_KEY in \.env\)/);
+    assert.equal(asked, 1);
+    assert.doesNotMatch(describeLook((await chooseLook({ ...flags(), look: "horror" }, online, cache, tuner))!), /AI:/);
   });
 
   it("needs no internet for --look and --game-look, and does nothing without a flag", async () => {

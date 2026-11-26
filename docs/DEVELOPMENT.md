@@ -112,6 +112,10 @@ npm run state                                          # did Stop restore the bu
   Timers go through `platform/timers.ts`. The core's `"types": []` makes violations fail to compile.
 - Platform-specific code lives in `apps/*` behind the core's interfaces (`UdpSocket`, `ScreenCapturer`, `ColorSink`).
 - Line endings are LF (enforced by `.gitattributes` and `.editorconfig`).
+- **Naming.** The product name users see is **I'm bien light** (window and sidebar, CLI help and messages, README).
+  AmbientLight, its name until 2026-11-25, stays the project's code name: the repository, `@ambientlight/*`, the
+  `ambientlight` CLI binary, `ambientlight.config.json`, `AMBIENTLIGHT_*` variables, the `%APPDATA%` and
+  `%LOCALAPPDATA%` folders, and storage keys. Don't rename those; existing settings and caches depend on them.
 
 ## Tests
 
@@ -143,6 +147,19 @@ npm run state                                          # did Stop restore the bu
   frames, look at how much changed between frames: a frozen desktop picture changes ~0 %, a game in play 50–97 %.
   The 2026-11-24 check of Monster Hunter Rise did this with a scratch script (see ROADMAP).
 
+## Testing AI look tuning
+
+- Tests use a fake `LookTuner` or an injected `fetch`, so they need no network, key or quota.
+- A live answer needs a key in `.env` next to `ambientlight.config.json` (see the README). Never print it: check that
+  it's set with `grep -c "^GEMINI_API_KEY=." .env` (1 = set). To see which models the key may use, `GET
+  https://generativelanguage.googleapis.com/v1beta/openai/models` with the key as a bearer token.
+- Try it without the real bulb: `npm run once -- --film "Pengabdi Setan" --bulb 127.0.0.1`; the `AI:` line shows the
+  steps and the reason, or why the AI wasn't used. Compare with `--no-ai`.
+- Answers are cached per title in `%LOCALAPPDATA%\AmbientLight\titles`, next to the titles. To ask again, delete that
+  folder, or bump `TUNING_VERSION` in `packages/node/src/look-ai.ts` after changing the prompt or the step sizes.
+- Error notes: 400 (Gemini) or 401 (Groq) means a wrong key, 404 a retired model id in `packages/node/src/ai.ts`, 429
+  a used-up free quota. The genre look keeps working in every case.
+
 ## Testing the rain signal
 
 - `npm run rain -- --simulate <level>` runs made-up data through the real rules and AI. With the fake bulb below, add
@@ -150,7 +167,7 @@ npm run state                                          # did Stop restore the bu
 - Tests inject `fetch`, so they need no network, key or quota.
 - For a live red, pick a village inside a currently active warning from <https://www.bmkg.go.id/alerts/nowcast/id>.
 - A 400 (Gemini) or 401 (Groq) after "AI gagal" means the key is wrong; a 404 probably means the model id in
-  `apps/pc-cli/src/advisor.ts` was retired; a 429 means the free quota is used up. The rules keep working in all cases.
+  `packages/node/src/ai.ts` was retired; a 429 means the free quota is used up. The rules keep working in all cases.
 
 ## Debugging a scene
 

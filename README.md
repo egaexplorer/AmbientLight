@@ -1,10 +1,11 @@
-# AmbientLight: WiZ Screen Sync
+# I'm bien light: WiZ Screen Sync
 
 Turn a Philips WiZ smart bulb into an ambient backlight for your PC (and later Android) screen.
-AmbientLight captures the screen, works out its average color, and sends it straight to the bulb
+I'm bien light captures the screen, works out its average color, and sends it straight to the bulb
 over your local network (UDP port 38899). Screen sync doesn't need a cloud service or extra hardware.
 With a title, [film looks](#film-looks) give the light the mood of the film's genre (one internet lookup at the start),
-and [game looks](#game-looks) do the same for games, also setting how fast the light reacts.
+and [game looks](#game-looks) do the same for games, also setting how fast the light reacts. With a free Gemini or Groq
+key, an AI [fine-tunes the look for the title](#ai-tuning-optional) from its summary, within limits the code sets.
 An optional prototype, [`rain`](#rain-signal) (not chosen as a product feature yet), turns the bulb into a "is it a good time to head out?" light. It reads public
 weather data and can ask a free AI model for advice, so that mode needs internet.
 
@@ -16,8 +17,9 @@ Capture screen  ->  Downscale + average color  ->  Calibrate + smooth  ->  UDP s
 **Status:** Phases 1–2 work end to end in the PC command-line app (capture, average, calibrate,
 smooth, throttle, send, restore on exit). Phase 3 (calibrating on real hardware) is in progress, and Phase 4
 (Windows desktop app, then Android app) has started: the [desktop app](#desktop-app-windows)'s demo flow is built and
-waits for its first test on a real bulb. Film looks are built and tested on live APIs, real film frames and a fake bulb, not yet judged on a real bulb.
-Game looks reuse the film looks' colors; their lookup is tested on live Wikipedia, their speed not yet on a real bulb.
+works with a real bulb (20 FPS, the same colors as the CLI, restore on stop and on quit). Film looks are built and tested on live APIs, real film frames and a fake bulb, not yet judged on a real bulb.
+Game looks reuse the film looks' colors; their lookup is tested on live Wikipedia, and the fast speed felt right on a real bulb.
+AI tuning of a look is built and tested with fakes and live summaries, not yet with a real AI answer.
 The rain signal is a parked option: tested on live weather data and a fake bulb, not
 yet on a real bulb or with a real AI answer. See [docs/ROADMAP.md](docs/ROADMAP.md).
 
@@ -36,14 +38,14 @@ docs/             Architecture, WiZ protocol notes, roadmap, development guide, 
 
 ## Requirements
 
-- **Windows 10/11.** AmbientLight targets Windows PCs and, later, Android; macOS, Linux and iOS aren't supported
+- **Windows 10/11.** I'm bien light targets Windows PCs and, later, Android; macOS, Linux and iOS aren't supported
   (the CLI's `"capture": "screenshot-desktop"` fallback may run there, but that isn't tested or maintained).
   The first `once`/`sync` builds a small capture helper with the C# compiler that ships with Windows
   (.NET Framework 4); later runs reuse it.
 - **Node.js 22.12 or newer.** Node 24 LTS is recommended.
 - **A Philips WiZ bulb** set up in the official WiZ app, on the **same Wi‑Fi/subnet** as the PC.
 - In the WiZ app, turn on **Settings → Security → Allow local communication**, and turn **off "Only verified controls"**
-  (some app versions call this "Allow All Control"). Otherwise the bulb ignores AmbientLight's colors;
+  (some app versions call this "Allow All Control"). Otherwise the bulb ignores I'm bien light's colors;
   `npm run check-bulb` tells you if that's the case.
 - Recommended: give the bulb a fixed IP with a **DHCP reservation** in your router.
 
@@ -71,7 +73,7 @@ npm run sync
 
 > **Windows Firewall:** the first time you run `discover` or `sync`, Windows may ask whether Node.js can
 > use the network. Allowing it on **Private networks** is the safe answer, but on the test PC the answer didn't
-> matter: Windows lets the bulb's replies to AmbientLight's own requests through, even with the prompt cancelled.
+> matter: Windows lets the bulb's replies to I'm bien light's own requests through, even with the prompt cancelled.
 > If no bulb answers, search again first; a bulb can miss searches for about a minute.
 
 You can pass any setting on the command line instead of the config file, e.g.
@@ -89,7 +91,7 @@ You can pass any setting on the command line instead of the config file, e.g.
 | `npm run color -- --rgb r,g,b [--dimming n]` | Sets a fixed color to test connectivity |
 | `npm run once` | Captures one frame and sends its color (Phase 1). Add `-- --save-frame <file.png>` to also save the frame it analyzed |
 | `npm run sync` | Continuous screen sync (Phase 2). Add `-v` to print every frame |
-| `npm run sync -- --film "<title>"` | Sync with the look of that film's genre ([Film looks](#film-looks)). Also `--series` and `--look`, and the same for `once` |
+| `npm run sync -- --film "<title>"` | Sync with the look of that film's genre ([Film looks](#film-looks)). Also `--series` and `--look`, and the same for `once`. With an AI key the look is [tuned for the title](#ai-tuning-optional); `--no-ai` keeps the genre look |
 | `npm run sync -- --game "<title>"` | Sync with the look and speed of that game's genre ([Game looks](#game-looks)). Also `--game-look`, and the same for `once` |
 | `npm run rain` | Weather signal on the bulb ([Rain signal](#rain-signal)). Don't run it at the same time as `sync` |
 | `npm run help` | All options |
@@ -112,7 +114,10 @@ npm run desktop    # the first start downloads Electron (~100 MB) if npm install
   **Stop sync**, closing the window or quitting all put the bulbs back the way they were.
 - **Look**: type a film, series or game title (Wikipedia, TVmaze or Wikipedia, as `--film` / `--series` / `--game`)
   or pick a look. The Game tab shows the game looks, the other tabs the film looks. A look applies at once, also
-  while syncing.
+  while syncing. With an AI key, a found title's look is [tuned by AI](#ai-tuning-optional): the box under the title
+  says what changed and why, or why the AI wasn't used. Clicking the look's chip goes back to the plain genre look.
+  The app reads the key from `.env` next to its settings file, and during development also from the `.env` next to
+  the CLI's config.
 - **Brightness** (Home, under the live colors): 70 % shows the look as designed, and the bulb's top brightness
   scales with it, so with Horror (capped at 45 %) 100 % gives 64 % and 35 % gives 22.5 %. It applies at once, also
   while syncing, and is saved as `brightness`. The label shows what the bulb reaches ("bulb up to 45 %"); with no
@@ -230,8 +235,45 @@ npm run sync -- --look horror               # pick it yourself, no internet
 - Only the title is sent, once: to English Wikipedia for a film, to TVmaze for a series. Results are cached in
   `%LOCALAPPDATA%\AmbientLight\titles`, so a title that was used before also starts offline. Screen content never
   leaves the PC.
+- **Streaming:** video in a browser is captured like the rest of the screen. Netflix in Chrome works (the user saw
+  the bulb follow it on 2026-11-26). Edge and the Netflix app for Windows haven't been tried; players that protect
+  video in hardware can capture as black, which is why other sync apps say Netflix can't be synced.
 
 Film data: [Wikipedia](https://en.wikipedia.org/). Series data: [TVmaze](https://www.tvmaze.com/). Both CC BY-SA 4.0.
+
+### AI tuning (optional)
+
+Two films of one genre can call for different light. With a key, an AI reads the title's summary from Wikipedia or
+TVmaze and nudges the genre look for that title. The genre rules still pick the look; the AI can only move three
+controls, by at most two steps each, and the code rejects any other answer.
+
+| Control | AI picks from | One step |
+| --- | --- | --- |
+| Brightness | much dimmer, dimmer, same, brighter, much brighter | Top brightness ±10 points (10–100 %), dark colored scenes ±5 |
+| Warmth | much cooler, cooler, same, warmer, much warmer | White ∓800 K (2200–6500 K); only white and gray scenes use it |
+| Vividness | much softer, softer, same, more vivid, much more vivid | The look's saturation ±15 % |
+
+The hue a look leans toward always stays the genre's. The AI also writes one sentence on why, which `sync`, `once` and
+the desktop app show:
+
+```text
+AI:     Gemini (gemini-3.5-flash-lite): dimmer, softer. "..."
+Look:   horror look, tuned by AI (brightness up to 35%, white 6500 K, hue leaning to 220°)
+```
+
+1. Put a key in a git-ignored `.env` next to `ambientlight.config.json`: `GEMINI_API_KEY=...`
+   ([Google AI Studio](https://aistudio.google.com/apikey)) or `GROQ_API_KEY=...` ([Groq](https://console.groq.com/keys)).
+   If both are set, Gemini is used. The desktop app reads `%APPDATA%\AmbientLight\.env`, and during development also
+   the CLI's `.env`. A variable that is already set (also to an empty value) wins.
+2. Use a title as usual (`--film`, `--series`, `--game`, or the desktop app's title box). `--no-ai` keeps the genre
+   look.
+
+- **Fallback:** without a key, when the source has no summary, or when the AI fails or answers outside the steps, the
+  genre look is used, and the reason is shown. The AI gets at most 10 s.
+- **Once per title:** the answer is cached next to the title (`%LOCALAPPDATA%\AmbientLight\titles`), so the same title
+  gets the same light again, also offline, and the free quota is spared. Delete that folder to ask again.
+- **What is sent:** the title, its genre words, the genre look's numbers and the summary (Wikipedia and TVmaze texts
+  are CC BY-SA). No screen content and no settings. Free tiers may use what they receive to improve their models.
 
 ## Game looks
 
@@ -265,6 +307,8 @@ npm run sync -- --game-look shooter         # pick it yourself, no internet
   skipped. The first matching row wins, so a horror visual novel is horror. Only the title is sent, once, to English
   Wikipedia, and the result is cached with the film titles. A game without an English Wikipedia article (such as
   Pamali) isn't found: pick its look with `--game-look`.
+- **AI tuning** works as for films ([above](#ai-tuning-optional)) and changes only colors and brightness; the speed
+  stays the genre's.
 - **Capture** uses the same GDI helper as for videos. Monster Hunter Rise was captured live both in borderless full
   screen and in exclusive full screen (tested 2026-11-24); only its loading screens were black. Other games haven't
   been tested: if the light stays dark while a game runs, switch the game to borderless window mode.
@@ -287,9 +331,8 @@ Indonesian, like the data.
 | Purple | Unknown | A source failed or is stale, and no known danger |
 
 1. Set `weatherArea` in `ambientlight.config.json` to your village's BMKG code.
-2. Optional AI: put a key in a git-ignored `.env` next to that file, either `GEMINI_API_KEY=...`
-   ([Google AI Studio](https://aistudio.google.com/apikey)) or `GROQ_API_KEY=...`
-   ([Groq](https://console.groq.com/keys)). If both are set, Gemini is used.
+2. Optional AI: put a key in a git-ignored `.env` next to that file, the same one as for
+   [AI tuning](#ai-tuning-optional).
 3. Run it:
 
 ```powershell
@@ -326,7 +369,11 @@ Protocol details are in [docs/WIZ_PROTOCOL.md](docs/WIZ_PROTOCOL.md).
 
 These open-source projects informed the design. See [docs/PROJECT_GUIDE.md](docs/PROJECT_GUIDE.md) for the full
 list with licenses, and [docs/REFERENCE_NOTES.md](docs/REFERENCE_NOTES.md) for what each one teaches and how it applies
-to AmbientLight.
+to I'm bien light.
+
+The app was called AmbientLight until 2026-11-25. That name stays in the repository, the `@ambientlight/*` packages,
+`ambientlight.config.json` and the `%APPDATA%\AmbientLight` / `%LOCALAPPDATA%\AmbientLight` folders, so existing
+settings keep working.
 
 - [one-adnan/ambient-setup](https://github.com/one-adnan/ambient-setup): color pipeline ideas (saturation boost, gamma, EMA smoothing, presets)
 - [uditkarode/wikari](https://github.com/uditkarode/wikari): TypeScript WiZ library (discovery, getPilot/setPilot)

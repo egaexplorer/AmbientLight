@@ -1,5 +1,3 @@
-import fs from "node:fs";
-import path from "node:path";
 import { setTimeout as delay } from "node:timers/promises";
 import {
   assessRain,
@@ -65,7 +63,8 @@ export function simulatedWeather(kind: SimulatedWeather, now: number): WeatherSn
   };
 }
 
-export async function runRain(config: AppConfig, flags: CliFlags, envDir: string): Promise<number> {
+/** Runs the rain signal. An AI key, if any, is in `process.env` already (`.env` next to the config file). */
+export async function runRain(config: AppConfig, flags: CliFlags): Promise<number> {
   requireBulbs(config);
   const { simulate } = flags;
   if (!simulate && !config.weatherArea) {
@@ -73,8 +72,6 @@ export async function runRain(config: AppConfig, flags: CliFlags, envDir: string
       'Set "weatherArea" in ambientlight.config.json to a BMKG village code like "31.71.03.1001", or use --simulate.',
     );
   }
-  const envFile = path.join(envDir, ".env");
-  if (fs.existsSync(envFile)) process.loadEnvFile(envFile);
   const advisor = createAdvisor(process.env);
   const client = simulate ? undefined : new WeatherClient(config.weatherArea!);
   const plan = flags.plan?.slice(0, 300) ?? DEFAULT_PLAN;

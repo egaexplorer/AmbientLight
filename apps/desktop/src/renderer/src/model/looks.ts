@@ -7,8 +7,10 @@ import {
   type GamePace,
   LOOK_NAMES,
   type LookName,
+  tuneLook,
+  tuningWords,
 } from "@ambientlight/core";
-import type { LookChoice } from "../../../shared/api";
+import type { LookChoice, LookTuningView } from "../../../shared/api";
 
 const LABELS: Record<LookName, string> = {
   horror: "Horror",
@@ -63,9 +65,16 @@ export interface LookChip {
   detail: string;
 }
 
-/** The settings behind a chosen look. */
+/** The settings behind a chosen look, with the AI's tuning when it has one. */
 export function lookOf(choice: LookChoice): FilmLook {
-  return choice.set === "game" ? GAME_LOOKS[choice.name] : FILM_LOOKS[choice.name];
+  const base = choice.set === "game" ? GAME_LOOKS[choice.name] : FILM_LOOKS[choice.name];
+  return choice.tuning ? tuneLook(base, choice.tuning) : base;
+}
+
+/** What the AI changed, e.g. "Brighter, much warmer", or "No change" when it kept the genre look. */
+export function tuningText(tuning: LookTuningView): string {
+  const text = tuningWords(tuning).join(", ") || "no change";
+  return text.charAt(0).toUpperCase() + text.slice(1);
 }
 
 export function lookLabel(choice: LookChoice): string {

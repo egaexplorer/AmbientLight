@@ -3,6 +3,10 @@
 Where the Windows desktop app stands and what comes next, written so a new session (for example one on the user's
 PC) can continue. The facts also live in the docs listed below; if they disagree, the docs win.
 
+> **Start at [`HANDOFF.md`](../HANDOFF.md) in the repo root** (2026-11-25): it has the project's current state, the
+> branch in progress, what to copy before moving to another PC, and the next steps. This file keeps the desktop app's
+> detail: decisions, code map, gotchas and the MVP plan.
+
 ## Context
 
 A cloud session planned and started the Windows desktop app (Electron) for AmbientLight. The next part has to happen
@@ -30,7 +34,7 @@ everything a new session needs to continue. All of it is also committed in the r
 cd C:\AI_Sandbox\Project\AmbientLight
 git checkout main
 npm install          # with npm 12 this didn't fetch Electron's binary; the first start does (~100 MB)
-npm run check        # build + typecheck + 222 tests, must be green
+npm run check        # build + typecheck + tests (253 on 2026-11-25), must be green
 npm run desktop      # the app; first start copies ambientlight.config.json from the repo root
 ```
 
@@ -100,7 +104,9 @@ Bulbs, Tuning, Setup wizard, Diagnostics, About and the tray menu. The wireframe
 - In development the GDI helper source is found at `app.getAppPath()/../../packages/node/native/gdi-capture.cs`.
   Installed, it is `process.resourcesPath/gdi-capture.cs`, which the installer must ship as an `extraResources`
   entry.
-- `productName: "AmbientLight"` in `apps/desktop/package.json` decides the `%APPDATA%` folder name.
+- `productName: "I'm bien light"` in `apps/desktop/package.json` names the window, the installer and the `.exe`.
+  Electron would also name the `%APPDATA%` folder after it, so `main/index.ts` pins `userData` to
+  `%APPDATA%\AmbientLight` (the name before 2026-11-25) and existing settings carry over.
 - CI sets `ELECTRON_SKIP_BINARY_DOWNLOAD=1`.
 - `CLAUDE.md` rule: update the docs in the same change as the code, each fact in the doc that owns it.
 
@@ -146,7 +152,8 @@ Still to do:
 7. **desktopCapturer spike:** a hidden-window capturer and a benchmark against GDI (ms, FPS, CPU, memory, color
    difference). Record it in ARCHITECTURE decision 15.
 8. **Installer:** electron-builder NSIS for Windows, icons, `gdi-capture.cs` as `extraResources`, `asarUnpack` for
-   `screenshot-desktop`. Test a clean install and the firewall prompt for `AmbientLight.exe`.
+   `screenshot-desktop`. Test a clean install and the firewall prompt for `I'm bien light.exe` (check that the apostrophe survives NSIS and the
+   shortcut; if not, set electron-builder's `executableName`).
 9. 12-11: freeze and rehearse. **12-12: live demo.**
 
 ### C. After the demo

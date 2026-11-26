@@ -15,7 +15,7 @@ import {
 import { broadcastAddresses, createNodeUdpSocket, GdiCapturer, syncOptionsFor } from "@ambientlight/node";
 import { CliError, type CliFlags } from "./cli.js";
 import type { AppConfig } from "./config.js";
-import { type ChosenLook, describeLook } from "./film.js";
+import { type CliLook, describeLook } from "./film.js";
 import { saveFramePng } from "./frame-file.js";
 import { colorSwatch, errorMessage, formatColor, formatPilot, StatusLine, swatch } from "./log.js";
 
@@ -33,7 +33,7 @@ export function requireBulbs(config: AppConfig): void {
   }
 }
 
-function syncOptions(config: AppConfig, look?: ChosenLook): Partial<SyncOptions> {
+function syncOptions(config: AppConfig, look?: CliLook): Partial<SyncOptions> {
   return syncOptionsFor(config, look?.look);
 }
 
@@ -187,7 +187,7 @@ export async function runColor(config: AppConfig, flags: CliFlags): Promise<numb
 
 export async function runSync(
   config: AppConfig,
-  options: { once: boolean; verbose: boolean; saveFrame?: string | undefined; look?: ChosenLook | undefined },
+  options: { once: boolean; verbose: boolean; saveFrame?: string | undefined; look?: CliLook | undefined },
 ): Promise<number> {
   requireBulbs(config);
   if (options.look) console.log(describeLook(options.look));

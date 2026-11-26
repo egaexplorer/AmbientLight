@@ -47,6 +47,10 @@ export function checkBrightness(value: unknown): number {
   return value;
 }
 
+/**
+ * A look picked in the renderer. Only the name and the title details are kept: an AI tuning (`tuning`, `aiError`)
+ * only comes from a title lookup in the main process, so a picked chip is always the plain genre look.
+ */
 export function checkLook(value: unknown): LookChoice | null {
   if (value === null) return null;
   if (typeof value !== "object" || Array.isArray(value)) throw new UserError("Expected a look");

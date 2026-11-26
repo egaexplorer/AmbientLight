@@ -3,7 +3,7 @@ import type { AppState, FrameView, LookChoice, TitleKind } from "../../../shared
 import { api } from "../api";
 import { Button, Card, Swatch } from "../components/ui";
 import { brightnessText, statsText, statusText, titleErrorText } from "../model/format";
-import { gameLookChips, lookChips, lookLabel, sameLook } from "../model/looks";
+import { gameLookChips, lookChips, lookLabel, sameLook, tuningText } from "../model/looks";
 
 type LookMode = TitleKind | "pick";
 
@@ -316,7 +316,17 @@ function LookCard({ state }: { state: AppState | null }) {
               )}
             </span>
           )}
-          <span className="font-semibold">Look: {lookLabel(look)}</span>
+          <span className="font-semibold">
+            Look: {lookLabel(look)}
+            {look.tuning ? ", tuned by AI" : ""}
+          </span>
+          {look.tuning && (
+            <p className="m-0 basis-full text-soft">
+              <span className="font-semibold text-ink">{tuningText(look.tuning)}</span> · “{look.tuning.reason}”{" "}
+              <span className="text-muted">({look.tuning.by})</span>
+            </p>
+          )}
+          {look.aiError && <p className="m-0 basis-full text-muted">AI not used, so the genre look stays: {look.aiError}</p>}
         </div>
       )}
 

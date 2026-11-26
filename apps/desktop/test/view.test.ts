@@ -5,7 +5,7 @@ import { UserError } from "@ambientlight/node";
 import { bulbPreview, frameLogLine, FrameViews, kelvinToRgb, toHex } from "../src/main/frame-view.js";
 import { checkBrightness, checkBulbList, checkIp, checkLook, checkTitleKind } from "../src/main/validate.js";
 import { brightnessText, macText, statsText, titleErrorText } from "../src/renderer/src/model/format.js";
-import { gameLookChips, lookChips, lookLabel, sameLook } from "../src/renderer/src/model/looks.js";
+import { gameLookChips, lookChips, lookLabel, lookOf, sameLook, tuningText } from "../src/renderer/src/model/looks.js";
 
 function report(sent: boolean, captureMs = 31.6): FrameReport {
   return {
@@ -85,6 +85,9 @@ describe("IPC input checks", () => {
   it("accepts known looks and title kinds only", () => {
     assert.deepEqual(checkLook({ set: "film", name: "horror", title: "X", extra: 1 }), { set: "film", name: "horror", title: "X" });
     assert.deepEqual(checkLook({ set: "game", name: "shooter" }), { set: "game", name: "shooter" });
+    // A tuning only comes from a lookup in the main process; a picked look is the plain genre look.
+    const tuning = { brightness: 2, warmth: 2, vividness: 2, reason: "r", by: "AI" };
+    assert.deepEqual(checkLook({ set: "film", name: "horror", tuning, aiError: "x" }), { set: "film", name: "horror" });
     assert.equal(checkLook(null), null);
     assert.throws(() => checkLook({ set: "film", name: "gore" }), UserError);
     assert.throws(() => checkLook({ name: "horror" }), UserError);
@@ -136,5 +139,13 @@ describe("renderer text", () => {
     assert.ok(sameLook({ set: "game", name: "horror", title: "DreadOut" }, { set: "game", name: "horror" }));
     assert.ok(!sameLook({ set: "game", name: "horror" }, { set: "film", name: "horror" }));
     assert.ok(sameLook(null, null) && !sameLook(null, { set: "film", name: "drama" }));
+  });
+
+  it("shows what the AI changed", () => {
+    const tuning = { brightness: 1, warmth: 0, vividness: -2, reason: "r", by: "AI" } as const;
+    assert.equal(tuningText(tuning), "Brighter, much softer");
+    assert.equal(tuningText({ ...tuning, brightness: 0, vividness: 0 }), "No change");
+    assert.equal(lookOf({ set: "film", name: "horror", tuning }).maxDimming, 55);
+    assert.ok(sameLook({ set: "film", name: "horror", tuning }, { set: "film", name: "horror" }));
   });
 });

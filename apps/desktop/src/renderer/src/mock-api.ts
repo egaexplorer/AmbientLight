@@ -56,7 +56,20 @@ export function createMockApi(): AmbientApi {
       const source = { source: "Wikipedia (CC BY-SA 4.0)", url: "https://en.wikipedia.org/" };
       let look: LookChoice | undefined;
       if (kind !== "game" && /setan|satan/i.test(title)) {
-        look = { set: "film", name: "horror", title: "Satan's Slaves", genres: "2017 Indonesian supernatural horror", ...source };
+        look = {
+          set: "film",
+          name: "horror",
+          title: "Satan's Slaves",
+          genres: "2017 Indonesian supernatural horror",
+          ...source,
+          tuning: {
+            brightness: -1,
+            warmth: 0,
+            vividness: -1,
+            reason: "A family haunted in a remote house after the mother's death: darker and more muted.",
+            by: "Gemini (mock)",
+          },
+        };
       } else if (kind === "game" && /dreadout/i.test(title)) {
         look = { set: "game", name: "horror", title: "DreadOut", genres: "2014 survival horror", ...source };
       } else if (kind === "game" && /valorant/i.test(title)) {

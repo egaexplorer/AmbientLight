@@ -11,8 +11,10 @@ import {
   gameLookForGenres,
   type LookName,
   lookForGenres,
+  tuneLook,
 } from "@ambientlight/core";
 import { errorMessage, UserError } from "./errors.js";
+import { asTitleTuning, type LookTuner, type TitleTuning, TUNING_VERSION } from "./look-ai.js";
 
 const WIKIPEDIA_API = "https://en.wikipedia.org/w/api.php";
 const TVMAZE_API = "https://api.tvmaze.com/search/shows";
@@ -58,6 +60,8 @@ export interface TitleInfo {
   genres: string;
   source: string;
   url: string;
+  /** The article's introduction or the show's summary, for AI tuning (CC BY-SA). Absent in older cache files. */
+  summary?: string;
 }
 
 /** Lowercase words only, so "Avengers Endgame" finds "Avengers: Endgame". */
@@ -73,6 +77,19 @@ function normalize(text: string): string {
 /** External text ends up in the terminal. */
 function printable(text: string): string {
   return text.replace(/\p{Cc}/gu, " ").trim().slice(0, 200);
+}
+
+const ENTITIES: Record<string, string> = { amp: "&", lt: "<", gt: ">", quot: '"', "#39": "'", apos: "'", nbsp: " " };
+
+/** A summary as plain text: no HTML (TVmaze sends some), no control characters, at most 1500 characters. */
+export function summaryText(text: string): string {
+  return text
+    .replace(/<[^>]*>/g, " ")
+    .replace(/&(amp|lt|gt|quot|#39|apos|nbsp);/g, (_, name: string) => ENTITIES[name]!)
+    .replace(/\p{Cc}/gu, " ")
+    .replace(/\s+/g, " ")
+    .trim()
+    .slice(0, 1500);
 }
 
 /** "Dune (1984)" → the title and the year that narrows it down. */
@@ -155,6 +172,7 @@ function pickArticle(body: unknown, input: string, rules: ArticleRules): { found
       source: "Wikipedia (CC BY-SA 4.0)",
       // encodeURI keeps "?" and "#", which would cut off titles like "What's Up with Love?".
       url: `https://en.wikipedia.org/wiki/${encodeURI(page.title.replaceAll(" ", "_")).replaceAll("?", "%3F").replaceAll("#", "%23")}`,
+      summary: summaryText(text),
     };
     if (normalize(page.title.replace(/\s*\([^)]*\)$/, "")) === wanted) return { found: info, similar };
 
@@ -185,6 +203,7 @@ interface TvShow {
   type?: string | null;
   genres?: string[];
   premiered?: string | null;
+  summary?: string | null;
 }
 
 export function pickSeries(body: unknown, input: string): { found?: TitleInfo; similar: string[] } {
@@ -200,6 +219,7 @@ export function pickSeries(body: unknown, input: string): { found?: TitleInfo; s
       genres: printable([show.type ?? "", ...(show.genres ?? [])].join(" ")),
       source: "TVmaze (CC BY-SA 4.0)",
       url: printable(show.url),
+      summary: summaryText(show.summary ?? ""),
     },
   };
 }
@@ -230,6 +250,27 @@ export function defaultCacheDir(): string {
   return path.join(process.env.LOCALAPPDATA ?? path.join(os.homedir(), ".cache"), "AmbientLight", "titles");
 }
 
+function cacheFile(cacheDir: string, key: string): string {
+  return path.join(cacheDir, `${crypto.createHash("sha256").update(key).digest("hex").slice(0, 24)}.json`);
+}
+
+async function readCache(file: string): Promise<unknown> {
+  try {
+    return JSON.parse(await fs.readFile(file, "utf8"));
+  } catch {
+    return undefined; // Not cached yet, or unreadable.
+  }
+}
+
+async function writeCache(file: string, value: unknown, what: string): Promise<void> {
+  try {
+    await fs.mkdir(path.dirname(file), { recursive: true });
+    await fs.writeFile(file, JSON.stringify(value));
+  } catch (error) {
+    console.warn(`Note: couldn't cache the ${what}, so the next start needs internet again (${errorMessage(error)}).`);
+  }
+}
+
 /** Looks a title up with one request and remembers it, so a rehearsed demo also starts without internet. */
 export async function findTitle(
   kind: TitleKind,
@@ -240,18 +281,24 @@ export async function findTitle(
   const { name, year } = splitYear(input);
   const example = kind === "game" ? "DreadOut" : "Pengabdi Setan";
   if (normalize(name) === "") throw new TitleError("no-title", `--${kind} needs a title, e.g. --${kind} "${example}"`);
-  const flag = lookFlag(kind);
 
-  const key = crypto.createHash("sha256").update(`${kind}:${normalize(name)}:${year ?? ""}`).digest("hex").slice(0, 24);
-  const file = path.join(cacheDir, `${key}.json`);
+  const file = cacheFile(cacheDir, `${kind}:${normalize(name)}:${year ?? ""}`);
+  // shortcut: cached titles never expire, delete the folder if an article gets a better genre.
+  const cached = (await readCache(file)) as Partial<TitleInfo> | undefined;
+  const usable = typeof cached?.title === "string" && typeof cached.genres === "string" ? (cached as TitleInfo) : undefined;
+  if (typeof usable?.summary === "string") return usable;
   try {
-    // shortcut: cached titles never expire, delete the folder if an article gets a better genre.
-    const cached = JSON.parse(await fs.readFile(file, "utf8")) as TitleInfo;
-    if (typeof cached.title === "string" && typeof cached.genres === "string") return cached;
-  } catch {
-    // Not cached yet, or unreadable: look it up.
+    return await lookUpTitle(kind, input, fetchFn, file);
+  } catch (error) {
+    // Cached before summaries were kept: still right for the genre when the new lookup fails.
+    if (usable) return usable;
+    throw error;
   }
+}
 
+async function lookUpTitle(kind: TitleKind, input: string, fetchFn: typeof fetch, file: string): Promise<TitleInfo> {
+  const { name, year } = splitYear(input);
+  const flag = lookFlag(kind);
   let result: { found?: TitleInfo; similar: string[] };
   if (kind === "series") {
     result = pickSeries(await getJson(`${TVMAZE_API}?${new URLSearchParams({ q: name })}`, "TVmaze", fetchFn, flag), input);
@@ -286,36 +333,60 @@ export async function findTitle(
     );
   }
 
-  try {
-    await fs.mkdir(cacheDir, { recursive: true });
-    await fs.writeFile(file, JSON.stringify(result.found));
-  } catch (error) {
-    console.warn(`Note: couldn't cache the title, so the next start needs internet again (${errorMessage(error)}).`);
-  }
+  await writeCache(file, result.found, "title");
   return result.found;
 }
 
-/** A film look (also for series) or a game look. `info` is absent when the look was picked by hand. */
-export type ChosenLook =
+/**
+ * A film look (also for series) or a game look. `info` is absent when the look was picked by hand. With `tuning`,
+ * `look` is the genre look as the AI nudged it; `aiError` says why a tuner left the genre look as it was.
+ */
+export type ChosenLook = (
   | { set: "film"; name: LookName; look: FilmLook; info?: TitleInfo }
-  | { set: "game"; name: GameLookName; look: GameLook; info?: TitleInfo };
+  | { set: "game"; name: GameLookName; look: GameLook; info?: TitleInfo }
+) & { tuning?: TitleTuning; aiError?: string };
 
-/** Looks a film, series or game up (see `findTitle`) and picks the look for its genre. */
+/**
+ * Looks a film, series or game up (see `findTitle`) and picks the look for its genre. With a `tuner`, an AI then
+ * nudges that look for this title (`tuneLook`), once per title: the answer is cached. If the AI can't, the genre look
+ * stays and `aiError` says why.
+ */
 export async function lookForTitle(
   kind: TitleKind,
   input: string,
   fetchFn: typeof fetch = fetch,
-  cacheDir?: string,
+  cacheDir: string = defaultCacheDir(),
+  tuner?: LookTuner,
 ): Promise<ChosenLook & { info: TitleInfo }> {
   const info = await findTitle(kind, input, fetchFn, cacheDir);
   const noGenre = () =>
     new TitleError("no-genre", `Found ${info.title}, but no known genre in "${info.genres}". Pick one with ${lookFlag(kind)}.`);
+  let chosen: ChosenLook & { info: TitleInfo };
   if (kind === "game") {
     const name = gameLookForGenres(info.genres);
     if (!name) throw noGenre();
-    return { set: "game", name, look: GAME_LOOKS[name], info };
+    chosen = { set: "game", name, look: GAME_LOOKS[name], info };
+  } else {
+    const name = lookForGenres(info.genres);
+    if (!name) throw noGenre();
+    chosen = { set: "film", name, look: FILM_LOOKS[name], info };
   }
-  const name = lookForGenres(info.genres);
-  if (!name) throw noGenre();
-  return { set: "film", name, look: FILM_LOOKS[name], info };
+  if (!tuner) return chosen;
+
+  const { summary } = info;
+  if (!summary) return { ...chosen, aiError: `${info.source.split(" (")[0]} has no summary of this title to read` };
+  // Free quotas are small, and a rehearsed demo should get the same light again.
+  const file = cacheFile(cacheDir, `look-tuning:v${TUNING_VERSION}:${info.url}:${chosen.set}:${chosen.name}`);
+  let tuning = asTitleTuning(await readCache(file));
+  if (!tuning) {
+    try {
+      tuning = await tuner.tune({ kind, title: info.title, genres: info.genres, summary, lookName: chosen.name, look: chosen.look });
+    } catch (error) {
+      return { ...chosen, aiError: errorMessage(error) };
+    }
+    await writeCache(file, tuning, "AI tuning");
+  }
+  return chosen.set === "game"
+    ? { ...chosen, look: tuneLook(chosen.look, tuning), tuning }
+    : { ...chosen, look: tuneLook(chosen.look, tuning), tuning };
 }

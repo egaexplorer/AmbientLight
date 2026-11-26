@@ -2,7 +2,7 @@
   "name": "@ambientlight/node",
   "version": "0.1.0",
   "private": true,
-  "description": "Node.js adapters shared by the CLI and the desktop app (Windows): UDP, GDI screen capture, config files, film title lookup.",
+  "description": "Node.js adapters shared by the CLI and the desktop app (Windows): UDP, GDI screen capture, config files, film title lookup, AI look tuning.",
   "type": "module",
   "exports": {
     ".": {

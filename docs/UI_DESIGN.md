@@ -73,6 +73,10 @@ The Home screen and the Find bulbs dialog (`apps/desktop/src/renderer`), as in t
   Bulbs page.
 - **Game tab** in the Look card (added 2026-11-24, not in the wireframe yet): the card is titled "Look", the tab
   asks for a game title and shows the game chips. The card opens on the Game tab when a game look is in use.
+- **AI tuning line** in the Look card's title box (added 2026-11-24, not in the wireframe yet): "Look: Horror, tuned
+  by AI", then the changes in bold ("Dimmer, softer"), the AI's reason in quotes and the model in muted text. When a
+  key is set but the AI wasn't used, a muted line says why ("AI not used, so the genre look stays: …"). The chip of
+  the look stays selected; clicking it goes back to the plain genre look.
 
 Checked against the wireframe on 2026-11-23 with screenshots of the running app (`drive.mjs shot`): apart from the
 points above, Home and Find bulbs are as drawn. The same day the "nothing answered" box changed in both: it now
@@ -115,7 +119,7 @@ Paste this into [Google Stitch](https://stitch.withgoogle.com/) to explore other
 the spec for content and behavior; take only looks from Stitch.
 
 ```text
-Design a Windows desktop app, window 1000x680, dark theme, called AmbientLight. It syncs a Philips WiZ smart bulb
+Design a Windows desktop app, window 1000x680, dark theme, called I'm bien light. It syncs a Philips WiZ smart bulb
 to the colors on the PC screen. The UI must be neutral dark gray with no colored accents, because the app window
 is captured while visible: the only colors on screen are live color swatches showing the light.
 

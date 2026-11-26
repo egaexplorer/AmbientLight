@@ -138,7 +138,8 @@ screenshots were described in enough detail to copy a layout). It shaped the des
 
 Also noted: Govee offers a GDI capture mode as a fallback when sync fails, and Hue Sync can dim the lights when the
 app starts so the screen stays the focus. Hue Sync, Govee and Nanoleaf all state that DRM-protected streams
-(Netflix and similar) can't be captured.
+(Netflix and similar) can't be captured. Our GDI capture does get Netflix in Chrome (seen 2026-11-26; README,
+"Film looks"), so that statement depends on the player.
 
 ---
 

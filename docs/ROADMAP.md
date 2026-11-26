@@ -191,14 +191,36 @@ Picked on 2026-11-22 as the core feature. Priority: the core working, with a wri
 
 - [x] `--film` (Wikipedia), `--series` (TVmaze), `--look`, cache, 8 looks, tests
 - [x] Lookup: 21 of 21 test films right, including 7 Indonesian ones; mistyped titles and series are refused
+- [x] Live lookups for the demo video (2026-11-25): One Punch Man (series, TVmaze "Animation Comedy Action Anime") →
+      animation; Pengabdi Setan and Pengabdi Setan 2 → horror; Jumbo (2025) → animation; Dilan 1990 → romance; Agak
+      Laen → comedy. One franchise can differ by source: Jujutsu Kaisen as a series → horror (TVmaze lists Horror), the
+      film Jujutsu Kaisen 0 → animation (Wikipedia "animated dark fantasy"). One Punch Man has no film article, so it
+      needs `--series`. Horror free on YouTube → horror: Lights Out (2013) (the short; without the year the 2016
+      feature), Night of the Living Dead, The Terror (1963), Horror Express, Carnival of Souls. Without a year, House on
+      Haunted Hill and Nosferatu find the 1999 and 2024 films. Cargo (2013), "Australian short", gets no genre. About
+      ten searches within seconds got HTTP 429 from Wikipedia (retry after ~24 s), which the app reports as such
 - [x] Looks measured through `SyncEngine` on 99 distinct frames of Sintel, Big Buck Bunny and Tears of Steel: each
       differs from plain sync on 59–92 % of frames and from each other look on at least 63 %, no vivid color turned
       white, hue moved at most 30° after gamma
 - [x] End to end on a fake bulb: 20 FPS kept, previous state restored
 - [ ] Judge the looks on the real bulb, above all horror (too dark?), romance and animation, then tune
-- [ ] Record the demo video
+- [ ] Record the demo video (script ready 2026-11-25, moved to Netflix in Chrome on 2026-11-26: One Punch Man S1E12,
+      the Boros fight (`--series`), and Fear Street Part One: 1994 (`--film`, Wikipedia "2021 American supernatural
+      slasher" → horror, checked on a fake bulb 2026-11-26) instead of the YouTube short Remain Calm, plus Monster
+      Hunter Rise for game looks)
 - [ ] Later, if there is time: night watching (cap by sunset; see the options below)
-- [ ] Later: optional AI look per title from the Wikipedia summary
+- [x] AI tuning per title (2026-11-24, branch `feat/ai-look-tuning`): with a Gemini or Groq key, the AI reads the
+      Wikipedia or TVmaze summary and nudges the genre look in fixed steps (brightness, warmth, vividness, −2…+2 each;
+      the hue stays the genre's), with a one-sentence reason; the genre look stays on any failure. Picked by the user:
+      those three controls, CLI and desktop app, reason in English. `--no-ai`, cached per title
+      ([ARCHITECTURE.md](ARCHITECTURE.md), decision 17). Tested with fakes; live summaries checked for Agak Laen
+      (842 characters), Pengabdi Setan, DreadOut and Wednesday (TVmaze)
+- [ ] A real AI answer: no key was set yet (`.env` had empty `GEMINI_API_KEY` and `GROQ_API_KEY`), so the model id
+      (`gemini-3.5-flash-lite`), the string-enum schema and the prompt are unproven. Check the model list with the key,
+      then try Pengabdi Setan, Agak Laen, a romance and DreadOut, and judge whether the steps and reasons fit
+- [ ] Judge a tuned look against its genre look on the real bulb (are ±10 points of brightness and 800 K visible?)
+- [ ] Later: let the AI pick the genre when the rules find none (e.g. Petualangan Sherina, "komedi musikal" only in
+      its Indonesian summary; Ada Apa Dengan Cinta 2, only "2016 Indonesian teen film"), within the eight looks
 - [ ] Later: read the title from the player, switch looks without restarting
 - [x] Game looks (2026-11-24): `--game "<title>"`, `--game-look`, and a Game tab in the desktop app. A game look is a
       film look's colors plus a pace (fast, normal, calm) that moves `smoothing` and `sceneCut`
@@ -261,7 +283,8 @@ on 2026-11-22 at 20:18–20:19 WIB, for central Jakarta (-6.2, 106.8; BMKG forec
       a real warning until 21:05 while its forecast said cloudy
 - [x] End to end on a fake bulb: five colors, restore on exit, offline → purple, an AI downgrade of red rejected
 - [ ] Check the five colors on the real bulb, especially yellow (`255,190,0`) and purple against blue
-- [ ] A real AI answer. Only the endpoints were tried (with an invalid key), so model id and JSON schema are unproven
+- [ ] A real AI answer. Only the endpoints were tried (with an invalid key), so model id and JSON schema are unproven.
+      The client is shared with the look tuning since 2026-11-24 (`createAiClient`), so its first real answer covers both
 - [ ] Judge the rules against real weather for a few days; the thresholds are a first guess
 - [ ] Later: phone notification for when the bulb is out of sight
 
@@ -306,7 +329,8 @@ Findings for whichever is built:
 
 - Windows' media session API answers from PowerShell 5.1, so ideas 1, 3 and 4 may get title and position from it.
   Only the session count was read; whether browsers report a usable position is untested.
-- Test and demo with YouTube or open movies.
+- Test and demo with YouTube, open movies, or Netflix in Chrome (captured, seen by the user 2026-11-26; Edge and the
+  Netflix app untested).
 - Wikimedia wants a User-Agent with a contact, and LRCLIB one that names the app.
 
 What the film and music APIs allow (verbatim terms read on 2026-11-22; our reading, not legal advice):
