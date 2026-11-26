@@ -22,9 +22,13 @@ import { app, BrowserWindow, ipcMain, type IpcMainInvokeEvent, shell } from "ele
 import { CHANNELS } from "../shared/api";
 import { AppController, type Platform } from "./controller";
 import { frameLogLine } from "./frame-view";
+import { Overlay } from "./overlay";
+import { GlobalShortcuts } from "./shortcut-keys";
+import { ShortcutActions, SHORTCUTS_FILE_NAME } from "./shortcuts";
 import { checkBrightness, checkBulbList, checkIp, checkLook, checkTitle, checkTitleKind } from "./validate";
 
 const here = path.dirname(fileURLToPath(import.meta.url));
+const preloadPath = path.join(here, "../preload/index.cjs");
 
 /**
  * Where the settings live: `%APPDATA%\AmbientLight\ambientlight.config.json`, or `AMBIENTLIGHT_CONFIG` for
@@ -87,6 +91,13 @@ function createPlatform(file: string): Platform {
 
 let window: BrowserWindow | undefined;
 
+/** Loads the renderer; `view` picks another screen of it, e.g. "overlay" for the shortcut popup. */
+function loadRenderer(win: BrowserWindow, view?: string): Promise<void> {
+  const devUrl = process.env.ELECTRON_RENDERER_URL;
+  if (!app.isPackaged && devUrl) return win.loadURL(view ? `${devUrl}?view=${view}` : devUrl);
+  return win.loadFile(path.join(here, "../renderer/index.html"), view ? { query: { view } } : undefined);
+}
+
 function createWindow(): BrowserWindow {
   const win = new BrowserWindow({
     width: 1000,
@@ -98,7 +109,7 @@ function createWindow(): BrowserWindow {
     title: "I'm bien light",
     autoHideMenuBar: true,
     webPreferences: {
-      preload: path.join(here, "../preload/index.cjs"),
+      preload: preloadPath,
       contextIsolation: true,
       sandbox: true,
       nodeIntegration: false,
@@ -111,10 +122,7 @@ function createWindow(): BrowserWindow {
     return { action: "deny" };
   });
   win.webContents.on("will-navigate", (event) => event.preventDefault());
-
-  const devUrl = process.env.ELECTRON_RENDERER_URL;
-  if (!app.isPackaged && devUrl) void win.loadURL(devUrl);
-  else void win.loadFile(path.join(here, "../renderer/index.html"));
+  void loadRenderer(win);
   return win;
 }
 
@@ -130,7 +138,7 @@ function handle<A extends unknown[], R>(channel: string, fn: (...args: A) => Pro
   });
 }
 
-function registerIpc(controller: AppController): void {
+function registerIpc(controller: AppController, shortcuts: GlobalShortcuts): void {
   handle(CHANNELS.getState, () => controller.getState());
   handle(CHANNELS.discover, () => controller.discover());
   handle(CHANNELS.identify, (ip: unknown) => controller.identify(checkIp(ip)));
@@ -141,6 +149,13 @@ function registerIpc(controller: AppController): void {
   handle(CHANNELS.startSync, () => controller.startSync());
   handle(CHANNELS.stopSync, () => controller.stopSync());
   handle(CHANNELS.minimizeWindow, () => window?.minimize());
+  handle(CHANNELS.getShortcuts, () => shortcuts.view());
+  handle(CHANNELS.reloadShortcuts, () => shortcuts.apply());
+  handle(CHANNELS.openShortcutsFile, async () => {
+    // Empty on success, otherwise why it couldn't be opened.
+    const problem = await shell.openPath(shortcuts.view().file);
+    if (problem) throw new UserError(`Couldn't open ${shortcuts.view().file}: ${problem}`);
+  });
 }
 
 // Electron names the settings folder after `productName`. The app was renamed from AmbientLight to I'm bien light;
@@ -158,16 +173,29 @@ if (!app.requestSingleInstanceLock()) {
   });
 
   void app.whenReady().then(() => {
-    const controller = new AppController(createPlatform(configPath()), {
+    const file = configPath();
+    const controller = new AppController(createPlatform(file), {
       state: (state) => window?.webContents.send(CHANNELS.state, state),
       frame: (frame) => window?.webContents.send(CHANNELS.frame, frame),
       // Like `sync -v`: every frame in the terminal that started the app.
       ...(process.env.AMBIENTLIGHT_VERBOSE === "1" ? { report: (report) => console.log(frameLogLine(report)) } : {}),
     });
-    registerIpc(controller);
+
+    // Global shortcuts: change the look without bringing the window forward. The popup says what changed.
+    const overlay = new Overlay(preloadPath, (win) => loadRenderer(win, "overlay"));
+    const actions = new ShortcutActions(controller, (toast) => {
+      overlay.show(toast).catch((error: unknown) => console.error(error));
+    });
+    const shortcuts = new GlobalShortcuts(path.join(path.dirname(file), SHORTCUTS_FILE_NAME), (action) => {
+      void actions.run(action);
+    });
+    shortcuts.apply();
+
+    registerIpc(controller, shortcuts);
     window = createWindow();
     window.on("closed", () => {
       window = undefined;
+      overlay.destroy();
     });
 
     // Put the bulbs back before quitting, however the app is closed.
@@ -176,6 +204,7 @@ if (!app.requestSingleInstanceLock()) {
       if (quitting) return;
       event.preventDefault();
       quitting = true;
+      shortcuts.dispose();
       controller
         .shutdown()
         .catch((error: unknown) => console.error(error))

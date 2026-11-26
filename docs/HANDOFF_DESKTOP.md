@@ -87,12 +87,17 @@ Bulbs, Tuning, Setup wizard, Diagnostics, About and the tray menu. The wireframe
 - `apps/desktop/src/shared/api.ts`: the IPC contract (`AmbientApi`, `AppState`, `FrameView`, `CHANNELS`).
 - `apps/desktop/src/main/`: Electron wiring, platform adapters and config location in `index.ts`; the rest is in
   `controller.ts`, `frame-view.ts` (hex colors, kelvin preview, fps) and `validate.ts` (IPC input checks).
+  - Global shortcuts: `shortcuts.ts` (what each key does, `shortcuts.json`; no Electron, so it is tested),
+    `shortcut-keys.ts` (`globalShortcut`), `overlay.ts` (the popup window, which loads the renderer with
+    `?view=overlay`). The defaults are in `src/shared/shortcuts.ts`.
 - `apps/desktop/src/preload/index.ts`: built as CommonJS (`index.cjs`), which a sandboxed preload needs.
 - `apps/desktop/src/renderer/src/`:
-  - `App.tsx` (fixed sidebar, scrolling content), `screens/Home.tsx`, `screens/FindBulbs.tsx`, `components/ui.tsx`
+  - `App.tsx` (fixed sidebar, scrolling content), `screens/Home.tsx`, `screens/FindBulbs.tsx`,
+    `screens/Shortcuts.tsx`, `screens/Overlay.tsx` (the popup; `main.tsx` picks it for `?view=overlay`),
+    `components/ui.tsx`
   - `model/` (DOM-free text and look-chip helpers), `mock-api.ts` (a fake backend for browser previews)
 - Tests: `packages/core/test/session.test.ts`, `packages/node/test/{config,film}.test.ts`,
-  `apps/desktop/test/{controller,view}.test.ts`.
+  `apps/desktop/test/{controller,view,shortcuts}.test.ts`.
 
 ## Gotchas for the next session
 
@@ -108,6 +113,8 @@ Bulbs, Tuning, Setup wizard, Diagnostics, About and the tray menu. The wireframe
   Electron would also name the `%APPDATA%` folder after it, so `main/index.ts` pins `userData` to
   `%APPDATA%\AmbientLight` (the name before 2026-11-25) and existing settings carry over.
 - CI sets `ELECTRON_SKIP_BINARY_DOWNLOAD=1`.
+- Only one copy of the app runs (single-instance lock on the `userData` folder), so a dev build can't be tried while
+  the user's app is open. Ask before closing it.
 - `CLAUDE.md` rule: update the docs in the same change as the code, each fact in the doc that owns it.
 
 ## Next steps
@@ -146,6 +153,8 @@ Still to do:
 4. **Display picker** (`listDisplays` → `screen`, applied through `update({ capturer })`) and the **tray**:
    - menu: Start/Stop, Look, bulbs off, Open, Quit (restores)
    - close to tray; "hide while syncing"; start with Windows
+   - with the tray, closing the window no longer quits, so the keyboard shortcuts keep working. Keep destroying the
+     popup window (`overlay.ts`) only when the app really quits.
 5. **Diagnostics:** the 64×36 frame at 2/s while the page is open, live numbers, Save frame (`nativeImage`).
    **About:** Wikipedia and TVmaze CC BY-SA credit, privacy, references, license.
 6. **CLI `runSync` on `SyncSession`**, so there is one code path. Also an `identify` CLI command (optional).

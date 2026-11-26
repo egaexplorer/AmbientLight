@@ -13,6 +13,8 @@ map, MVP plan) is in [docs/HANDOFF_DESKTOP.md](docs/HANDOFF_DESKTOP.md). This fi
 - **AI look tuning is merged into the local `main` (2026-11-26) but not pushed**, so **another machine sees none of it
   until `main` is pushed** (section 2). `npm run check` passes with it: build, typecheck, 253 of 253 tests
   (2026-11-26).
+- **Current work: branch `feat/look-shortcuts`** (from that `main`, not pushed): global keyboard shortcuts for looks
+  in the desktop app, with a popup. Unit-tested; not yet pressed in the running app (ROADMAP, Phase 4).
 - Older local branches (`feat/ai-look-tuning`, `feat/color-base-brightness`, `feat/game-looks`,
   `feat/time-based-smoothing`, `fix/teal-scene-color`, `ccr-89d32679-dhyf40`) are fully merged into `main` and can be
   deleted.
@@ -27,6 +29,7 @@ map, MVP plan) is in [docs/HANDOFF_DESKTOP.md](docs/HANDOFF_DESKTOP.md). This fi
 | Game looks (`--game`, `--game-look`) | Built, on `main` | Live Wikipedia (15/16 games); the fast pace felt right on the real bulb |
 | Desktop app, demo flow (`npm run desktop`) | Built, on `main` | Real bulb, driven through its API (2026-11-23). **Not yet clicked through by hand** |
 | AI look tuning (Gemini or Groq) | Built, on local `main` (**not pushed**) | Fakes and live summaries only. **No real AI answer yet**: `.env` has empty keys, so the model id `gemini-3.5-flash-lite` and the prompt are unproven |
+| Desktop keyboard shortcuts for looks | Built, branch `feat/look-shortcuts` | Unit tests and the browser preview. **Not yet pressed in the running app** |
 | Rain signal (`npm run rain`) | Parked option | Live weather data, fake bulb |
 | Android app | Not started | |
 

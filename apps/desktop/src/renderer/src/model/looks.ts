@@ -88,26 +88,37 @@ export function sameLook(a: LookChoice | null, b: LookChoice | null): boolean {
 
 const NO_LOOK: LookChip = { look: null, label: "No look", detail: "Plain screen sync" };
 
-/** "No look" first, then every film look with its brightness cap, white and character. */
+/**
+ * A look's chip detail: a film look's brightness cap, white and character ("Up to 45 % · 6500 K · pale, dim"), or a
+ * game look's pace, brightness cap and character. The genre look's values, without an AI tuning.
+ */
+export function lookDetail(choice: LookChoice): string {
+  if (choice.set === "game") {
+    const look = GAME_LOOKS[choice.name];
+    return `${PACE_LABELS[look.pace]} · up to ${look.maxDimming} % · ${GAME_CHARACTER[choice.name]}`;
+  }
+  const look = FILM_LOOKS[choice.name];
+  return `Up to ${look.maxDimming} % · ${look.whiteTemp} K · ${CHARACTER[choice.name]}`;
+}
+
+/** "No look" first, then every film look. */
 export function lookChips(): LookChip[] {
   return [
     NO_LOOK,
-    ...LOOK_NAMES.map((name) => ({
-      look: { set: "film", name } as const,
-      label: LABELS[name],
-      detail: `Up to ${FILM_LOOKS[name].maxDimming} % · ${FILM_LOOKS[name].whiteTemp} K · ${CHARACTER[name]}`,
-    })),
+    ...LOOK_NAMES.map((name) => {
+      const look = { set: "film", name } as const;
+      return { look, label: LABELS[name], detail: lookDetail(look) };
+    }),
   ];
 }
 
-/** "No look" first, then every game look with its pace, brightness cap and character. */
+/** "No look" first, then every game look. */
 export function gameLookChips(): LookChip[] {
   return [
     NO_LOOK,
-    ...GAME_LOOK_NAMES.map((name) => ({
-      look: { set: "game", name } as const,
-      label: GAME_LABELS[name],
-      detail: `${PACE_LABELS[GAME_LOOKS[name].pace]} · up to ${GAME_LOOKS[name].maxDimming} % · ${GAME_CHARACTER[name]}`,
-    })),
+    ...GAME_LOOK_NAMES.map((name) => {
+      const look = { set: "game", name } as const;
+      return { look, label: GAME_LABELS[name], detail: lookDetail(look) };
+    }),
   ];
 }

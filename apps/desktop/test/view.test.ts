@@ -6,6 +6,7 @@ import { bulbPreview, frameLogLine, FrameViews, kelvinToRgb, toHex } from "../sr
 import { checkBrightness, checkBulbList, checkIp, checkLook, checkTitleKind } from "../src/main/validate.js";
 import { brightnessText, macText, statsText, titleErrorText } from "../src/renderer/src/model/format.js";
 import { gameLookChips, lookChips, lookLabel, lookOf, sameLook, tuningText } from "../src/renderer/src/model/looks.js";
+import { shortcutLabel, toastText } from "../src/renderer/src/model/shortcuts.js";
 
 function report(sent: boolean, captureMs = 31.6): FrameReport {
   return {
@@ -139,6 +140,25 @@ describe("renderer text", () => {
     assert.ok(sameLook({ set: "game", name: "horror", title: "DreadOut" }, { set: "game", name: "horror" }));
     assert.ok(!sameLook({ set: "game", name: "horror" }, { set: "film", name: "horror" }));
     assert.ok(sameLook(null, null) && !sameLook(null, { set: "film", name: "drama" }));
+  });
+
+  it("words the shortcut popup and the Shortcuts dialog", () => {
+    assert.deepEqual(toastText({ kind: "look", look: { set: "film", name: "horror" }, set: "film" }), {
+      title: "Look: Horror",
+      detail: "Film · Up to 45 % · 6500 K · pale, dim",
+    });
+    assert.deepEqual(toastText({ kind: "look", look: { set: "game", name: "shooter" }, set: "game" }), {
+      title: "Look: Shooter & fighting",
+      detail: "Game · Fast · up to 100 % · leans red-orange",
+    });
+    assert.deepEqual(toastText({ kind: "look", look: null, set: "game" }), { title: "No look", detail: "Plain screen sync · keys pick game looks" });
+    assert.equal(toastText({ kind: "set", set: "game" }).title, "Game looks");
+    assert.deepEqual(toastText({ kind: "sync", on: false }), { title: "Sync off" });
+    assert.deepEqual(toastText({ kind: "brightness", value: 80, cap: 51 }), { title: "Brightness", detail: "80 % · bulb up to 51 %" });
+    assert.equal(toastText({ kind: "error", message: "Add a bulb first." }).detail, "Add a bulb first.");
+    assert.equal(shortcutLabel("look1"), "Look 1: Horror · game: Horror");
+    assert.equal(shortcutLabel("look8"), "Look 8: Drama · game: none");
+    assert.equal(shortcutLabel("toggleSync"), "Start or stop sync");
   });
 
   it("shows what the AI changed", () => {

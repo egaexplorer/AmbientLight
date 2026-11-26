@@ -146,9 +146,16 @@ Targets: Windows (PC) and Android only; macOS, Linux and iOS are not planned.
             on the real bulb the same day, and it works
       - [ ] Click through it once by hand before filming (the buttons, the window's close button), and answer the
             firewall prompt Electron opens at its first start (it blocked nothing while unanswered)
+      - [ ] Global keyboard shortcuts (2026-11-26, branch `feat/look-shortcuts`), asked for by the user: next/previous
+            look, one key per look, No look, film/game set, sync on/off, brightness ±10, with a popup that doesn't
+            take focus; keys in `shortcuts.json`, listed in a Shortcuts dialog. Unit tests pass, and the renderer was
+            checked in the browser preview. **Not yet pressed in the running app**: the user's app was open, and
+            only one copy may run. Next: press each key with another app focused, then minimized; check that the
+            popup shows over a borderless game and the Home chips follow; close the window and check the app quits
 - [ ] **MVP by 2026-12-10, for the live demo on 2026-12-12:** setup wizard, Bulbs page with check report and power,
-      Tuning page that applies live, display picker, tray (close to tray, start with Windows), Diagnostics, About
-      with data credits, CLI `sync` on `SyncSession`, NSIS installer
+      Tuning page that applies live, display picker, tray (close to tray, start with Windows; it also keeps the
+      keyboard shortcuts working with the window closed), Diagnostics, About with data credits, CLI `sync` on
+      `SyncSession`, NSIS installer
 - [ ] `desktopCapturer` spike: a hidden-window capturer and a benchmark against GDI (capture ms, FPS, CPU, memory,
       color difference on the same screens), run on the user's PC. Switch only if it wins
 

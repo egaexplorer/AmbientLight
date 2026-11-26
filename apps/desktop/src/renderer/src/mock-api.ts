@@ -1,5 +1,6 @@
 import { DESIGN_BRIGHTNESS } from "@ambientlight/core";
-import type { AmbientApi, AppState, FrameView, LookChoice } from "../../shared/api";
+import type { AmbientApi, AppState, FrameView, LookChoice, ShortcutsView } from "../../shared/api";
+import { DEFAULT_SHORTCUTS, SHORTCUT_ACTIONS } from "../../shared/shortcuts";
 import { lookOf } from "./model/looks";
 
 /** The top brightness the main process would report (default calibration: 10–100 %). */
@@ -32,6 +33,17 @@ export function createMockApi(): AmbientApi {
     state = { ...state, ...patch };
     for (const l of stateListeners) l(state);
     return state;
+  };
+
+  // One key shows as taken, so the dialog's warning can be looked at.
+  const shortcuts: ShortcutsView = {
+    file: "C:\\Users\\you\\AppData\\Roaming\\AmbientLight\\shortcuts.json",
+    error: null,
+    keys: SHORTCUT_ACTIONS.map((action) => ({
+      action,
+      accelerator: DEFAULT_SHORTCUTS[action],
+      status: action === "toggleSync" ? "taken" : "on",
+    })),
   };
 
   const palette = [
@@ -112,6 +124,13 @@ export function createMockApi(): AmbientApi {
       return set({ sync: "idle" });
     },
     minimizeWindow: async () => undefined,
+    getShortcuts: async () => shortcuts,
+    reloadShortcuts: async () => shortcuts,
+    openShortcutsFile: async () => {
+      throw new Error("The browser preview can't open files.");
+    },
+    // The browser preview has no global keys, so no popup.
+    onToast: () => () => undefined,
     onState: (listener) => {
       stateListeners.add(listener);
       return () => stateListeners.delete(listener);

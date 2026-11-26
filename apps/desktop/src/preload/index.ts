@@ -1,5 +1,5 @@
 import { contextBridge, ipcRenderer, type IpcRendererEvent } from "electron";
-import { type AmbientApi, type AppState, CHANNELS, type FrameView } from "../shared/api";
+import { type AmbientApi, type AppState, CHANNELS, type FrameView, type Toast } from "../shared/api";
 
 /** Strips Electron's "Error invoking remote method '…': Error: " prefix, so the UI shows only the message. */
 async function invoke<T>(channel: string, ...args: unknown[]): Promise<T> {
@@ -17,6 +17,12 @@ function subscribe<T>(channel: string, listener: (value: T) => void): () => void
   return () => ipcRenderer.off(channel, handler);
 }
 
+// The popup's first toast can arrive before React has subscribed, so the latest one is kept and replayed.
+let lastToast: Toast | undefined;
+ipcRenderer.on(CHANNELS.toast, (_event: IpcRendererEvent, toast: Toast) => {
+  lastToast = toast;
+});
+
 const api: AmbientApi = {
   getState: () => invoke(CHANNELS.getState),
   discover: () => invoke(CHANNELS.discover),
@@ -28,8 +34,15 @@ const api: AmbientApi = {
   startSync: () => invoke(CHANNELS.startSync),
   stopSync: () => invoke(CHANNELS.stopSync),
   minimizeWindow: () => invoke(CHANNELS.minimizeWindow),
+  getShortcuts: () => invoke(CHANNELS.getShortcuts),
+  reloadShortcuts: () => invoke(CHANNELS.reloadShortcuts),
+  openShortcutsFile: () => invoke(CHANNELS.openShortcutsFile),
   onState: (listener) => subscribe<AppState>(CHANNELS.state, listener),
   onFrame: (listener) => subscribe<FrameView>(CHANNELS.frame, listener),
+  onToast: (listener) => {
+    if (lastToast) listener(lastToast);
+    return subscribe<Toast>(CHANNELS.toast, listener);
+  },
 };
 
 contextBridge.exposeInMainWorld("ambient", api);

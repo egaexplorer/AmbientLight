@@ -30,7 +30,17 @@ function readMinimize(): boolean {
   }
 }
 
-export function Home({ state, frame, onFindBulbs }: { state: AppState | null; frame: FrameView | null; onFindBulbs(): void }) {
+export function Home({
+  state,
+  frame,
+  onFindBulbs,
+  onShortcuts,
+}: {
+  state: AppState | null;
+  frame: FrameView | null;
+  onFindBulbs(): void;
+  onShortcuts(): void;
+}) {
   const sync = state?.sync ?? "idle";
   const running = sync === "running";
   const busy = sync === "starting" || sync === "stopping";
@@ -71,10 +81,15 @@ export function Home({ state, frame, onFindBulbs }: { state: AppState | null; fr
     <>
       <header className="flex flex-wrap items-center justify-between gap-3">
         <h1 className="m-0 text-2xl font-bold">Home</h1>
-        <span role="status" className="inline-flex items-center gap-2 rounded-full border border-[#2e3036] bg-control px-3 py-1.5 text-[13px] text-soft">
-          <span aria-hidden="true" className="size-2 rounded-full" style={{ background: running ? "#6fcf97" : "#6b6e76" }} />
-          {statusText(state, live)}
-        </span>
+        <div className="flex flex-wrap items-center gap-2">
+          <Button variant="ghost" onClick={onShortcuts} className="text-[13px]">
+            Keyboard shortcuts
+          </Button>
+          <span role="status" className="inline-flex items-center gap-2 rounded-full border border-[#2e3036] bg-control px-3 py-1.5 text-[13px] text-soft">
+            <span aria-hidden="true" className="size-2 rounded-full" style={{ background: running ? "#6fcf97" : "#6b6e76" }} />
+            {statusText(state, live)}
+          </span>
+        </div>
       </header>
 
       <Card label="Sync" className="flex flex-wrap items-center gap-7">

@@ -114,9 +114,12 @@ sources; `screenshot-desktop` stays external because it runs files from its own 
 ```mermaid
 flowchart LR
   subgraph Renderer["Renderer (React, sandboxed)"]
-    UI[Home, Find bulbs]
+    UI[Home, Find bulbs, Shortcuts]
+    POP[Shortcut popup]
   end
   subgraph Main["Main process (Node.js)"]
+    KEYS[GlobalShortcuts]
+    ACT[ShortcutActions]
     CTRL[AppController]
     SESS[SyncSession]
     GDI[GdiCapturer]
@@ -124,14 +127,20 @@ flowchart LR
   end
   UI -- "window.ambient (preload, invoke)" --> CTRL
   CTRL -- "ambient:state, ambient:frame (≤ 10/s)" --> UI
+  KEYS -- "key press" --> ACT --> CTRL
+  ACT -- "ambient:toast" --> POP
   CTRL --> SESS --> GDI
   SESS --> UDP --> BULB((WiZ bulb))
 ```
 
 | File | Responsibility |
 | --- | --- |
-| `src/shared/api.ts` | The IPC contract: `AmbientApi` (what `window.ambient` offers), `AppState`, `FrameView`, channel names |
-| `src/main/index.ts` | Electron: single-instance lock, the window (`contextIsolation`, `sandbox`, no Node.js in the renderer, links open in the browser), IPC handlers, config location, restore before quitting |
+| `src/shared/api.ts` | The IPC contract: `AmbientApi` (what `window.ambient` offers), `AppState`, `FrameView`, `ShortcutsView`, `Toast`, channel names |
+| `src/shared/shortcuts.ts` | The shortcut actions and their default keys, shared with the renderer's browser preview |
+| `src/main/index.ts` | Electron: single-instance lock, the window (`contextIsolation`, `sandbox`, no Node.js in the renderer, links open in the browser), IPC handlers, config location, shortcut wiring, restore before quitting |
+| `src/main/shortcuts.ts` | What the global shortcuts do, without Electron: `ShortcutActions` (next/previous/numbered look, film or game set, sync on/off, brightness steps; one press at a time), and reading `shortcuts.json` |
+| `src/main/shortcut-keys.ts` | `GlobalShortcuts`: registers the keys with Electron's `globalShortcut` and records which ones Windows refused |
+| `src/main/overlay.ts` | The popup window: frameless, never focused, ignores the mouse, always on top; shown for 1.5 s per press |
 | `src/main/controller.ts` | `AppController`: config, film or game look (with its AI tuning), discovery, Blink, one `SyncSession`; publishes state changes and frame views. Electron, the network and capture come in through a `Platform`, so tests use fakes |
 | `src/main/frame-view.ts` | `FrameReport` → `FrameView` (hex colors, the bulb's color with white LEDs drawn at their temperature, fps, share sent), at most one per 100 ms. The capture time is the mean of every frame since the previous view: a frame passes the 100 ms gate more often when its own capture was slow, so its time alone read ~9 ms high. `frameLogLine`: one line per frame for `AMBIENTLIGHT_VERBOSE=1` |
 | `src/main/validate.ts` | Checks every IPC argument (IPv4 addresses, at most 16 bulbs, known looks, title length). A look from the renderer loses any AI tuning: tunings only come from a lookup in the main process |
@@ -149,6 +158,18 @@ Decisions:
   its saved state) before the app exits, whether the user pressed Stop, closed the window or quit.
 - **Expected failures are values, not exceptions:** a title lookup returns its `TitleError` code and Blink returns
   `ok: false`, so the renderer words them itself. Unexpected errors are logged in the main process.
+- **Global shortcuts run in the main process** (added 2026-11-26), so they work while another app or game has focus
+  and the window is minimized. They call the same `AppController` methods as the UI, so the Home screen follows
+  through `ambient:state`.
+  - **Keys file:** `shortcuts.json` next to the settings file, not in `ambientlight.config.json`. They are a
+    desktop-only setting, and the CLI shares that file and rejects unknown keys.
+  - **Held keys:** a press that arrives while the previous one still runs is dropped, so a held brightness key
+    can't queue a restart of the engine for every key repeat.
+  - **The popup** is a second, small window that loads the same renderer page with `?view=overlay`. It gets
+    `ambient:toast` with data, not text, and the renderer words it with the same label helpers as the chips. The
+    preload keeps the last toast, because the first one can arrive before React has subscribed.
+  - **Quitting:** the popup is destroyed when the main window closes. A hidden window would otherwise keep
+    `window-all-closed` from quitting the app.
 
 ## Design decisions
 

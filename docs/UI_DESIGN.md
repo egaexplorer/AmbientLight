@@ -77,6 +77,21 @@ The Home screen and the Find bulbs dialog (`apps/desktop/src/renderer`), as in t
   by AI", then the changes in bold ("Dimmer, softer"), the AI's reason in quotes and the model in muted text. When a
   key is set but the AI wasn't used, a muted line says why ("AI not used, so the genre look stays: …"). The chip of
   the look stays selected; clicking it goes back to the plain genre look.
+- **Keyboard shortcuts** (added 2026-11-26, not in the wireframe yet): the user asked to change the look without
+  bringing the app forward. The user chose:
+  - next/previous plus one key per look;
+  - a popup rather than a Windows notification;
+  - keys editable in a file;
+  - sync, brightness and film/game set keys too.
+
+  What was built:
+  - A ghost **Keyboard shortcuts** button in the Home header, next to the status pill. It opens a dialog built like
+    Find bulbs: action, keys, status ("Taken by another program", "Not keys the app understands", "Off"), the path
+    of `shortcuts.json`, and Open file / Reload keys.
+  - **The popup:** 360×84 px at the bottom center of the primary display, in the card colors. It shows a bold line
+    ("Look: Horror") and a muted detail (the chip's detail, the brightness text), or the error in the problem
+    color. It fades in for 140 ms and stays 1.5 s.
+  - It is opaque gray, so in the default `dominant` color mode it doesn't move the bulb's hue while it is captured.
 
 Checked against the wireframe on 2026-11-23 with screenshots of the running app (`drive.mjs shot`): apart from the
 points above, Home and Find bulbs are as drawn. The same day the "nothing answered" box changed in both: it now
@@ -95,6 +110,10 @@ What backs each control. "IPC" names the `window.ambient` call (see ARCHITECTURE
 | Home | Film / Series / Game / Pick a look | IPC `findTitle` (Wikipedia or TVmaze, cached) → `lookForGenres`, or `gameLookForGenres` for a game; or a look chip (`LOOK_NAMES` + `FILM_LOOKS`, or on the Game tab `GAME_LOOK_NAMES` + `GAME_LOOKS`). `LookChoice.set` says which (`"film"` or `"game"`) |
 | Home | Brightness slider (10–100, 70 = the look as designed) | IPC `setBrightness` → `brightness` in the config → `syncOptionsFor` (`scaleBrightness`); `AppState.brightnessCap` is the bulb's resulting top % |
 | Home | Bulbs strip | `bulbs` in the config; Find bulbs opens the dialog |
+| Home | Keyboard shortcuts button | Opens the Shortcuts dialog |
+| Shortcuts | Key table | IPC `getShortcuts` → `GlobalShortcuts.view()`: each action's accelerator and whether `globalShortcut.register` took it |
+| Shortcuts | Open file, Reload keys | IPC `openShortcutsFile` (`shell.openPath`), `reloadShortcuts` (read `shortcuts.json`, register again) |
+| Shortcut popup | Title and detail | `ambient:toast` from `ShortcutActions` (a look with its set, the set, sync on/off, brightness and cap, or an error), worded by `toastText` |
 | Find bulbs | Search again | IPC `bulbs.discover` (`discoverBulbs` on every adapter's broadcast address) |
 | Find bulbs | Blink | IPC `bulbs.identify` (`identifyBulb`: flash and restore) |
 | Find bulbs | Add by IP, Use N bulbs | IPC `config.save` (`bulbs`) |
@@ -109,7 +128,7 @@ What backs each control. "IPC" names the `window.ambient` call (see ARCHITECTURE
 | Setup | WiZ app checklist | Static text (the settings `check-bulb` tests for) |
 | Setup | Display | IPC `displays.list` (screenshot-desktop's display ids, as `npm run displays`) → `screen` |
 | Diagnostics | Analyzed frame, Save frame | The frame behind `FrameReport`, sent only while the page is open; PNG through Electron's `nativeImage` |
-| About | Start with Windows, close to tray, hide while syncing | App settings (not in `ambientlight.config.json`) |
+| About | Start with Windows, close to tray, hide while syncing | App settings (not in `ambientlight.config.json`; the shortcut keys follow the same rule in `shortcuts.json`) |
 
 The rain signal (on hold) has no screen.
 

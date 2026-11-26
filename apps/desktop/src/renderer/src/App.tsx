@@ -4,11 +4,13 @@ import { api, isMock } from "./api";
 import { BulbIcon, HomeIcon } from "./components/ui";
 import { FindBulbsDialog } from "./screens/FindBulbs";
 import { Home } from "./screens/Home";
+import { ShortcutsDialog } from "./screens/Shortcuts";
 
 export function App() {
   const [state, setState] = useState<AppState | null>(null);
   const [frame, setFrame] = useState<FrameView | null>(null);
   const [findingBulbs, setFindingBulbs] = useState(false);
+  const [showingKeys, setShowingKeys] = useState(false);
 
   useEffect(() => {
     void api.getState().then(setState);
@@ -37,9 +39,10 @@ export function App() {
         {isMock && <p className="mt-auto px-2.5 text-xs text-muted">Browser preview: fake bulb and colors</p>}
       </nav>
       <main className="flex min-w-0 flex-1 flex-col gap-5 overflow-y-auto px-8 py-7">
-        <Home state={state} frame={frame} onFindBulbs={() => setFindingBulbs(true)} />
+        <Home state={state} frame={frame} onFindBulbs={() => setFindingBulbs(true)} onShortcuts={() => setShowingKeys(true)} />
       </main>
       {findingBulbs && state && <FindBulbsDialog configured={state.bulbs} onClose={() => setFindingBulbs(false)} />}
+      {showingKeys && <ShortcutsDialog onClose={() => setShowingKeys(false)} />}
     </div>
   );
 }

@@ -123,6 +123,24 @@ npm run desktop    # the first start downloads Electron (~100 MB) if npm install
   while syncing, and is saved as `brightness`. The label shows what the bulb reaches ("bulb up to 45 %"); with no
   look or a look capped at 100 %, settings above 70 change nothing.
 - **Minimize while syncing** (on by default) keeps the app's own window out of the captured picture.
+- **Keyboard shortcuts** change the look without leaving the film or game. They work in any app while I'm bien light
+  is open, also minimized. A small popup at the bottom of the screen says what changed, without taking focus.
+
+  | Keys | Does |
+  | --- | --- |
+  | `Ctrl+Alt+L` / `Ctrl+Alt+Shift+L` | Next / previous look, in the chips' order, wrapping around through No look |
+  | `Ctrl+Alt+1` … `Ctrl+Alt+8` | That look: Horror, Thriller, Romance, Animation, Comedy, Sci-fi, Action, Drama (game looks: Horror … Adventure & RPG, 1–7) |
+  | `Ctrl+Alt+0` | No look (plain sync) |
+  | `Ctrl+Alt+G` | Switch the keys above between film and game looks. Picking a look anywhere brings its set along |
+  | `Ctrl+Alt+S` | Start or stop sync |
+  | `Ctrl+Alt+=` / `Ctrl+Alt+-` | Brightness to the next 10 % up or down |
+
+  **Keyboard shortcuts** on Home lists them and says if one couldn't be used ("Taken by another program"). To change
+  them, edit `shortcuts.json` next to the settings file (the app writes it with the defaults on the first start),
+  then press **Reload keys**. Use keys like `"Ctrl+Alt+L"` ([Electron accelerators](https://www.electronjs.org/docs/latest/api/accelerator)),
+  or `null` to turn one off. While the app runs, its keys don't reach other programs. The keys stop when the window
+  is closed (until the tray icon exists), and the popup doesn't show over exclusive full-screen games, though the keys
+  still work there.
 - Settings live in `%APPDATA%\AmbientLight\ambientlight.config.json`. On the first start the app copies the CLI's
   `ambientlight.config.json` (searched from where you ran `npm run desktop`), so bulbs and calibration carry over.
   Only values that differ from the defaults are saved. Set `AMBIENTLIGHT_CONFIG` to use another file.
