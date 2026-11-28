@@ -146,7 +146,7 @@ Targets: Windows (PC) and Android only; macOS, Linux and iOS are not planned.
             on the real bulb the same day, and it works
       - [ ] Click through it once by hand before filming (the buttons, the window's close button), and answer the
             firewall prompt Electron opens at its first start (it blocked nothing while unanswered)
-      - [ ] Global keyboard shortcuts (2026-11-26, branch `feat/look-shortcuts`), asked for by the user: next/previous
+      - [ ] Global keyboard shortcuts (merged into `main` on 2026-11-28): next/previous
             look, one key per look, No look, film/game set, sync on/off, brightness ±10, with a popup that doesn't
             take focus; keys in `shortcuts.json`, listed in a Shortcuts dialog. Unit tests pass, and the renderer was
             checked in the browser preview. **Not yet pressed in the running app**: the user's app was open, and

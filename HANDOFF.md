@@ -5,16 +5,14 @@ also live in the docs listed below; if they disagree, the docs win. The desktop 
 map, MVP plan) is in [docs/HANDOFF_DESKTOP.md](docs/HANDOFF_DESKTOP.md). This file replaces the first handoff of
 2026-11-21, whose items are all done.
 
-## 1. Where things stand (2026-11-25)
+## 1. Where things stand (2026-11-28)
 
 **Git**
 
-- `origin/main` = `d6bdc52` (game looks, pushed 2026-11-24). CI runs `npm run check` on Windows and Ubuntu.
-- **AI look tuning is merged into the local `main` (2026-11-26) but not pushed**, so **another machine sees none of it
-  until `main` is pushed** (section 2). `npm run check` passes with it: build, typecheck, 253 of 253 tests
-  (2026-11-26).
-- **Current work: branch `feat/look-shortcuts`** (from that `main`, not pushed): global keyboard shortcuts for looks
-  in the desktop app, with a popup. Unit-tested; not yet pressed in the running app (ROADMAP, Phase 4).
+- `origin/main` includes AI look tuning (`82e080d`).
+- Local `main` includes global keyboard shortcuts for looks and their desktop popup as of 2026-11-28.
+  `npm run check` passed on Windows with 270 tests. Manual testing in the running app is still pending
+  (ROADMAP, Phase 4).
 - Older local branches (`feat/ai-look-tuning`, `feat/color-base-brightness`, `feat/game-looks`,
   `feat/time-based-smoothing`, `fix/teal-scene-color`, `ccr-89d32679-dhyf40`) are fully merged into `main` and can be
   deleted.
@@ -28,8 +26,8 @@ map, MVP plan) is in [docs/HANDOFF_DESKTOP.md](docs/HANDOFF_DESKTOP.md). This fi
 | Film looks (`--film`, `--series`, `--look`) | Built | Live APIs, real film frames, fake bulb. **Not yet judged on the real bulb** |
 | Game looks (`--game`, `--game-look`) | Built, on `main` | Live Wikipedia (15/16 games); the fast pace felt right on the real bulb |
 | Desktop app, demo flow (`npm run desktop`) | Built, on `main` | Real bulb, driven through its API (2026-11-23). **Not yet clicked through by hand** |
-| AI look tuning (Gemini or Groq) | Built, on local `main` (**not pushed**) | Fakes and live summaries only. **No real AI answer yet**: `.env` has empty keys, so the model id `gemini-3.5-flash-lite` and the prompt are unproven |
-| Desktop keyboard shortcuts for looks | Built, branch `feat/look-shortcuts` | Unit tests and the browser preview. **Not yet pressed in the running app** |
+| AI look tuning (Gemini or Groq) | Built, on `main` | Fakes and live summaries only. **No real AI answer yet**: `.env` has empty keys, so the model id `gemini-3.5-flash-lite` and the prompt are unproven |
+| Desktop keyboard shortcuts for looks | Built, on local `main` | Unit tests and the browser preview. Manual testing in the running app is pending |
 | Rain signal (`npm run rain`) | Parked option | Live weather data, fake bulb |
 | Android app | Not started | |
 
@@ -45,7 +43,7 @@ Git carries only what is committed and pushed. Everything in this table stays be
 
 | What | Where (this PC) | Needed for |
 | --- | --- | --- |
-| The AI-tuning work | Local `main` (merged 2026-11-26) | `git push origin main` |
+| The keyboard shortcut merge | Local `main` (merged 2026-11-28) | `git push origin main` |
 | CLI config (bulb address, calibration) | `ambientlight.config.json` in the repo root (git-ignored) | Copy it, or rebuild it from `ambientlight.config.example.json` |
 | AI keys | `.env` in the repo root (git-ignored; both keys empty on 2026-11-25) | Copy it if keys were added. Never commit it |
 | Desktop app settings | `%APPDATA%\AmbientLight\ambientlight.config.json` (and `.env` there, if used) | Optional: a first start copies the CLI config |
@@ -110,7 +108,7 @@ npm run check-bulb                   # must end with "Ready"
 1. **A real AI answer.** Put a free Gemini key in `.env` (<https://aistudio.google.com/apikey>), check which models
    the key may use, then try Pengabdi Setan, Agak Laen, a romance and DreadOut with `npm run once -- --film "..."`
    (DEVELOPMENT, "Testing AI look tuning"). If the model id is wrong, fix it in `packages/node/src/ai.ts`.
-2. ~~Commit `feat/ai-look-tuning` and merge it into `main`~~ (done 2026-11-26). Push `main` when the user approves.
+2. ~~Commit `feat/ai-look-tuning` and merge it into `main`~~ (done 2026-11-26 and available on `origin/main`).
 3. Judge the film looks on the real bulb, above all horror (too dark?), romance and animation.
 4. Click through the desktop app once by hand and answer Electron's firewall prompt (HANDOFF_DESKTOP, step A).
 5. Record the video and render it (the hackathon folder's `HANDOFF.md`). The CLI is the fallback if the app
